@@ -1,27 +1,33 @@
 /*--------------------------------------------------------------------------*/
-/*-------------------------- File MCFSolver.h ------------------------------*/
+/*------------------------ File MCFLemonSolver.h ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
- * Header file for the MCFLemonSolver class, implementing the Solver interface, in
- * particular in its CDASolver version, for Min-Cost Flow problems as set by
- * MCFBlock.
+ * Header file for the MCFLemonSolver class, implementing the Solver
+ * interface, in particular in its CDASolver version, for Min-Cost Flow
+ * problems as set by MCFBlock.
  *
- * This is only a relatively thin wrapper class around solvers under the
- * MCFClass interface. To avoid a pointer to an internal object, the class is
- * template over the underlying :MCFClass object, which implies that most of
- * the code is in the header file.
+ * This is based on interfacing algorithms implemented in the LEMON
+ * (Library for Efficient Modeling and Optimization in Networks) project,
+ * as currently found at
+ *
+ *     https://lemon.cs.elte.hu/trac/lemon
  *
  * \author Daniele Caliandro \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Daniele Caliandro
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Daniele Caliandro, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 #ifndef __MCFLemonSolver
-#define __MCFLemonSolver /* self-identification: #endif at the end of the file */
+ #define __MCFLemonSolver
+                      /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ INCLUDES ----------------------------------*/
@@ -31,8 +37,6 @@
 
 #include "MCFBlock.h"
 
-#include "MCFClass.h"
-
 #include "capacity_scaling.h"
 
 #include "cost_scaling.h"
@@ -41,142 +45,152 @@
 
 #include "network_simplex.h"
 
-#include "Block.h"
+//!!
+#include <concepts>
 
-#include <lemon/list_graph.h>
+//?? #include <lemon/list_graph.h>
 
-#include <lemon/concepts/maps.h>
+//?? #include <lemon/concepts/maps.h>
 
-#include <ctime>
+//?? #include <ctime>
 
-#include <type_traits>
+//?? #include <type_traits>
 
-#include <utility>
+//?? #include <utility>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
 /*--------------------------------------------------------------------------*/
-
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
-  template < typename GR, typename V, typename C >
-  using SMSppCapacityScaling< GR, V, C > =
-   CapacityScaling< GR, V, C, 
-   CapacityScalingDefaultTraits< GR, V, C > >;
-  
-  template < typename GR, typename V, typename C >
-  using SMSppCostScaling< GR, V, C > =
-   CostScaling< GR, V, C, 
-   CostScalingDefaultTraits< GR, V, C > >;
-  using namespace MCFClass_di_unipi_it;
 
-  class MCFSolverState; // forward declaration of MCFSolverState
+/*--------------------------------------------------------------------------*/
+/*-------------------------- TEMPLATE TYPES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @defgroup MCFLemonSolver_TYPES Template Types in MCFLemonSolver.h
+ *
+ * Algorithms in the LEMON projects are template over at least three types:
+ *
+ * - GR, which is the type of graph (DISCUSS THE POSSIBILITIES);
+ *
+ * - V, which is the type of flows / deficits; typically, double can be used
+ *   for maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - C, which is the type of ar costs; typically, double can be used for
+ *   maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * Furthermore, scaling-type algorithms may behave in different ways
+ * according to which combination of V and C is used, and there are different
+ * "traits" for this which are another scaling parameter. However, we prefer
+ * that the MCFLemonSolver class is always template over the three first
+ * parameter only, which is why we define SMSppCapacityScaling and
+ * SMSppCostScaling as template over < GR , V , C > and using the default
+ * trait.
+ *
+ * Thus, the concept LEMONGraph is defined that only allows all possible
+ * types of LEMON graphs, i.e., (DISCUSS THE POSSIBILITIES);
+ *
+ * Similarly, the concept LEMONAlgorithm is defined that only allows all
+ * possible types of LEMON algorithms, i.e., [SMSpp]CapacityScaling,
+ * [SMSpp]CostScaling, CycleCanceling, and NetworkSimplex.
+ *
+ *  @{ */
 
-  /*--------------------------------------------------------------------------*/
-  /*------------------------------- CLASSES ----------------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /** @defgroup MCFSolver_CLASSES Classes in MCFSolver.h
-  *  @{ */
+ /// concept for "one of the LEMON graphs"
+ template< typename Type >
+  concept LEMONGraph =
+   std::is_same< Type , SmartDigraph >::value   ||
+   std::is_same< Type , StaticDigraph >::value;
 
-  /*--------------------------------------------------------------------------*/
-  /*-------------------------- CLASS MCFLemonSolver -------------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /*--------------------------- GENERAL NOTES --------------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /// CDASolver for MCFBlock
-  /** The MCFLemonSolver implements Algo interface that allow MCFLemonSolver to use
-  * methods from any MCF algorithms of Lemon library.
-  * Because the linear MCF problem is a Linear Program it has a(n exact) dual,
-  * and therefore MCFLemonSolver implements the CDASolver interface for also
-  * giving out dual information.
-  *
-  * This is only a relatively thin wrapper class around solvers under the
-  * MCFClass interface. To avoid a pointer to an internal object, the class is
-  * template over the underlying :MCFClass object, which implies that most of
-  * the code is in the header file. */
+ //!! std::is_base_of< Graph , Type >::value;
+ /*!!
+   std::is_same< Type , CompactDigraph >::value ||
+   std::is_same< Type , FullDigraph >::value;
+   std::is_same< Type , GridGraph >::value      ||
+   std::is_same< Type , HypercubeGraph >::value ||
+   !!*/
 
-  template <typename Algo, typename GR, typename V, typename C>
-  class MCFLemonSolver : public CDASolver, private Algo< GR, V, C >
-  {
+ /// CapacityScaling algorithm using the default trait
+ template< LEMONGraph GR , typename V , typename C >
+ using SMSppCapacityScaling< GR , V , C > =
+  CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >;
 
-   /*--------------------------------------------------------------------------*/
-   /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
-   /*--------------------------------------------------------------------------*/
+ /// CostScaling algorithm using the default trait
+ template < LEMONGraph GR , typename V , typename C >
+ using SMSppCostScaling< GR , V , C > =
+  CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >;
 
-  public:
-   /*--------------------------------------------------------------------------*/
-   /*---------------------------- PUBLIC TYPES --------------------------------*/
-   /*--------------------------------------------------------------------------*/
-   /** @name Public Types
-    *  @{ */
+ /// concept for "one of the LEMON algorithms"
+ template< typename Type >
+  concept LEMONAlgorithm =
+   std::is_same< Type , SMSppCapacityScaling >::value ||
+   std::is_same< Type , SMSppCostScaling >::value     ||
+   std::is_same< Type , CycleCanceling >::value       ||
+   std::is_same< Type , NetworkSimplex >::value;
 
-   /*
+/** @} ---------------------------------------------------------------------*/
+/*------------------------------- CLASSES ----------------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @defgroup MCFLemonSolver_CLASSES Classes in MCFLemonSolver.h
+ *  @{ */
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS MCFLemonSolver ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------- GENERAL NOTES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// CDASolver for MCFBlock based on the LEMON project
+/** The MCFLemonSolver implements Solver interface for MCFBlock that represent
+ * (Linear) Min-Cost Flow (MCF) problems, using algorithms of LEMON library.
+ * Because MCF is a Linear Program it has a(n exact) dual, and therefore
+ * MCFLemonSolver implements the CDASolver interface for also giving out dual
+ * information.
+ *
+ * The MCFLemonSolver is template over four different types:
+ *
+ * - GR, which is the type of graph (DISCUSS THE POSSIBILITIES);
+ *
+ * - V, which is the type of flows / deficits; typically, double can be used
+ *   for maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - C, which is the type of ar costs; typically, double can be used for
+ *   maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - Algo, which is the specific algorithm (itself, template over GR, V, and
+ *   C) implemented in the LEMON class (DISCUSS THE POSSIBILITIES);
+ *   Note that scaling-type algorithms may behave in different ways according
+ *   to which combination of V and C is used, and there are different
+ *   "traits" for this which are another scaling parameter. However, in order
+ *   to make MCFLemonSolver class template over always the same number of
+ *   template parameters we fix the use of the default trait, which is why
+ *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
+ *   < GR , V , C >) that are meant to be used instead of the original
+ *   CapacityScaling and CostScaling. */
+
+template< LEMONAlgorithm Algo , LEMONGraph GR , typename V , typename C >
+class MCFLemonSolver : public CDASolver , private Algo< GR , V , C >
+{
+/*--------------------------------------------------------------------------*/
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ public:
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PUBLIC TYPES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Public Types
    kUnEval = 0     compute() has not been called yet
 
    kUnbounded = kUnEval + 1     the model is provably unbounded
+ *  @{ */
 
-#include "CDASolver.h"
-
-#include "MCFBlock.h"
-
-#include "MCFClass.h"
-
-/*--------------------------------------------------------------------------*/
-/*-------------------------- NAMESPACE & USING -----------------------------*/
-/*--------------------------------------------------------------------------*/
-
-/// namespace for the Structured Modeling System++ (SMS++)
-namespace SMSpp_di_unipi_it
-{
-  using namespace MCFClass_di_unipi_it;
-
-  class MCFSolverState; // forward declaration of MCFSolverState
-
-  /*--------------------------------------------------------------------------*/
-  /*------------------------------- CLASSES ----------------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /** @defgroup MCFSolver_CLASSES Classes in MCFSolver.h
-   *  @{ */
-
-  /*--------------------------------------------------------------------------*/
-  /*-------------------------- CLASS MCFSolver -------------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /*--------------------------- GENERAL NOTES --------------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /// CDASolver for MCFBlock
-  /** The MCFLemonSolver implements the Algo interface for Min-Cost Flow problems
-   * described by Lemon. Because the linear MCF problem is a Linear Program
-   * it has a(n exact) dual, and therefore MCFSolver implements the CDASolver
-   * interface for also giving out dual information.
-   *
-   * This is only a relatively thin wrapper class around solvers under the
-   * MCFClass interface. To avoid a pointer to an internal object, the class is
-   * template over the underlying :MCFClass object, which implies that most of
-   * the code is in the header file. */
-
-  template <typename Algo, typename GR, typename V, typename C>
-  class MCFLemonSolver : public CDASolver, private Algo< GR, V, C >
-  {
-
-    /*--------------------------------------------------------------------------*/
-    /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
-    /*--------------------------------------------------------------------------*/
-  {
-
-    /*--------------------------------------------------------------------------*/
-    /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
-    /*--------------------------------------------------------------------------*/
-
-  public:
-    /*--------------------------------------------------------------------------*/
-    /*---------------------------- PUBLIC TYPES --------------------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Public Types
-     *  @{ */
-
-    /*
-    The type of the Algorithm
+/*  The type of the Algorithm
         Algorithm
     The type of the digraph
         Digraph
@@ -219,20 +233,20 @@ namespace SMSpp_di_unipi_it
 
     kLowPrecision = kError + 1   a solution found but not provably optimal
     */
-    // New Add
-    GR digraph;
-    V* value;
-    C* costs;
-    typedef typename TR::Heap heap;
-    typedef TR traits;
-    std::time_t timer;
-    std::time_t elapsed;
-    int status = UNSOLVED;
-    Algo::ProblemType status_2_pType;
-    /*--------------------------------------------------------------------------*/
 
-    /*
-    intMaxIter = 0     maximum iterations for the next call to solve()
+ // New Add
+ GR digraph;
+ V* value;
+ C* costs;
+ typedef typename TR::Heap heap;
+ typedef TR traits;
+ std::time_t timer;
+ std::time_t elapsed;
+ int status = UNSOLVED;
+ Algo::ProblemType status_2_pType;
+
+/*--------------------------------------------------------------------------*/
+ /* intMaxIter = 0     maximum iterations for the next call to solve()
 
     intMaxSol          maximum number of different solutions to report
 
@@ -243,10 +257,8 @@ namespace SMSpp_di_unipi_it
     intLastParCDAS     first allowed parameter value for derived classes
     */
 
-    /*--------------------------------------------------------------------------*/
-
-    /*
-    dblMaxTime = 0    maximum time for the next call to solve()
+/*--------------------------------------------------------------------------*/
+ /* dblMaxTime = 0    maximum time for the next call to solve()
 
     dblRelAcc         relative accuracy for declaring a solution optimal
 
@@ -271,154 +283,120 @@ namespace SMSpp_di_unipi_it
     dblLastParCDAS      first allowed parameter value for derived classes
     */
 
-    /*--------------------------------------------------------------------------*/
-    /// public enum "extending" int_par_type_CDAS to MCFSolver
+/*--------------------------------------------------------------------------*/
+ /// public enum "extending" int_par_type_CDAS to MCFSolver
 
-    enum int_par_type_MCFS
-    {
-      kReopt = intLastParCDAS, ///< whether or not to reoptimize
-      intLastParMCF            ///< first allowed parameter value for derived classes
-                               /**< convenience value for easily allow derived classes
-                                * to further extend the set of types of return codes */
-    };                         // end( int_par_type_MCFS )
+ enum int_par_type_MCFS {
+  kReopt = intLastParCDAS, ///< whether or not to reoptimize
+  intLastParMCF       ///< first allowed parameter value for derived classes
+                      /**< convenience value for easily allow derived classes
+		       * to further extend the set of types of return codes */
+  };  // end( int_par_type_MCFS )
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// public enum "extending" dbl_par_type_CDAS to MCFSolver
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// public enum "extending" dbl_par_type_CDAS to MCFSolver
 
-    enum dbl_par_type_MCFS
-    {
-      dblLastParMCF = dblLastParCDAS
-      ///< first allowed parameter value for derived classes
-      /**< convenience value for easily allow derived classes
-       * to further extend the set of types of return codes */
-    }; // end( dbl_par_type_MCFS )
+ enum dbl_par_type_MCFS {
+  dblLastParMCF = dblLastParCDAS
+  ///< first allowed parameter value for derived classes
+  /**< convenience value for easily allow derived classes
+   * to further extend the set of types of return codes */
+  };  // end( dbl_par_type_MCFS )
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// public enum "extending" str_par_type_CDAS to MCFSolver
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// public enum "extending" str_par_type_CDAS to MCFSolver
 
-    enum str_par_type_MCFS
-    {
-      strDMXFile = strLastParCDAS, ///< DMX filename to output the instance
-      strLastParMCF                ///< first allowed parameter value for derived classes
-                                   /**< convenience value for easily allow derived classes
-                                    * to further extend the set of types of return codes */
-    };                             // end( dbl_par_type_MCFS )
+ enum str_par_type_MCFS {
+  strDMXFile = strLastParCDAS, ///< DMX filename to output the instance
+  strLastParMCF        ///< first allowed parameter value for derived classes
+                       /**< convenience value for easily allow derived classes
+			* to further extend the set of types of return codes */
+  };  // end( dbl_par_type_MCFS )
 
-    /// public enum for the type of the solution
+ /// public enum for the type of the solution
 
-    enum sol_type
-    {
-      UNSOLVED //= NULL, ///< the problem has not been solved yet
-      OPTIMAL,           ///< the problem has been solved
-      KSTOPTIME //= NULL,     ///< the problem has been stopped because of time limit
-      INFEASIBLE,   ///< the problem is provably infeasible
-      UNBOUNDED,    ///< the problem is provably unbounded
-      KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-    };               // end( sol_type )
+ enum sol_type
+ {
+  UNSOLVED //= NULL, ///< the problem has not been solved yet
+  OPTIMAL,           ///< the problem has been solved
+  KSTOPTIME //= NULL,     ///< the problem has been stopped because of time limit
+  INFEASIBLE,   ///< the problem is provably infeasible
+  UNBOUNDED,    ///< the problem is provably unbounded
+  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
+  };               // end( sol_type )
 
-    /** @} ---------------------------------------------------------------------*/
-    /*----------------- CONSTRUCTING AND DESTRUCTING MCFSolver -----------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Constructing and destructing MCFSolver
-     *  @{ */
+/** @} ---------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Other initializations
+ *
+ * Parameter-wise, MCFSolver maps the parameters of [CDA]Solver
+ *
+ *  intMaxIter = 0    maximum iterations for the next call to solve()
+ *  intMaxSol         maximum number of different solutions to report
+ *  intLogVerb        "verbosity" of the log
+ *  intMaxDSol        maximum number of different dual solutions
+ *
+ *  dblMaxTime = 0    maximum time for the next call to solve()
+ *  dblRelAcc         relative accuracy for declaring a solution optimal
+ *  dblAbsAcc         absolute accuracy for declaring a solution optimal
+ *  dblUpCutOff       upper cutoff for stopping the algorithm
+ *  dblLwCutOff       lower cutoff for stopping the algorithm
+ *  dblRAccSol        maximum relative error in any reported solution
+ *  dblAAccSol        maximum absolute error in any reported solution
+ *  dblFAccSol        maximum constraint violation in any reported solution
+ *  dblRAccDSol       maximum relative error in any dual solution
+ *  dblAAccDSol       maximum absolute error in any dual solution
+ *  dblFAccDSol       maximum absolute error in any dual solution
+ *
+ * into the parameter of MCFClass
+ *
+ * kMaxTime = 0       max time
+ * kMaxIter           max number of iteration
+ * kEpsFlw            tolerance for flows
+ * kEpsDfct           tolerance for deficits
+ * kEpsCst            tolerance for costs
+ *
+ * It then "extends" them, using
+ *
+ *  intLastParCDAS    first allowed parameter value for derived classes
+ *  dblLastParCDAS    first allowed parameter value for derived classes
+ *
+ * In particular, one now has
+ *
+ * intLastParCDAS ==> kReopt             whether or not to reoptimize
+ *
+ * and any other parameter of specific :MCFClass following. This is done
+ * via the two const static arrays Solver_2_MCFClass_int and
+ * Solver_2_MCFClass_dbl, with a negative entry meaning "there is no such
+ * parameter in MCFSolver".
+ *
+ *  @{ */
 
-    /// constructor: does nothing special
-    /** Void constructor: does nothing special, except verifying that the
-     * template argument derives from MCFClass. */
-    //TODO : Add a static_assert to check if Algo is derived from the right class(WHICH CLASS?). DONE
-    //TODO : Add a static_assert to check if GR, V and C are the right types. DONE
-    //TODO : Add a control to ensure that GR is a supported graph type for MCFBlock. 
-    MCFLemonSolver(void) : CDASolver(), Algo(digraph)
-    {
-      static_assert(std::is_base_of<CapacityScaling, Algo>::value || std::is_base_of<CostScaling, Algo>::value
-                    std::is_base_of<CycleCanceling, Algo>::value || std::is_base_of<NetworkSimplex, Algo>::value,
-                    "MCFLemonSolver: Algo must inherit from CapacityScaling | CostScaling | CycleCanceling | NetworkSimplex");
-      static_assert(std::is_base_of<Graph, GR>::value,
-                    "MCFLemonSolver: GR must inherit from Graph");
-      static_assert(std::is_same<V, C>::value,
-                    "MCFLemonSolver: V and C must be the same type");
-    }
+ /// set the (pointer to the) Block that the Solver has to solve
 
-    /*--------------------------------------------------------------------------*/
-    /// destructor: it has to release all the Modifications
+ void set_Block( Block * block ) override
+ {
+  if( block == f_Block )  // actually doing nothing
+   return;                // cowardly and silently return
 
-    virtual ~MCFLemonSolver() {}
+  Solver::set_Block( block ); // attach to the new Block
 
-    /** @} ---------------------------------------------------------------------*/
-    /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Other initializations
-     *
-     * Parameter-wise, MCFSolver maps the parameters of [CDA]Solver
-     *
-     *  intMaxIter = 0    maximum iterations for the next call to solve()
-     *  intMaxSol         maximum number of different solutions to report
-     *  intLogVerb        "verbosity" of the log
-     *  intMaxDSol        maximum number of different dual solutions
-     *
-     *  dblMaxTime = 0    maximum time for the next call to solve()
-     *  dblRelAcc         relative accuracy for declaring a solution optimal
-     *  dblAbsAcc         absolute accuracy for declaring a solution optimal
-     *  dblUpCutOff       upper cutoff for stopping the algorithm
-     *  dblLwCutOff       lower cutoff for stopping the algorithm
-     *  dblRAccSol        maximum relative error in any reported solution
-     *  dblAAccSol        maximum absolute error in any reported solution
-     *  dblFAccSol        maximum constraint violation in any reported solution
-     *  dblRAccDSol       maximum relative error in any dual solution
-     *  dblAAccDSol       maximum absolute error in any dual solution
-     *  dblFAccDSol       maximum absolute error in any dual solution
-     *
-     * into the parameter of MCFClass
-     *
-     * kMaxTime = 0       max time
-     * kMaxIter           max number of iteration
-     * kEpsFlw            tolerance for flows
-     * kEpsDfct           tolerance for deficits
-     * kEpsCst            tolerance for costs
-     *
-     * It then "extends" them, using
-     *
-     *  intLastParCDAS    first allowed parameter value for derived classes
-     *  dblLastParCDAS    first allowed parameter value for derived classes
-     *
-     * In particular, one now has
-     *
-     * intLastParCDAS ==> kReopt             whether or not to reoptimize
-     *
-     * and any other parameter of specific :MCFClass following. This is done
-     * via the two const static arrays Solver_2_MCFClass_int and
-     * Solver_2_MCFClass_dbl, with a negative entry meaning "there is no such
-     * parameter in MCFSolver".
-     *
-     *  @{ */
+  if( block ) {  // this is not just resetting everything
+   auto MCFB = dynamic_cast< MCFBlock * >( block );
+   if( ! MCFB )
+    throw( std::invalid_argument(
+                       "MCFSolver:set_Block: block must be a MCFBlock" ) );
 
-    /// set the (pointer to the) Block that the Solver has to solve
+   bool owned = MCFB->is_owned_by(f_id);
+   if( ( ! owned ) && (! MCFB->read_lock() ) )
+    throw( std::logic_error( "cannot acquire read_lock on MCFBlock" ) );
 
-    void set_Block(Block *block) override
-    {
-      if (block == f_Block) // actually doing nothing
-        return;             // cowardly and silently return
+   // TODO: change MCFC function to Algo function.
+   // TODO: convert array from MCFB functions to Map for Algo functions.
 
-      Solver::set_Block(block); // attach to the new Block
-
-      if (block)
-      { // this is not just resetting everything
-        auto MCFB = dynamic_cast<MCFBlock *>(block);
-        if (!MCFB)
-          throw(std::invalid_argument(
-              "MCFSolver:set_Block: block must be a MCFBlock"));
-
-        bool owned = MCFB->is_owned_by(f_id);
-        if ((!owned) && (!MCFB->read_lock()))
-          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-        // load the new MCFBlock into the :MCFClass object
-        // TODO: change MCFC function to Algo function.
-        // TODO: convert array from MCFB functions to Map for Algo functions.
-
-
-        digraph::reserveNode(MCFB->get_MaxNNodes());
-        digraph::reserveArc(MCFB->get_MaxNArcs());
+   digraph::reserveNode( MCFB->get_MaxNNodes() );
+   digraph::reserveArc( MCFB->get_MaxNArcs() );
 
         if(!MCFB->get_U().empty())
         {
