@@ -14,60 +14,12 @@
 /*--------------------------------------------------------------------------*/
 /*------------------------------- MACROS -----------------------------------*/
 /*--------------------------------------------------------------------------*/
-/* If any of the following macros is defined, then the corresponding
- * :MCFClass solver is included and the corresponding version of
- * MCFSolver<> is defined:
- *
- * - HAVE_CSCL2      for the CS2 class
- *
- * - HAVE_CPLEX      for the MCFCplex class
- *
- * - HAVE_MFSMX      for the MCFSimplex class
- *
- * - HAVE_MFZIB      for the MCFZIB class
- *
- * - HAVE_RELAX      for the RelaxIV class
- *
- * - HAVE_SPTRE      for the SPTree class; note that SPTree cannot solve
- *                   most MCF instances, except those with SPT structure.
- */
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include "MCFSolver.h"
-
-// #include "capacity_scaling.h"
-
-// #include "cost_scaling.h"
-
-// #include "cycle_canceling.h"
-
-// #include "network_simplex.h"
-
-#ifdef HAVE_CSCL2
- #include "CS2.h"
-#endif
-
-#ifdef HAVE_CPLEX
- #include "MCFCplex.h"
-#endif
-
-#ifdef HAVE_MFSMX
- #include "MCFSimplex.h"
-#endif
-
-#ifdef HAVE_MFZIB
- #include "MCFZIB.h"
-#endif
-
-#ifdef HAVE_RELAX
- #include "RelaxIV.h"
-#endif
-
-#ifdef HAVE_SPTRE
- #include "SPTree.h"
-#endif
+#include "MCFLemonSolver.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
@@ -79,37 +31,16 @@ using namespace SMSpp_di_unipi_it;
 /*----------------------------- STATIC MEMBERS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
-// register the various MCFSolver< * > to the Solver factory
+// register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
 
-#ifdef HAVE_CSCL2
- SMSpp_insert_in_factory_cpp_0_t( MCFSolver< CS2 > );
-#endif
-
-#ifdef HAVE_CPLEX
- SMSpp_insert_in_factory_cpp_0_t( MCFSolver< MCFCplex > );
-#endif
-
-#ifdef HAVE_MFSMX
- SMSpp_insert_in_factory_cpp_0_t( MCFSolver< MCFSimplex > );
-#endif
-
-#ifdef HAVE_MFZIB
- SMSpp_insert_in_factory_cpp_0_t( MCFSolver< MCFZIB > );
-#endif
-
-#ifdef HAVE_RELAX
- SMSpp_insert_in_factory_cpp_0_t( MCFSolver< RelaxIV > );
-#endif
-
-#ifdef HAVE_SPTRE
- SMSpp_insert_in_factory_cpp_0_t( MCFSolver< SPTree > );
-#endif
+SMSpp_insert_in_factory_cpp_0_t(
+ MCFLemonSolver< NetworkSimplex , SmartDigraph , double , double > );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
 // register MCFSolverState to the State factory
 
-SMSpp_insert_in_factory_cpp_0( MCFSolverState );
+// SMSpp_insert_in_factory_cpp_0( MCFSolverState );
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the various static maps

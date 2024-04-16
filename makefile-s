@@ -2,25 +2,24 @@
 ################################ makefile-s ##################################
 ##############################################################################
 #                                                                            #
-#   makefile of MCFBlock / MCFSolver and its dependencies, excluding SMS++   #
+#   makefile of MCFLEMONSolver and its dependencies, excluding SMS++         #
 #                                                                            #
 #   The makefile defines internally all external libraries required by       #
-#   MCFBlock / MCFSolver, excluding the SMS++ core ones whose symbols are    #
-#   assumed to have been defined already (typically by including             #
-#   SMS++/lib/makefile). Accordingly, all necessary OBJ, H, -I directives,   #
-#   external libraries  + -L< libdirs > are added to the corresponding       #
-#   MCFBk* macros.                                                           #
+#   MCFLEMONSolver, excluding the SMS++ core ones whose symbols are assumed  #
+#   to have been defined already (typically by including SMS++/lib/makefile).#
+#   Accordingly, all necessary OBJ, H, -I directives, external libraries  +  #
+#   -L< libdirs > are added to the corresponding  MCFLE* macros              #
 #                                                                            #
 #   Input:  $(CC)       = compiler command                                   #
 #           $(SW)       = compiler options                                   #
 #           $(SMS++INC) = the -I$( core SMS++ directory )                    #
 #           $(SMS++OBJ) = the core SMS++ library                             #
-#           $(MCFBkSDR) = the directory where MCFBlock / MCFSolver source is #
+#           $(MCFLESDR) = the directory where MCFBlock / MCFSolver source is #
 #                                                                            #
-#   Output: $(MCFBkOBJ) = the final object(s) / library                      #
-#           $(MCFBkLIB) = external libraries + -L< libdirs >                 #
-#           $(MCFBkH)   = the .h files to include for MCFBlock / MCFSolver   #
-#           $(MCFBkINC) = the -I$( MCFBlock / MCFSolver directory )          #
+#   Output: $(MCFLEOBJ) = the final object(s) / library                      #
+#           $(MCFLELIB) = external libraries + -L< libdirs >                 #
+#           $(MCFLEH)   = the .h files to include for MCFBlock / MCFSolver   #
+#           $(MCFLEINC) = the -I$( MCFBlock / MCFSolver directory )          #
 #                                                                            #
 #                              Antonio Frangioni                             #
 #                         Dipartimento di Informatica                        #
@@ -36,24 +35,22 @@
 # *H   is the list of all include files
 # *INC is the -I< include directories >
 
-# define input macros for libMCFCl complete makefile, then include it
-# signal that *_ROOT values for external libraries need not be read by
-# the MCFClass makefiles since they are defined already by SMS++
-MCFC_NO_PATHS = 0
-libMCFClDIR = $(MCFBkSDR)/MCFClass
-include $(libMCFClDIR)/lib/makefile-inc
+# define input macros for MCFBlock makefile + dependencies, then include it
+MCFBkSDR = $(MCFLESDR)/../MCFBlock
+include $(MCFBkSDR)/makefile-s
 
 # include the makefile requiring all external modules in input
-include $(MCFBkSDR)/makefile
+include $(MCFLESDR)/makefile
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# append external -I directives to MCFBkINC, MCFBkOBJ and MCFBkH as defined
+# append external -I directives to MCFLEINC, MCFLEOBJ and MCFLEH as defined
 # by the makefile, thus the := assignment has to be used (use GNU make)
-MCFBkOBJ := $(MCFBkOBJ) $(libMCFClOBJ)
-MCFBkINC := $(MCFBkINC) $(libMCFClINC)
+MCFLEOBJ := $(MCFLEOBJ) $(MCFBkOBJ) $(SMS++OBJ)
+MCFLEINC := $(MCFLEINC) $(SMS++INC) $(MCFBkINC)
 
-# external libraries for MCFBlock
-MCFBkLIB = $(libMCFClLIB)
+# external libraries for MCFLEMONSolver
+MCFLELIB = $(SMS++LIB) $(MCFBkLIB) \
+	 -L$(MCFLESDR)/lemon-development/build/lemon -llemon
 
 ########################### End of makefile-s ################################

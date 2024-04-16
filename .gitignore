@@ -1,6 +1,7 @@
+### LEMON build folder
+lemon-development/build
+
 ### Makefile-generated binaries
-test/MCFBlock_test
-tools/dmx2nc4
 
 ### data directories
 data/dmx/*.dmx
