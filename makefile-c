@@ -48,11 +48,11 @@ include $(MCFLESDR)/makefile
 
 # append external -I directives to MCFLEINC, MCFLEOBJ and MCFLEH as defined
 # by the makefile, thus the := assignment has to be used (use GNU make)
-MCFLEOBJ := $(MCFLEOBJ) $(MCFBkOBJ) $(SMS++OBJ)
-MCFLEINC := $(MCFLEINC) $(SMS++INC) $(MCFBkINC)
+MCFLEOBJ := $(SMS++OBJ) $(MCFLEOBJ) $(MCFBkOBJ)
+MCFLEINC := $(SMS++INC) $(MCFBkINC) $(MCFLEINC)
 
 # external libraries for MCFLEMONSolver
 MCFLELIB = $(SMS++LIB) $(MCFBkLIB) \
-	 -L$(MCFLESDR)/lemon-development/build/lemon -llemon
+	 -L$(MCFLESDR)/lemon-development/lib/lemon/lib -llemon
 
 ############################ End of makefile #################################

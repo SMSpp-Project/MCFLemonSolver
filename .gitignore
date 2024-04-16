@@ -1,5 +1,6 @@
-### LEMON build folder
+### LEMON build & install folder
 lemon-development/build
+lemon-development/lib
 
 ### Makefile-generated binaries
 

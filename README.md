@@ -32,12 +32,28 @@ These instructions will let you build MCFBlock and MCFSolver on your system.
 
 ### Build and install with CMake
 
-Configure and build the library with:
+First you have to separately build LEMON with
+
+```sh
+cd lemon-development
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../lib
+make
+make install
+cd ..
+rm -Rf build
+```
+
+This will build a LEMON instance in
+lemon-development/lib (getting rid of the build folder).
+
+Then configure and build the library with:
 
 ```sh
 mkdir build
 cd build
-cmake ..
+cmake .. -DCMAKE_INSTALL_PREFIX=../lib
 make
 ```
 

@@ -35,7 +35,7 @@
 
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lemon
+MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 

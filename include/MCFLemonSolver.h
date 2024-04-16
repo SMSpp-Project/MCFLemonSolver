@@ -37,18 +37,20 @@
 
 #include "MCFBlock.h"
 
-#include "capacity_scaling.h"
+#include "lemon/capacity_scaling.h"
 
-#include "cost_scaling.h"
+#include "lemon/cost_scaling.h"
 
-#include "cycle_canceling.h"
+#include "lemon/cycle_canceling.h"
 
-#include "network_simplex.h"
+#include "lemon/network_simplex.h"
 
 //!!
 #include <concepts>
 
-//?? #include <lemon/list_graph.h>
+#include <lemon/list_graph.h>
+
+#include <lemon/smart_graph.h>
 
 //?? #include <lemon/concepts/maps.h>
 
@@ -64,6 +66,7 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
+ using namespace lemon;
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- TEMPLATE TYPES --------------------------------*/
@@ -115,21 +118,23 @@ namespace SMSpp_di_unipi_it
 
  /// CapacityScaling algorithm using the default trait
  template< LEMONGraph GR , typename V , typename C >
- using SMSppCapacityScaling< GR , V , C > =
-  CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >;
+ class SMSppCapacityScaling : public
+  CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >
+  {};
 
  /// CostScaling algorithm using the default trait
  template < LEMONGraph GR , typename V , typename C >
- using SMSppCostScaling< GR , V , C > =
-  CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >;
+ class SMSppCostScaling : public
+  CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
+  {};
 
  /// concept for "one of the LEMON algorithms"
- template< typename Type >
+ template< typename Type , LEMONGraph GR , typename V , typename C >
   concept LEMONAlgorithm =
-   std::is_same< Type , SMSppCapacityScaling >::value ||
-   std::is_same< Type , SMSppCostScaling >::value     ||
-   std::is_same< Type , CycleCanceling >::value       ||
-   std::is_same< Type , NetworkSimplex >::value;
+   std::is_same< Type , SMSppCapacityScaling< GR , V , C > >::value ||
+   std::is_same< Type , SMSppCostScaling< GR , V , C > >::value     ||
+   std::is_same< Type , CycleCanceling< GR , V , C > >::value       ||
+   std::is_same< Type , NetworkSimplex< GR , V , C > >::value;
 
 /** @} ---------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
