@@ -128,35 +128,6 @@ namespace SMSpp_di_unipi_it
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
   {};
 
- // for checking templates regardless to their parameters
- template< typename , typename >
-  constexpr bool is_same_template { false };
-
- template< template< typename... > class T , 
-           typename... A , typename... B >
-  constexpr bool is_same_template< T< A ... > , T< B ... > > { true };
-
- /// concept for "one of the LEMON algorithms"
- /*!!
- template< typename Type , LEMONGraph GR , typename V , typename C >
-  concept LEMONAlgorithm =
-   std::is_same< Type< GR , V , C > ,
-                 SMSppCapacityScaling< GR , V , C > >::value ||
-   std::is_same< Type< GR , V , C > ,
-                 SMSppCostScaling< GR , V , C > >::value     ||
-   std::is_same< Type< GR , V , C > ,
-                 CycleCanceling< GR , V , C > >::value       ||
-   std::is_same< Type< GR , V , C > ,
-                 NetworkSimplex< GR , V , C > >::value;
-
- template< typename Type >
-  concept LEMONAlgorithm =
-   is_same_template< Type , SMSppCapacityScaling >::value ||
-   is_same_template< Type , SMSppCostScaling >::value     ||
-   is_same_template< Type , CycleCanceling >::value       ||
-   is_same_template< Type , NetworkSimplex >::value;
-		 !!*/
-
 /** @} ---------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
