@@ -128,13 +128,34 @@ namespace SMSpp_di_unipi_it
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
   {};
 
+ // for checking templates regardless to their parameters
+ template< typename , typename >
+  constexpr bool is_same_template { false };
+
+ template< template< typename... > class T , 
+           typename... A , typename... B >
+  constexpr bool is_same_template< T< A ... > , T< B ... > > { true };
+
  /// concept for "one of the LEMON algorithms"
+ /*!!
  template< typename Type , LEMONGraph GR , typename V , typename C >
   concept LEMONAlgorithm =
-   std::is_same< Type , SMSppCapacityScaling< GR , V , C > >::value ||
-   std::is_same< Type , SMSppCostScaling< GR , V , C > >::value     ||
-   std::is_same< Type , CycleCanceling< GR , V , C > >::value       ||
-   std::is_same< Type , NetworkSimplex< GR , V , C > >::value;
+   std::is_same< Type< GR , V , C > ,
+                 SMSppCapacityScaling< GR , V , C > >::value ||
+   std::is_same< Type< GR , V , C > ,
+                 SMSppCostScaling< GR , V , C > >::value     ||
+   std::is_same< Type< GR , V , C > ,
+                 CycleCanceling< GR , V , C > >::value       ||
+   std::is_same< Type< GR , V , C > ,
+                 NetworkSimplex< GR , V , C > >::value;
+
+ template< typename Type >
+  concept LEMONAlgorithm =
+   is_same_template< Type , SMSppCapacityScaling >::value ||
+   is_same_template< Type , SMSppCostScaling >::value     ||
+   is_same_template< Type , CycleCanceling >::value       ||
+   is_same_template< Type , NetworkSimplex >::value;
+		 !!*/
 
 /** @} ---------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
@@ -177,8 +198,8 @@ namespace SMSpp_di_unipi_it
  *   < GR , V , C >) that are meant to be used instead of the original
  *   CapacityScaling and CostScaling. */
 
-template< LEMONAlgorithm Algo , LEMONGraph GR , typename V , typename C >
-class MCFLemonSolver : public CDASolver , private Algo< GR , V , C >
+template< typename Algo , LEMONGraph GR , typename V , typename C >
+class MCFLemonSolver : public CDASolver
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -239,6 +260,29 @@ class MCFLemonSolver : public CDASolver , private Algo< GR , V , C >
     kLowPrecision = kError + 1   a solution found but not provably optimal
     */
 
+/** @} ---------------------------------------------------------------------*/
+/*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Constructing and destructing MCFLemonSolver
+ *  @{ */
+
+ /// constructor: does nothing special
+ /** Void constructor: does nothing special, except verifying the template
+  * arguments. */
+
+ MCFLemonSolver( void ) : CDASolver() {
+  static_assert( std::is_same< Type< GR , V , C > ,
+                               SMSppCapacityScaling< GR , V , C > >::value ||
+		 std::is_same< Type< GR , V , C > ,
+                               SMSppCostScaling< GR , V , C > >::value     ||
+		 std::is_same< Type< GR , V , C > ,
+                               CycleCanceling< GR , V , C > >::value       ||
+		 std::is_same< Type< GR , V , C > ,
+		               NetworkSimplex< GR , V , C > >::value ,
+		 "Algo must be one of the LEMON algorithms");
+  }
+
+ 
  // New Add
  GR digraph;
  V* value;
