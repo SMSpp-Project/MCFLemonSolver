@@ -1,8 +1,7 @@
 ### LEMON build & install folder
 lemon-development/build
 lemon-development/lib
-### install.sh header 
-include/lemon/*
+
 ### Makefile-generated binaries
 
 ### data directories
