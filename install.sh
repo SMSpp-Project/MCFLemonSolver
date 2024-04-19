@@ -11,15 +11,11 @@ make
 
 cd ../..
 #DOWNLOAD boost, netCDF, eigen, bundlesolver, langragiandualsolver, milpsolver, tests, mcfblock, mmcfblock, smspp
-wget https://boostorg.jfrog.io/artifactory/main/release/1.84.0/source/boost_1_84_0.tar.gz
-tar -xvzf boost_1_84_0.tar.gz
-rm boost_1_84_0.tar.gz
+sudo apt install libboost-dev
 
-git clone https://gitlab.com/libeigen/eigen.git
+sudo apt install libeigen3-dev
 
-wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
-tar -xvzf netcdf-c-4.9.2.tar.gz
-rm netcdf-c-4.9.2.tar.gz
+sudo apt install libnetcdf-c++4-dev
 
 git clone https://github.com/frangio68/Min-Cost-Flow-Class.git
 
