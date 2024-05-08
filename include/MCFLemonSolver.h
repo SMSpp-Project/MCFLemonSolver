@@ -52,13 +52,10 @@
 
 #include <lemon/smart_graph.h>
 
-//?? #include <lemon/concepts/maps.h>
+#include <lemon/dimacs.h>
 
-//?? #include <ctime>
+#include <lemon/concepts/digraph.h>
 
-//?? #include <type_traits>
-
-//?? #include <utility>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -67,6 +64,8 @@
 namespace SMSpp_di_unipi_it
 {
  using namespace lemon;
+ using namespace lemon::concepts;
+ using namespace std;
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- TEMPLATE TYPES --------------------------------*/
@@ -117,13 +116,13 @@ namespace SMSpp_di_unipi_it
    !!*/
 
  /// CapacityScaling algorithm using the default trait
- template< LEMONGraph GR , typename V , typename C >
+ template< LEMONGraph GR , typename V , typename C, typename TR >
  class SMSppCapacityScaling : public
   CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >
   {};
 
  /// CostScaling algorithm using the default trait
- template < LEMONGraph GR , typename V , typename C >
+ template < LEMONGraph GR , typename V , typename C, typename TR >
  class SMSppCostScaling : public
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
   {};
@@ -169,7 +168,8 @@ namespace SMSpp_di_unipi_it
  *   < GR , V , C >) that are meant to be used instead of the original
  *   CapacityScaling and CostScaling. */
 
-template< typename Algo , LEMONGraph GR , typename V , typename C >
+template< typename Algo , typename GR , typename V , typename C >
+  requires LEMONGraph< GR >
 class MCFLemonSolver : public CDASolver
 {
 /*--------------------------------------------------------------------------*/
@@ -187,26 +187,7 @@ class MCFLemonSolver : public CDASolver
    kUnbounded = kUnEval + 1     the model is provably unbounded
  *  @{ */
 
-/*  The type of the Algorithm
-        Algorithm
-    The type of the digraph
-        Digraph
-    The type of the flow amounts, capacity bounds and supply values
-        Value
-    The type of the arc costs
-        Cost
-    The type of the heap used for internal Dijkstra computations
-        Heap
-    The traits class of the algorithm
-        Traits
-    The timer for compute() method
-        timer
-    The elapsed time for compute() method
-        elapsed
-    The status of the result of run() method in compute() method
-        status
-    The ProblemType status of the result of run() method in compute() method
-        status_2_pType
+/*
     
     kUnEval = 0     compute() has not been called yet
 
@@ -242,28 +223,32 @@ class MCFLemonSolver : public CDASolver
   * arguments. */
 
  MCFLemonSolver( void ) : CDASolver() {
-  static_assert( std::is_same< Type< GR , V , C > ,
+
+  f_algo = NULL;
+ /* static_assert( std::is_same< Algo< GR , V , C > ,
                                SMSppCapacityScaling< GR , V , C > >::value ||
-		 std::is_same< Type< GR , V , C > ,
-                               SMSppCostScaling< GR , V , C > >::value     ||
-		 std::is_same< Type< GR , V , C > ,
+		 std::is_same< Algo< GR , V , C > ,
+                               SMSppCostScaling< GR , V , C >::value     ||
+		 std::is_same< Algo< GR , V , C > ,
                                CycleCanceling< GR , V , C > >::value       ||
-		 std::is_same< Type< GR , V , C > ,
+		 std::is_same< Algo< GR , V , C > ,
 		               NetworkSimplex< GR , V , C > >::value ,
 		 "Algo must be one of the LEMON algorithms");
+  */
   }
 
  
- // New Add
- GR digraph;
- V* value;
- C* costs;
- typedef typename TR::Heap heap;
- typedef TR traits;
- std::time_t timer;
- std::time_t elapsed;
- int status = UNSOLVED;
- Algo::ProblemType status_2_pType;
+ 
+ Algo* f_algo;  //Algorithm used by lemon
+
+ GR digraph;  //Rapresentation of directed graph
+ V* value;   //Type of value of node
+ C* costs;  //Type of costs of arcs
+
+ int status = UNSOLVED;  //Variable used in compute function for getting status
+ typename Algo::ProblemType status_2_pType;  //Status of compute() method
+ 
+ double ticks;  //Elaped time in ticks for compute() method
 
 /*--------------------------------------------------------------------------*/
  /* intMaxIter = 0     maximum iterations for the next call to solve()
@@ -337,9 +322,9 @@ class MCFLemonSolver : public CDASolver
 
  enum sol_type
  {
-  UNSOLVED //= NULL, ///< the problem has not been solved yet
+  UNSOLVED, //= NULL, ///< the problem has not been solved yet
   OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME //= NULL,     ///< the problem has been stopped because of time limit
+  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
   INFEASIBLE,   ///< the problem is provably infeasible
   UNBOUNDED,    ///< the problem is provably unbounded
   KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
@@ -394,102 +379,93 @@ class MCFLemonSolver : public CDASolver
  *  @{ */
 
  /// set the (pointer to the) Block that the Solver has to solve
+ void set_Block(Block *block) override
+    {
+      if (block == f_Block) // actually doing nothing
+        return;             // cowardly and silently return
 
- void set_Block( Block * block ) override
- {
-  if( block == f_Block )  // actually doing nothing
-   return;                // cowardly and silently return
+      Solver::set_Block(block); // attach to the new Block
 
-  Solver::set_Block( block ); // attach to the new Block
+      if (block)
+      { // this is not just resetting everything
+        auto MCFB = dynamic_cast<MCFBlock *>(block);
+        if (!MCFB)
+          throw(std::invalid_argument(
+              "MCFSolver:set_Block: block must be a MCFBlock"));
 
-  if( block ) {  // this is not just resetting everything
-   auto MCFB = dynamic_cast< MCFBlock * >( block );
-   if( ! MCFB )
-    throw( std::invalid_argument(
-                       "MCFSolver:set_Block: block must be a MCFBlock" ) );
+        bool owned = MCFB->is_owned_by(f_id);
+        if ((!owned) && (!MCFB->read_lock()))
+          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
 
-   bool owned = MCFB->is_owned_by(f_id);
-   if( ( ! owned ) && (! MCFB->read_lock() ) )
-    throw( std::logic_error( "cannot acquire read_lock on MCFBlock" ) );
+        // load the new MCFBlock into the :MCFClass object
+        // TODO: change MCFC function to Algo function.
+        // TODO: convert array from MCFB functions to Map for Algo functions.
 
-   // TODO: change MCFC function to Algo function.
-   // TODO: convert array from MCFB functions to Map for Algo functions.
 
-   digraph::reserveNode( MCFB->get_MaxNNodes() );
-   digraph::reserveArc( MCFB->get_MaxNArcs() );
+        digraph->reserveNode(MCFB->get_MaxNNodes());
+        digraph->reserveArc(MCFB->get_MaxNArcs());
+
+        for(int i = 0; i < MCFB->get_NNodes();i++){
+          Digraph::Node n;
+          digraph->addNode(n);    
+        }
+
+        for(int i = 0; i < MCFB->get_NArcs(); i++){
+          digraph->addArc(digraph.nodeFromId(MCFB->get_SN(i)), digraph.nodeFromId(MCFB->get_EN(i)));
+        }
+
+        auto dgp = new GR;
+
+        dgp->reserveNode( MCFB->get_MaxNNodes() );
+        auto n = MCFB->get_NNodes();
+
+        for( MCFBlock::Index i = 0; i < n; ++i)
+          dgp->addNode();
+
+        dgp->reserveArc( MCFB->get_MaxNArcs() );
+        auto m = MCFB->get_NArcs();
+
+        MCFBlock::c_Subset & sn = MCFB->get_SN();
+        MCFBlock::c_Subset & en = MCFB->get_EN();
+
+        for( MCFBlock::Index i = 0; i < m; ++i){
+          dgp->addArc( digraph.nodeFromId( sn[i] ), digraph.nodeFromId( en[i] ));
+        }
+        using LemonGraph = SmartDigraph;
+        
+        f_algo = new Algo< GR , V, C >(*dgp);
 
         if(!MCFB->get_U().empty())
         {
-          //to review
-          ReadMap u = array_to_map(MCFB->get_U());
-          Algo::upperMap(u);
+          Digraph::ArcMap< V > um(*dgp);
+          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
+          for( MCFBlock::Index i = 0; i < m; ++i){
+          um.set( dgp->arcFromId(i), u[i]);
+          }
+          f_algo->upperMap(um);
         }
 
         if(!MCFB->get_C().empty())
         {
-          //to review
-          ReadMap c = array_to_map(MCFB->get_C());
-          Algo::costMap(c);
+          Digraph::ArcMap< C > cm(*dgp);
+          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
+          for( MCFBlock::Index i = 0; i < m; ++i){
+            cm.set( dgp->arcFromId(i), c[i]);
+          }
+          f_algo->costMap(cm);
+
         }
 
         if(!MCFB->get_B().empty())
         {
-          //to review
-          ReadMap b = array_to_map(MCFB->get_B());
-          std::transform(b.begin(), b.end(), b.begin(),
-                          [](std::pair<const V, V>& coppia){
-                            coppia.second = -coppia.second;
-                            return coppia;
-                          });
-          Algo::supplyMap(b);
-
-        }
-        std::vector<std::pair<Node,Node>> pnodes;
-        std::vector<unsigned int> avoid;
-        std::vector<Node> nodes;
-
-        for(unsigned int i = 0; i < MCFB->get_NNodes();i++){
-          Node n;
-          //Using std::find for check if a node is already added to the vector
-          //This mechanic resolve the case in which we pushback onto pnodes and we want the values of n and m,
-          //that could be already created, in order to avoid to add a node twice
-          auto itt = std::find(avoid.begin(), avoid.end(), i);
-          if(itt == avoid.end()){
-            n = digraph::addNode();
-            nodes.push_back(n);
-          }else{
-            //if yes, simply assign to n the element of the array nodes which contains the wanted node
-            n = nodes[std::distance(avoid.begin(),itt)];
+          Digraph::ArcMap< V > bm(*dgp);
+          MCFBlock::c_Vec_FNumber & c = MCFB->get_B();
+          for( MCFBlock::Index i = 0; i < m; ++i){
+            bm.set( dgp->arcFromId(i), - bm[i]);
           }
-          
-          for(j = 0; j < MCFB->get_NArcs();j++){
-            if(get_SN(j) == i){
-              Node m;
-              //The same as above
-              auto it = std::find(avoid.begin(), avoid.end(), get_EN(j));
-              if( it == avoid.end()){
-                m = digraph::addNode();
-                nodes.push_back(m);
-              }else{
-                m = nodes[std::distance(avoid.begin(), it)];
-              }
+          f_algo->supplyMap(bm);
 
-              pnodes.push_back(std::make_pair(n, m));
-              avoid.push_back(get_EN(j));
-            }
-          }
         }
-
-        for(int i = 0; i < nodes.size();i++){
-          digraph::addArc(nodes[i].first, nodes[i].second);
-        }
-        //Completed, miss only get_SN() and get_EN() that are not supported by Lemon.
-        // MCFC::LoadNet(MCFB->get_MaxNNodes(), MCFB->get_MaxNArcs(),
-        //               MCFB->get_NNodes(), MCFB->get_NArcs(),
-        //               MCFB->get_U().empty() ? nullptr : MCFB->get_U().data(),
-        //               MCFB->get_C().empty() ? nullptr : MCFB->get_C().data(),
-        //               MCFB->get_B().empty() ? nullptr : MCFB->get_B().data(),
-        //               MCFB->get_SN().data(), MCFB->get_EN().data());
 
         
         // TODO: PreProcess() changes the internal data of the MCFSolver using
@@ -516,28 +492,29 @@ class MCFLemonSolver : public CDASolver
     // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
     /*--------------------------------------------------------------------------*/
-    //TODO: change MCFC function to Algo function.
+    /* //TODO: change MCFC function to Algo function.
     void set_par(idx_type par, int value) override
     {
       if (Solver_2_MCFClass_int[par] >= 0)
         MCFC::SetPar(Solver_2_MCFClass_int[par], int(value));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
+    /*//TODO: change MCFC function to Algo function.
     void set_par(idx_type par, double value) override
     {
       if (Solver_2_MCFClass_dbl[par] >= 0)
         MCFC::SetPar(Solver_2_MCFClass_dbl[par], double(value));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     void set_par(idx_type par, const std::string &value) override
     {
       if (par == strDMXFile)
         f_dmx_file = value;
     }
+    */
 
     /** @} ---------------------------------------------------------------------*/
     /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
@@ -551,8 +528,8 @@ class MCFLemonSolver : public CDASolver
       //TODO: map errors from Algo to MCFSolver. DONE
       //TODO: resolve for NULL values in LemonStatus_2_MCFstatus.
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-        NULL, ProblemType::OPTIMAL, NULL, ProblemType::INFEASIBLE,
-        ProblemType::UNBOUNDED, NULL};
+        NULL, OPTIMAL, NULL, INFEASIBLE,
+        UNBOUNDED, NULL};
       
       const static std::array<int, 6> MCFstatus_2_sol_type = {
           kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -578,7 +555,8 @@ class MCFLemonSolver : public CDASolver
         if (!ProbFile.is_open())
           throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
-        WriteMCF(ProbFile);
+        //WriteMCF(ProbFile);
+        writeDimacsMat(ProbFile, digraph);
         ProbFile.close();
       }
 
@@ -587,17 +565,25 @@ class MCFLemonSolver : public CDASolver
 
       // ensure the timer exists (or reset it)
       //TODO: implement timer with ctime. feature not present in Algo.
-      time(&this->timer);
+      
       //this->MCFC::SetMCFTime();
 
       // then (try to) solve the MCF
       //TODO: change MCFC function to Algo function. DONE
       //Probably running the method run of the Algo class. DONE
 
-      //this->MCFC::SolveMCF();
-      this->status = this->Algo::run();
+      auto start = chrono::system_clock::now();
 
-      this->elapsed = time(0) - this->timer;
+      //this->MCFC::SolveMCF();
+      this->status = f_algo->run();
+
+      auto end = chrono::system_clock::now();
+
+      chrono::duration< double > elapsed = end - start;
+      ticks = elapsed.count();
+      
+
+      
 
       unlock(); // release self-lock
 
@@ -618,27 +604,26 @@ class MCFLemonSolver : public CDASolver
     
 
 
-    int get_status(void) const override
+    int get_status(void) const 
     {
       return (this->status);
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to ALgo function
     double get_elapsed_time(void) const override
     {
-      return (this->MCFC::TimeMCF());
+      return (this->ticks);
     }
 
-    /*--------------------------------------------------------------------------*/
-    //TODO: change MCFC function to Algo function.
 
-    OFValue get_lb(void) override { return (this->MCFC::MCFGetDFO()); }
+
+    /*--------------------------------------------------------------------------*/
+    //Return the lower bound solution(optimal) for the problem
+    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
-
-    OFValue get_ub(void) override { return (this->MCFC::MCFGetFO()); }
+    //Return the upper bound solution(optimal) for the problem
+    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -827,23 +812,7 @@ class MCFLemonSolver : public CDASolver
      *
      * of the base (private) MCFClass public, so that it can be freely used. */
     //TODO: change MCFC function to Algo function.
-    using MCFC::WriteMCF;
-
-  /*--------------------------------------------------------------------------*/
-  /*------------------- METHODS UTILS ----------------------------------------*/
-  /*--------------------------------------------------------------------------*/
-    //to review
-    //Method for converting a 2D array to a map.
-    template<typename V, int N>
-    map<V, V> array_to_map(T(& a)[N][2])
-    {
-      map<V, V> result;
-      std::transform(
-        a, a+N, std::inserter(result, result.begin()),
-        [](V const(&p)[2]) { return std::make_pair(p[0], p[1]); }
-      );
-    }
-
+    //using MCFC::WriteMCF;
 
     /*--------------------------------------------------------------------------*/
     /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -859,27 +828,27 @@ class MCFLemonSolver : public CDASolver
      *  @{ */
 
 
-    [[nodiscard]] idx_type get_num_int_par(void) const override
+    /*[[nodiscard]] idx_type get_num_int_par(void) const override
     {
       return (CDASolver::get_num_int_par() + 1);
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
     {
       return (CDASolver::get_num_dbl_par());
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
       return (CDASolver::get_num_str_par() + 1);
     }
-
+    */
     /*--------------------------------------------------------------------------*/
-
+    /*
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
     {
       if (par == intLastParCDAS)
@@ -887,16 +856,16 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::get_dflt_int_par(par));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
       return (CDASolver::get_dflt_dbl_par(par));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
@@ -906,9 +875,9 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::get_dflt_str_par(par));
     }
-
+    */
     /*--------------------------------------------------------------------------*/
-
+    /*
     [[nodiscard]] int get_int_par(idx_type par) const override
     {
       if (Solver_2_MCFClass_int[par] >= 0)
@@ -920,9 +889,9 @@ class MCFLemonSolver : public CDASolver
 
       return (get_dflt_int_par(par));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] double get_dbl_par(idx_type par) const override
     {
       if (Solver_2_MCFClass_dbl[par] >= 0)
@@ -934,9 +903,9 @@ class MCFLemonSolver : public CDASolver
 
       return (get_dflt_dbl_par(par));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] const std::string &get_str_par(idx_type par)
         const override
     {
@@ -945,9 +914,9 @@ class MCFLemonSolver : public CDASolver
 
       return (get_dflt_str_par(par));
     }
-
+    */
     /*--------------------------------------------------------------------------*/
-
+    /*
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
@@ -956,17 +925,17 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::int_par_str2idx(name));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
     {
       return (CDASolver::dbl_par_str2idx(name));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] idx_type str_par_str2idx(const std::string &name)
         const override
     {
@@ -975,9 +944,9 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::str_par_str2idx(name));
     }
-
+    */
     /*--------------------------------------------------------------------------*/
-
+    /*
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
     {
@@ -988,17 +957,17 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::int_par_idx2str(idx));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
       return (CDASolver::dbl_par_idx2str(idx));
     }
-
+    */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
+    /*
     [[nodiscard]] const std::string &str_par_idx2str(idx_type idx)
         const override
     {
@@ -1009,6 +978,7 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::str_par_idx2str(idx));
     }
+    */
 
     /** @} ---------------------------------------------------------------------*/
     /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
@@ -1054,7 +1024,7 @@ class MCFLemonSolver : public CDASolver
      * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
      * closed or deleted arcs and this method would not work. */
 
-    void add_Modification(sp_Mod &mod) override
+    /*void add_Modification(sp_Mod &mod) override
     {
       if (std::dynamic_pointer_cast<const NBModification>(mod))
       {
@@ -1081,7 +1051,7 @@ class MCFLemonSolver : public CDASolver
       }
       else
         push_back(mod);
-    }
+    }*/
 
     /*--------------------------------------------------------------------------*/
     /*-------------------------------- FRIENDS ---------------------------------*/
@@ -1156,25 +1126,25 @@ class MCFLemonSolver : public CDASolver
      *       since every MCFSolver derives from a :MCFClass and we only need
      *       access to MCFGetState(). */
 
-    MCFSolverState(MCFClass *mcfc = nullptr) : State()
+    /*MCFSolverState(MCFClass *mcfc = nullptr) : State()
     {
       f_state = mcfc ? mcfc->MCFGetState() : nullptr;
-    }
+    }*/
 
     /*--------------------------------------------------------------------------*/
     /// de-serialize a MCFSolverState out of netCDF::NcGroup
     /** Should de-serialize a MCFSolverState out of netCDF::NcGroup, but in
      * fact it does not work. */
 
-    void deserialize(const netCDF::NcGroup &group) override
+    /*void deserialize(const netCDF::NcGroup &group) override
     {
       f_state = nullptr;
-    }
+    }*/
 
     /*--------------------------------------------------------------------------*/
     /// destructor
 
-    virtual ~MCFSolverState() { delete f_state; }
+    //virtual ~MCFSolverState() { delete f_state; }
 
     /*---------- METHODS DESCRIBING THE BEHAVIOR OF A MCFSolverState -----------*/
 
@@ -1202,7 +1172,7 @@ class MCFLemonSolver : public CDASolver
 
     /*--------------------------- PROTECTED FIELDS -----------------------------*/
 
-    MCFClass::MCFStatePtr f_state; ///< the (pointer to) MCFState
+   // MCFClass::MCFStatePtr f_state; ///< the (pointer to) MCFState
 
     /*---------------------- PRIVATE PART OF THE CLASS -------------------------*/
 
@@ -1220,37 +1190,37 @@ class MCFLemonSolver : public CDASolver
   /*------------------- inline methods implementation ------------------------*/
   /*--------------------------------------------------------------------------*/
   //TODO: change MCFC function to Algo function.
-  template <class Algo>
+  /*template <class Algo>
   State *MCFSolver<Algo>::get_State(void) const
   {
     return (new MCFSolverState(const_cast<MCFSolver<MCFC> *>(this)));
-  }
+  }*/
 
   /*--------------------------------------------------------------------------*/
   //TODO: change MCFC function to Algo function.
-  template <class Algo>>
+  /*template <class Algo>
   void MCFSolver<Algo>::put_State(const State &state)
   {
     // if state is not a const MCFSolverState &, exception will be thrown
     auto s = dynamic_cast<const MCFSolverState &>(state);
 
     this->MCFPutState(s.f_state);
-  }
+  }*/
 
   /*--------------------------------------------------------------------------*/
   //TODO: change MCFC function to Algo function.
-  template <class Algo>
+  /*template <class Algo>
   void MCFSolver<Algo>::put_State(State &&state)
   {
     // if state is not a MCFSolverState &&, exception will be thrown
     auto s = dynamic_cast<MCFSolverState &&>(state);
 
     this->MCFPutState(s.f_state);
-  }
+  }*/
 
   /*--------------------------------------------------------------------------*/
   //TODO: change MCFC function to Algo function.
-  template <class Algo>
+  /*template <class Algo>
   void MCFSolver<Algo>::process_outstanding_Modification(void)
   {
     // no-frills loop: do them in order, with no attempt at optimizing
@@ -1265,15 +1235,15 @@ class MCFLemonSolver : public CDASolver
 
       guts_of_poM(mod.get());
     }
-  } // end( MCFSolver::process_outstanding_Modification )
+  }*/ // end( MCFSolver::process_outstanding_Modification )
 
   /*--------------------------------------------------------------------------*/
 
-  template <class Algo>
+  /*template <class Algo>
   void MCFSolver<Algo>::guts_of_poM(c_p_Mod mod)
   {
     auto MCFB = static_cast<MCFBlock *>(f_Block);
-
+    */
     // process Modification - - - - - - - - - - - - - - - - - - - - - - - - - - -
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     /* This requires to patiently sift through the possible Modification types
@@ -1281,13 +1251,13 @@ class MCFLemonSolver : public CDASolver
      * method of MCFClass. */
 
     // GroupModification- - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    if (auto tmod = dynamic_cast<const GroupModification *>(mod))
+    /*if (auto tmod = dynamic_cast<const GroupModification *>(mod))
     {
       for (const auto &submod : tmod->sub_Modifications())
         guts_of_poM(submod.get());
 
       return;
-    }
+    }*/
 
     // MCFBlockRngdMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     /* Note: in the following we can assume that C, B and U are nonempty. This
@@ -1295,7 +1265,7 @@ class MCFLemonSolver : public CDASolver
      * loaded. But if a Modification has been issued they are no longer empty (a
      * Modification changin nothing from the "empty" state is not issued). */
 
-    if (auto tmod = dynamic_cast<const MCFBlockRngdMod *>(mod))
+    /*if (auto tmod = dynamic_cast<const MCFBlockRngdMod *>(mod))
     {
       auto rng = tmod->rng();
 
@@ -1479,7 +1449,7 @@ class MCFLemonSolver : public CDASolver
     // any remaining Modification is plainly ignored, since it must be an
     // "abstract" Modification, which this Solver does not need to look at
 
-  } // end( guts_of_poM )
+  }*/ // end( guts_of_poM )
 
   /*--------------------------------------------------------------------------*/
   /*--------------------------------------------------------------------------*/

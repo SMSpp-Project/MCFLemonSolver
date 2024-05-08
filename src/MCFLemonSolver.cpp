@@ -7,7 +7,11 @@
  * \author Daniele Caliandro \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Daniele Caliandro
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Daniele Caliandro, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -36,7 +40,7 @@ using namespace SMSpp_di_unipi_it;
 // register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolver< NetworkSimplex , SmartDigraph , double , double > );
+ MCFLemonSolver< NetworkSimplex , SmartDigraph , double , double >);
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 

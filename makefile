@@ -33,9 +33,10 @@
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include
+MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include -I$(MCFLESDR)/../smspp/include -I$(MCFLESDR)/../mcfblock/include  -I/usr/include/eigen3
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
