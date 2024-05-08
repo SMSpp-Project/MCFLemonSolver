@@ -168,7 +168,8 @@ namespace SMSpp_di_unipi_it
  *   < GR , V , C >) that are meant to be used instead of the original
  *   CapacityScaling and CostScaling. */
 
-template< typename Algo , typename GR , typename V , typename C >
+template< template< typename , typename , typename > typename Algo ,
+          typename GR , typename V , typename C >
   requires LEMONGraph< GR >
 class MCFLemonSolver : public CDASolver
 {
@@ -239,14 +240,15 @@ class MCFLemonSolver : public CDASolver
 
  
  
- Algo* f_algo;  //Algorithm used by lemon
+ Algo< GR , V , C > * f_algo;  //Algorithm used by lemon
 
  GR digraph;  //Rapresentation of directed graph
  V* value;   //Type of value of node
  C* costs;  //Type of costs of arcs
 
  int status = UNSOLVED;  //Variable used in compute function for getting status
- typename Algo::ProblemType status_2_pType;  //Status of compute() method
+ typename Algo< GR , V , C >::ProblemType status_2_pType;
+ //Status of compute() method
  
  double ticks;  //Elaped time in ticks for compute() method
 
@@ -629,13 +631,12 @@ class MCFLemonSolver : public CDASolver
     //TODO: change MCFC function to Algo function. DONE
     bool has_var_solution(void) override
     {
-      switch (this->get_status())
-      {
-      case (Algo::ProblemType::OPTIMAL):
-      case (Algo::ProblemType::UNBOUNDED):  
-        return (true);
+     switch (this->get_status()) {
+      case( Algo< GR , V , C >::ProblemType::OPTIMAL ):
+      case( Algo< GR , V , C >::ProblemType::UNBOUNDED ):  
+       return( true );
       default:
-        return (false);
+       return( false );
       }
     }
 
@@ -643,13 +644,12 @@ class MCFLemonSolver : public CDASolver
     //TODO: change MCFC function to Algo function.
     bool has_dual_solution(void) override
     {
-      switch (this->get_status())
-      {
-      case (Algo::ProblemType::OPTIMAL):
-      case (Algo::ProblemType::UNFEASIBLE):
-        return (true);
+     switch( this->get_status() ) {
+      case( Algo< GR , V , C >::ProblemType::OPTIMAL ):
+      case( Algo< GR , V , C >::ProblemType::UNFEASIBLE ):
+       return( true );
       default:
-        return (false);
+       return( false );
       }
     }
 
