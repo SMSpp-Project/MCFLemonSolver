@@ -187,7 +187,7 @@ class MCFLemonSolver : public CDASolver
 
    kUnbounded = kUnEval + 1     the model is provably unbounded
  *  @{ */
-
+  const int kErrorStatus = -1;
 /*
     
     kUnEval = 0     compute() has not been called yet
@@ -404,16 +404,16 @@ class MCFLemonSolver : public CDASolver
         // TODO: convert array from MCFB functions to Map for Algo functions.
 
 
-        digraph->reserveNode(MCFB->get_MaxNNodes());
-        digraph->reserveArc(MCFB->get_MaxNArcs());
+        digraph.reserveNode(MCFB->get_MaxNNodes());
+        digraph.reserveArc(MCFB->get_MaxNArcs());
 
         for(int i = 0; i < MCFB->get_NNodes();i++){
-          Digraph::Node n;
-          digraph->addNode(n);    
+          //Digraph::Node n;
+          digraph.addNode();    
         }
 
         for(int i = 0; i < MCFB->get_NArcs(); i++){
-          digraph->addArc(digraph.nodeFromId(MCFB->get_SN(i)), digraph.nodeFromId(MCFB->get_EN(i)));
+          digraph.addArc(digraph.nodeFromId(MCFB->get_SN(i)), digraph.nodeFromId(MCFB->get_EN(i)));
         }
 
         auto dgp = new GR;
@@ -433,13 +433,16 @@ class MCFLemonSolver : public CDASolver
         for( MCFBlock::Index i = 0; i < m; ++i){
           dgp->addArc( digraph.nodeFromId( sn[i] ), digraph.nodeFromId( en[i] ));
         }
-        using LemonGraph = SmartDigraph;
+        
         
         f_algo = new Algo< GR , V, C >(*dgp);
 
+        using MCFArcMapV = typename GR::template ArcMap< V >;
+        using MCFNodeMapV = typename GR::template NodeMap< V >;
+
         if(!MCFB->get_U().empty())
         {
-          Digraph::ArcMap< V > um(*dgp);
+          MCFArcMapV um(*dgp);
           MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
           for( MCFBlock::Index i = 0; i < m; ++i){
           um.set( dgp->arcFromId(i), u[i]);
@@ -449,7 +452,7 @@ class MCFLemonSolver : public CDASolver
 
         if(!MCFB->get_C().empty())
         {
-          Digraph::ArcMap< C > cm(*dgp);
+          MCFArcMapV cm(*dgp);
           MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
           for( MCFBlock::Index i = 0; i < m; ++i){
             cm.set( dgp->arcFromId(i), c[i]);
@@ -460,10 +463,11 @@ class MCFLemonSolver : public CDASolver
 
         if(!MCFB->get_B().empty())
         {
-          Digraph::ArcMap< V > bm(*dgp);
-          MCFBlock::c_Vec_FNumber & c = MCFB->get_B();
+
+          MCFNodeMapV bm(*dgp);
+          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
           for( MCFBlock::Index i = 0; i < m; ++i){
-            bm.set( dgp->arcFromId(i), - bm[i]);
+            bm.set( dgp->nodeFromId(i), -b[i]);
           }
           f_algo->supplyMap(bm);
 
@@ -530,8 +534,8 @@ class MCFLemonSolver : public CDASolver
       //TODO: map errors from Algo to MCFSolver. DONE
       //TODO: resolve for NULL values in LemonStatus_2_MCFstatus.
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-        NULL, OPTIMAL, NULL, INFEASIBLE,
-        UNBOUNDED, NULL};
+        kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
+        UNBOUNDED, kErrorStatus};
       
       const static std::array<int, 6> MCFstatus_2_sol_type = {
           kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -583,7 +587,10 @@ class MCFLemonSolver : public CDASolver
 
       chrono::duration< double > elapsed = end - start;
       ticks = elapsed.count();
-      
+      int status = this->get_status();
+      if(LemonStatus_2_MCFstatus[status] == kErrorStatus){
+        return Solver::kError;
+      }
 
       
 
@@ -594,7 +601,7 @@ class MCFLemonSolver : public CDASolver
       // hence the returned status has to be shifted by + 1
       //TODO: change MCFC function to Algo function.
       //Da rivedere, this->get_status() potrebbe non essere corretta.
-      return (MCFstatus_2_sol_type[this->get_status()]);
+      return (MCFstatus_2_sol_type[status]);
     }
 
     /** @} ---------------------------------------------------------------------*/
@@ -646,7 +653,7 @@ class MCFLemonSolver : public CDASolver
     {
      switch( this->get_status() ) {
       case( Algo< GR , V , C >::ProblemType::OPTIMAL ):
-      case( Algo< GR , V , C >::ProblemType::UNFEASIBLE ):
+      case( Algo< GR , V , C >::ProblemType::INFEASIBLE ):
        return( true );
       default:
        return( false );
@@ -670,7 +677,7 @@ class MCFLemonSolver : public CDASolver
      * solution". In all other cases, the flow solution is saved. */
 
     void get_var_solution(Configuration *solc = nullptr) override
-    {
+    {/*
       if (!f_Block) // no [MCF]Block to write to
         return;     // cowardly and silently return
 
@@ -682,8 +689,8 @@ class MCFLemonSolver : public CDASolver
       MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
       this->MCFGetX(X.data());
       MCFB->set_x(X.begin());
-    }
-
+   */}
+  
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     /// write the "current" dual solution in the Constraint of the MCFBlock
     /** Write the "current" dual solution, i.e., node potentials and flow
@@ -695,10 +702,10 @@ class MCFLemonSolver : public CDASolver
      * a SimpleConfiguration< int >, and solc->f_value == 1, then *nothing is
      * done*, since the Configuration is meant to say "only save/map the primal
      * solution". In all other cases, the flow solution is saved. */
-
+    
     void get_dual_solution(Configuration *solc = nullptr) override
     {
-      if (!f_Block) // no [MCF]Block to write to
+    /*  if (!f_Block) // no [MCF]Block to write to
         return;     // cowardly and silently return
 
       auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
@@ -713,15 +720,15 @@ class MCFLemonSolver : public CDASolver
       MCFBlock::Vec_FNumber RC(MCFB->get_NArcs());
       this->MCFGetRC(RC.data());
       MCFB->set_rc(RC.begin());
-    }
-
+    */}
+    
     /*--------------------------------------------------------------------------*/
 
-    bool new_var_solution(void) override { return (this->HaveNewX()); }
+   // bool new_var_solution(void) override { return (this->HaveNewX()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-    bool new_dual_solution(void) override { return (this->HaveNewPi()); }
+   // bool new_dual_solution(void) override { return (this->HaveNewPi()); }
 
     /*--------------------------------------------------------------------------*/
     /*

@@ -38,7 +38,8 @@ MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
 MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include -I$(MCFLESDR)/../smspp/include -I$(MCFLESDR)/../mcfblock/include  -I/usr/include/eigen3
 
-MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
+MCFLEH   = -L$(MCFLESDR)/include/MCFLemonSolver.h
+
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -49,7 +50,7 @@ clean::
 
 $(MCFLESDR)/obj/MCFLemonSolver.o: $(MCFLESDR)/src/MCFLemonSolver.cpp \
 	$(MCFLEH)
-	$(CC) -c $(MCFLESDR)/src/MCFLemonSolver.cpp -o $@ $(SW) \
+	$(CC) -c $(MCFLESDR)/src/MCFLemonSolver.cpp  -o $@ $(SW) \
 	$(MCFLEINC) 
 
 ########################## End of makefile ###################################
