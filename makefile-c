@@ -53,6 +53,6 @@ MCFLEINC := $(SMS++INC) $(MCFBkINC) $(MCFLEINC)
 
 # external libraries for MCFLEMONSolver
 MCFLELIB = $(SMS++LIB) $(MCFBkLIB) \
-	 -L$(MCFLESDR)/lemon-development/lib/lemon/lib -llemon
+	 -L$(MCFLESDR)/lemon-development/lib/lib -llemon
 
 ############################ End of makefile #################################
