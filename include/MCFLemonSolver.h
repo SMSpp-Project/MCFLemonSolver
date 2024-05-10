@@ -993,15 +993,15 @@ class MCFLemonSolver : public CDASolver
     /** @name Handling the State of the MCFSolver
      *  @{ */
 
-    [[nodiscard]] State *get_State(void) const override;
+    //[[nodiscard]] State *get_State(void) const override;
 
     /*--------------------------------------------------------------------------*/
 
-    void put_State(const State &state) override;
+    //void put_State(const State &state) override;
 
     /*--------------------------------------------------------------------------*/
 
-    void put_State(State &&state) override;
+    //void put_State(State &&state) override;
 
     /** @} ---------------------------------------------------------------------*/
     /*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
