@@ -514,13 +514,13 @@ class MCFLemonSolver : public CDASolver
     }
     */
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     void set_par(idx_type par, const std::string &value) override
     {
       if (par == strDMXFile)
         f_dmx_file = value;
     }
-    */
+    
 
     /** @} ---------------------------------------------------------------------*/
     /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
@@ -552,7 +552,7 @@ class MCFLemonSolver : public CDASolver
 
       // while [read_]locked, process any outstanding Modification
       //TODO: ensure that modification are actually processed for MCFLemonSolver.
-      process_outstanding_Modification();
+      //process_outstanding_Modification();
 
       if (!f_dmx_file.empty())
       { // if so required
@@ -835,44 +835,44 @@ class MCFLemonSolver : public CDASolver
      *  @{ */
 
 
-    /*[[nodiscard]] idx_type get_num_int_par(void) const override
-    {
+    [[nodiscard]] idx_type get_num_int_par(void) const override
+    {/*
       return (CDASolver::get_num_int_par() + 1);
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
-    {
+    {/*
       return (CDASolver::get_num_dbl_par());
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] idx_type get_num_str_par(void) const override
-    {
+    {/*
       return (CDASolver::get_num_str_par() + 1);
-    }
-    */
+    */}
+    
     /*--------------------------------------------------------------------------*/
-    /*
+    
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
-    {
+    {/*
       if (par == intLastParCDAS)
         return (MCFClass::kYes);
 
       return (CDASolver::get_dflt_int_par(par));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
-    {
+    {/*
       return (CDASolver::get_dflt_dbl_par(par));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
@@ -882,11 +882,11 @@ class MCFLemonSolver : public CDASolver
 
       return (CDASolver::get_dflt_str_par(par));
     }
-    */
+    
     /*--------------------------------------------------------------------------*/
-    /*
+    
     [[nodiscard]] int get_int_par(idx_type par) const override
-    {
+    {/*
       if (Solver_2_MCFClass_int[par] >= 0)
       {
         int val;
@@ -895,12 +895,12 @@ class MCFLemonSolver : public CDASolver
       }
 
       return (get_dflt_int_par(par));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] double get_dbl_par(idx_type par) const override
-    {
+    {/*
       if (Solver_2_MCFClass_dbl[par] >= 0)
       {
         double val;
@@ -909,10 +909,10 @@ class MCFLemonSolver : public CDASolver
       }
 
       return (get_dflt_dbl_par(par));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] const std::string &get_str_par(idx_type par)
         const override
     {
@@ -921,71 +921,71 @@ class MCFLemonSolver : public CDASolver
 
       return (get_dflt_str_par(par));
     }
-    */
+    
     /*--------------------------------------------------------------------------*/
-    /*
+    
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
-    {
+    {/*
       if (name == "kReopt")
         return (kReopt);
 
       return (CDASolver::int_par_str2idx(name));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
-    {
+    {/*
       return (CDASolver::dbl_par_str2idx(name));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] idx_type str_par_str2idx(const std::string &name)
         const override
-    {
+    {/*
       if (name == "strDMXFile")
         return (strDMXFile);
 
       return (CDASolver::str_par_str2idx(name));
-    }
-    */
+    */}
+    
     /*--------------------------------------------------------------------------*/
-    /*
+    
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
-    {
+    {/*
       static const std::string my_name = "kReopt";
 
       if (idx == intLastParCDAS)
         return (my_name);
 
       return (CDASolver::int_par_idx2str(idx));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
-    {
+    {/*
       return (CDASolver::dbl_par_idx2str(idx));
-    }
-    */
+    */}
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*
+    
     [[nodiscard]] const std::string &str_par_idx2str(idx_type idx)
         const override
-    {
+    {/*
       static const std::string my_name = "strDMXFile";
 
       if (idx == strDMXFile)
         return (my_name);
 
       return (CDASolver::str_par_idx2str(idx));
-    }
-    */
+    */}
+    
 
     /** @} ---------------------------------------------------------------------*/
     /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
@@ -1064,7 +1064,7 @@ class MCFLemonSolver : public CDASolver
     /*-------------------------------- FRIENDS ---------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    friend class MCFSolverState; // make MCFSolverState friend
+    friend class MCFLemonState; // make MCFSolverState friend
 
     /** @} ---------------------------------------------------------------------*/
     /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -1114,7 +1114,7 @@ class MCFLemonSolver : public CDASolver
    *  i.e., a MCFClass::MCFState (*). Since MCFClass::MCFState does not allow
    *  serialization, all that part does not work.  */
 
-  class MCFSolverState : public State
+  class MCFLemonState : public State
   {
     /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
 

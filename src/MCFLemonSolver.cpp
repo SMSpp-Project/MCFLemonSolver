@@ -112,7 +112,7 @@ const std::vector< int > MCFSolver< MCFSimplex >::Solver_2_MCFClass_dbl = {
 template<>
 Solver::idx_type MCFSolver< MCFSimplex >::get_num_int_par( void ) const
 {
- return( CDASolver::get_num_int_par() + 5 );
+ //return( CDASolver::get_num_int_par() + 5 );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -124,13 +124,13 @@ Solver::idx_type MCFSolver< MCFSimplex >::get_num_dbl_par( void ) const { }
 
 template<>
 int MCFSolver< MCFSimplex >::get_dflt_int_par( idx_type par ) const
-{
+{/*
  static const std::array< int , 5 > my_dflt_int_par = { MCFClass::kYes ,
 		  MCFClass::kYes , MCFSimplex::kCandidateListPivot , 0 , 0 };
 
  return( par >= intLastParCDAS ? my_dflt_int_par[ par - intLastParCDAS ]
 	                       : CDASolver::get_dflt_int_par( par ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -143,7 +143,7 @@ double MCFSolver< MCFSimplex >::get_dflt_dbl_par( const idx_type par )
 template<>
 Solver::idx_type MCFSolver< MCFSimplex >::int_par_str2idx(
 					     const std::string & name ) const
-{
+{/*
  if( name == "kReopt" )
   return( intLastParCDAS );
  if( name == "kAlgPrimal" )
@@ -156,7 +156,7 @@ Solver::idx_type MCFSolver< MCFSimplex >::int_par_str2idx(
   return( intLastParCDAS + 4 );
 
  return( CDASolver::dbl_par_str2idx( name ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -168,14 +168,14 @@ Solver::idx_type MCFSolver< MCFSimplex >::dbl_par_str2idx(
 
 template<>
 const std::string & MCFSolver< MCFSimplex >::int_par_idx2str( idx_type idx )
- const {
+ const {/*
  static const std::array< std::string , 5 > my_int_pars_str = {
   "kReopt" , "kAlgPrimal" , "kAlgPricing" , "kNumCandList" , "kHotListSize"
   };
 
  return( idx >= intLastParCDAS ? my_int_pars_str[ idx - intLastParCDAS ]
 	                       : CDASolver::int_par_idx2str( idx ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -235,7 +235,7 @@ const std::vector< int > MCFSolver< RelaxIV >::Solver_2_MCFClass_dbl = {
 template<>
 Solver::idx_type MCFSolver< RelaxIV >::get_num_int_par( void ) const
 {
- return( CDASolver::get_num_int_par() + 2 );
+ //return( CDASolver::get_num_int_par() + 2 );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -247,13 +247,13 @@ Solver::idx_type MCFSolver< RelaxIV >::get_num_dbl_par( void ) const { }
 
 template<>
 int MCFSolver< RelaxIV >::get_dflt_int_par( const idx_type par ) const
-{
+{/*
  static const std::array< int , 2 > my_dflt_int_par = { MCFClass::kYes ,
 						        MCFClass::kYes };
 
  return( par >= intLastParCDAS ? my_dflt_int_par[ par - intLastParCDAS ]
 	                       : CDASolver::get_dflt_int_par( par ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -265,14 +265,14 @@ double MCFSolver< RelaxIV >::get_dflt_dbl_par( idx_type par ) const { }
 template<>
 Solver::idx_type MCFSolver< RelaxIV >::int_par_str2idx(
 					     const std::string & name ) const
-{
+{/*
  if( name == "kReopt" )
   return( intLastParCDAS );
  if( name == "kAuction" )
   return( intLastParCDAS + 1 );
 
  return( CDASolver::dbl_par_str2idx( name ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -285,12 +285,12 @@ Solver::idx_type MCFSolver< RelaxIV >::dbl_par_str2idx(
 template<>
 const std::string & MCFSolver< RelaxIV >::int_par_idx2str( idx_type idx )
  const {
- static const std::array< std::string , 2 > my_int_pars_str = { "kReopt" ,
+ /*static const std::array< std::string , 2 > my_int_pars_str = { "kReopt" ,
 								"kAuction" };
 
  return( idx >= intLastParCDAS ? my_int_pars_str[ idx - intLastParCDAS ]
 	                       : CDASolver::int_par_idx2str( idx ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -343,7 +343,7 @@ const std::vector< int > MCFSolver< MCFCplex >::Solver_2_MCFClass_dbl =
 
 template<>
 Solver::idx_type MCFSolver< MCFCplex >::get_num_int_par( void ) const {
- return( CDASolver::get_num_int_par() + 2 );
+ //return( CDASolver::get_num_int_par() + 2 );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -355,12 +355,12 @@ Solver::idx_type MCFSolver< MCFCplex >::get_num_dbl_par( void ) const { }
 
 template<>
 int MCFSolver< MCFCplex >::get_dflt_int_par( idx_type par ) const {
- static const std::array< int , 2 > my_dflt_int_par = { MCFClass::kYes ,
+ /*static const std::array< int , 2 > my_dflt_int_par = { MCFClass::kYes ,
                                                         MCFClass::kYes };
  return( par >= intLastParCDAS ?
          my_dflt_int_par[ par - intLastParCDAS ] :
          CDASolver::get_dflt_int_par( par ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -372,13 +372,13 @@ int MCFSolver< MCFCplex >::get_dflt_int_par( idx_type par ) const {
 template<>
 Solver::idx_type MCFSolver< MCFCplex >::int_par_str2idx(
 					   const std::string & name ) const {
- if( name == "kReopt" )
+ /*if( name == "kReopt" )
   return( intLastParCDAS );
  if( name == "kQPMethod" )
   return( kQPMethod + 1 );
 
  return( CDASolver::dbl_par_str2idx( name ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -391,12 +391,12 @@ Solver::idx_type MCFSolver< MCFCplex >::dbl_par_str2idx(
 template<>
 const std::string & MCFSolver< MCFCplex >::int_par_idx2str( idx_type idx )
  const {
- static const std::array< std::string , 2 > my_int_pars_str = { "kReopt" ,
+ /*static const std::array< std::string , 2 > my_int_pars_str = { "kReopt" ,
                                                                 "kQPMethod" };
  return( idx >= intLastParCDAS ?
          my_int_pars_str[ idx - intLastParCDAS ] :
          CDASolver::int_par_idx2str( idx ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -444,8 +444,8 @@ const std::vector< int > MCFSolver< SPTree >::Solver_2_MCFClass_dbl = {
 
 template<>
 Solver::idx_type MCFSolver< SPTree >::get_num_int_par( void ) const {
- return( CDASolver::get_num_int_par() + 1 );
- }
+ /*return( CDASolver::get_num_int_par() + 1 );
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -456,12 +456,12 @@ Solver::idx_type MCFSolver< SPTree >::get_num_dbl_par( void ) const { }
 
 template<>
 int MCFSolver< SPTree >::get_dflt_int_par( idx_type par ) const {
- static const std::array< int , 1 > my_dflt_int_par = { MCFClass::kYes };
+ /*static const std::array< int , 1 > my_dflt_int_par = { MCFClass::kYes };
 
  return( par >= intLastParCDAS ?
          my_dflt_int_par[ par - intLastParCDAS ] :
          CDASolver::get_dflt_int_par( par ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -473,11 +473,11 @@ double MCFSolver< SPTree >::get_dflt_dbl_par( idx_type par ) const { }
 template<>
 Solver::idx_type MCFSolver< SPTree >::int_par_str2idx(
 					  const std::string & name ) const {
- if( name == "kReopt" )
+ /*if( name == "kReopt" )
   return( intLastParCDAS );
 
  return( CDASolver::dbl_par_str2idx( name ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -489,13 +489,13 @@ Solver::idx_type MCFSolver< SPTree >::dbl_par_str2idx(
 
 template<>
 const std::string & MCFSolver< SPTree >::int_par_idx2str( idx_type idx )
- const {
+ const {/*
  static const std::array< std::string , 1 > my_int_pars_str = { "kReopt" };
 
  return( idx >= intLastParCDAS ?
          my_int_pars_str[ idx - intLastParCDAS ] :
          CDASolver::int_par_idx2str( idx ) );
- }
+ */}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
