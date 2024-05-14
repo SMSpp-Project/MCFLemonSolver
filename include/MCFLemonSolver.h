@@ -226,6 +226,7 @@ class MCFLemonSolver : public CDASolver
  MCFLemonSolver( void ) : CDASolver() {
 
   f_algo = NULL;
+  dgp = new GR;
  /* static_assert( std::is_same< Algo< GR , V , C > ,
                                SMSppCapacityScaling< GR , V , C > >::value ||
 		 std::is_same< Algo< GR , V , C > ,
@@ -240,11 +241,12 @@ class MCFLemonSolver : public CDASolver
  
   ~MCFLemonSolver( void ) {
     delete f_algo;
+    delete dgp;
   }
  
  Algo< GR , V , C > * f_algo;  //Algorithm used by lemon
 
- GR digraph;  //Rapresentation of directed graph
+ GR* dgp;  //Rapresentation of directed graph
  V* value;   //Type of value of node
  C* costs;  //Type of costs of arcs
 
@@ -405,13 +407,12 @@ class MCFLemonSolver : public CDASolver
         // TODO: change MCFC function to Algo function.
         // TODO: convert array from MCFB functions to Map for Algo functions.
 
-        auto dgp = new GR;
+        dgp = new GR;
 
         dgp->reserveNode( MCFB->get_MaxNNodes() );
         MCFBlock::Index n = MCFB->get_NNodes();
 
         for( MCFBlock::Index i = 0; i < n; ++i)
-          
           dgp->addNode();
 
         dgp->reserveArc( MCFB->get_MaxNArcs() );
@@ -421,7 +422,7 @@ class MCFLemonSolver : public CDASolver
         MCFBlock::c_Subset & en = MCFB->get_EN();
 
         for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( digraph.nodeFromId( sn[i] - 1) , digraph.nodeFromId( en[i] - 1 ) );
+          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
         }
         
         
@@ -554,7 +555,7 @@ class MCFLemonSolver : public CDASolver
           throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
         //WriteMCF(ProbFile);
-        writeDimacsMat(ProbFile, digraph);
+        writeDimacsMat(ProbFile, *dgp);
         ProbFile.close();
       }
 
