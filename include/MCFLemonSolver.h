@@ -237,8 +237,10 @@ class MCFLemonSolver : public CDASolver
 		 "Algo must be one of the LEMON algorithms");
   */
   }
-
  
+  ~MCFLemonSolver( void ) {
+    delete f_algo;
+  }
  
  Algo< GR , V , C > * f_algo;  //Algorithm used by lemon
 
@@ -403,35 +405,23 @@ class MCFLemonSolver : public CDASolver
         // TODO: change MCFC function to Algo function.
         // TODO: convert array from MCFB functions to Map for Algo functions.
 
-
-        digraph.reserveNode(MCFB->get_MaxNNodes());
-        digraph.reserveArc(MCFB->get_MaxNArcs());
-
-        for(int i = 0; i < MCFB->get_NNodes();i++){
-          //Digraph::Node n;
-          digraph.addNode();    
-        }
-
-        for(int i = 0; i < MCFB->get_NArcs(); i++){
-          digraph.addArc(digraph.nodeFromId(MCFB->get_SN(i)), digraph.nodeFromId(MCFB->get_EN(i)));
-        }
-
         auto dgp = new GR;
 
         dgp->reserveNode( MCFB->get_MaxNNodes() );
-        auto n = MCFB->get_NNodes();
+        MCFBlock::Index n = MCFB->get_NNodes();
 
         for( MCFBlock::Index i = 0; i < n; ++i)
+          
           dgp->addNode();
 
         dgp->reserveArc( MCFB->get_MaxNArcs() );
-        auto m = MCFB->get_NArcs();
+        MCFBlock::Index m = MCFB->get_NArcs();
 
         MCFBlock::c_Subset & sn = MCFB->get_SN();
         MCFBlock::c_Subset & en = MCFB->get_EN();
 
         for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( digraph.nodeFromId( sn[i] ), digraph.nodeFromId( en[i] ));
+          dgp->addArc( digraph.nodeFromId( sn[i] - 1) , digraph.nodeFromId( en[i] - 1 ) );
         }
         
         
@@ -488,7 +478,9 @@ class MCFLemonSolver : public CDASolver
           MCFB->read_unlock();
 
         // TODO: maybe log it
+       //delete dgp;
       }
+      
     } // end( set_Block )
 
     /*--------------------------------------------------------------------------*/
@@ -1151,7 +1143,7 @@ class MCFLemonSolver : public CDASolver
     /*--------------------------------------------------------------------------*/
     /// destructor
 
-    //virtual ~MCFSolverState() { delete f_state; }
+    //virtual ~MCFLemonState() { delete f_state; }
 
     /*---------- METHODS DESCRIBING THE BEHAVIOR OF A MCFSolverState -----------*/
 
