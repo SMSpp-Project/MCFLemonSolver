@@ -244,17 +244,7 @@ class MCFLemonSolver : public CDASolver
     delete dgp;
   }
  
- Algo< GR , V , C > * f_algo;  //Algorithm used by lemon
-
- GR* dgp;  //Rapresentation of directed graph
- V* value;   //Type of value of node
- C* costs;  //Type of costs of arcs
-
- int status = UNSOLVED;  //Variable used in compute function for getting status
- typename Algo< GR , V , C >::ProblemType status_2_pType;
- //Status of compute() method
  
- double ticks;  //Elaped time in ticks for compute() method
 
 /*--------------------------------------------------------------------------*/
  /* intMaxIter = 0     maximum iterations for the next call to solve()
@@ -407,7 +397,7 @@ class MCFLemonSolver : public CDASolver
         // TODO: change MCFC function to Algo function.
         // TODO: convert array from MCFB functions to Map for Algo functions.
 
-        dgp = new GR;
+        dgp->clear();
 
         dgp->reserveNode( MCFB->get_MaxNNodes() );
         MCFBlock::Index n = MCFB->get_NNodes();
@@ -1095,6 +1085,22 @@ class MCFLemonSolver : public CDASolver
 
     SMSpp_insert_in_factory_h;
 
+     /*--------------------------------------------------------------------------*/
+    /*-------------------------- PRIVATE FIELDS -------------------------------*/
+    /*--------------------------------------------------------------------------*/
+
+
+    Algo< GR , V , C > * f_algo;  //Algorithm used by lemon
+
+    GR* dgp;  //Rapresentation of directed graph
+    V* value;   //Type of value of node
+    C* costs;  //Type of costs of arcs
+
+    int status = UNSOLVED;  //Variable used in compute function for getting status
+    typename Algo< GR , V , C >::ProblemType status_2_pType;
+    //Status of compute() method
+    
+    double ticks;  //Elaped time in ticks for compute() method
     /*--------------------------------------------------------------------------*/
 
   }; // end( class MCFSolver )
