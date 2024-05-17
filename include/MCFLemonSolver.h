@@ -224,9 +224,8 @@ class MCFLemonSolver : public CDASolver
   * arguments. */
 
  MCFLemonSolver( void ) : CDASolver() {
-
   f_algo = NULL;
-  dgp = new GR;
+
  /* static_assert( std::is_same< Algo< GR , V , C > ,
                                SMSppCapacityScaling< GR , V , C > >::value ||
 		 std::is_same< Algo< GR , V , C > ,
@@ -242,6 +241,7 @@ class MCFLemonSolver : public CDASolver
   ~MCFLemonSolver( void ) {
     delete f_algo;
     delete dgp;
+    
   }
  
  
@@ -377,6 +377,10 @@ class MCFLemonSolver : public CDASolver
  /// set the (pointer to the) Block that the Solver has to solve
  void set_Block(Block *block) override
     {
+      delete f_algo;
+      f_algo=NULL;
+
+      counter++;
       if (block == f_Block) // actually doing nothing
         return;             // cowardly and silently return
 
@@ -396,7 +400,7 @@ class MCFLemonSolver : public CDASolver
         // load the new MCFBlock into the :MCFClass object
         // TODO: change MCFC function to Algo function.
         // TODO: convert array from MCFB functions to Map for Algo functions.
-
+        dgp = new GR;
         dgp->clear();
 
         dgp->reserveNode( MCFB->get_MaxNNodes() );
@@ -415,6 +419,23 @@ class MCFLemonSolver : public CDASolver
           dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
         }
         
+        int count = 0;
+        using MCFLNodeIt = typename GR::NodeIt;
+        for(MCFLNodeIt n(*dgp); n!= INVALID; ++n){
+          if(dgp->valid(n)){
+            count++;
+          }
+        }
+
+        int count2 = 0;
+        using MCFLArcIt = typename GR::ArcIt;
+        for(MCFLArcIt a(*dgp); a!= INVALID; ++a){
+          if(dgp->valid(a)){
+            count2++;
+          }
+        }
+
+
         
         f_algo = new Algo< GR , V, C >(*dgp);
 
@@ -469,7 +490,7 @@ class MCFLemonSolver : public CDASolver
           MCFB->read_unlock();
 
         // TODO: maybe log it
-       //delete dgp;
+        //delete dgp;
       }
       
     } // end( set_Block )
@@ -1095,7 +1116,7 @@ class MCFLemonSolver : public CDASolver
     GR* dgp;  //Rapresentation of directed graph
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
-
+    int counter=0;
     int status = UNSOLVED;  //Variable used in compute function for getting status
     typename Algo< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
