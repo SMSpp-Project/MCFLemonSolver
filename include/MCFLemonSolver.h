@@ -377,12 +377,13 @@ class MCFLemonSolver : public CDASolver
  /// set the (pointer to the) Block that the Solver has to solve
  void set_Block(Block *block) override
     {
-      delete f_algo;
-      f_algo=NULL;
-
-      counter++;
+     
+      
       if (block == f_Block) // actually doing nothing
         return;             // cowardly and silently return
+      
+      delete f_algo;
+      f_algo=NULL;
 
       Solver::set_Block(block); // attach to the new Block
 
@@ -418,22 +419,6 @@ class MCFLemonSolver : public CDASolver
         for( MCFBlock::Index i = 0; i < m; ++i){
           dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
         }
-        
-        int count = 0;
-        using MCFLNodeIt = typename GR::NodeIt;
-        for(MCFLNodeIt n(*dgp); n!= INVALID; ++n){
-          if(dgp->valid(n)){
-            count++;
-          }
-        }
-
-        int count2 = 0;
-        using MCFLArcIt = typename GR::ArcIt;
-        for(MCFLArcIt a(*dgp); a!= INVALID; ++a){
-          if(dgp->valid(a)){
-            count2++;
-          }
-        }
 
 
         
@@ -468,7 +453,7 @@ class MCFLemonSolver : public CDASolver
 
           MCFNodeMapV bm(*dgp);
           MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-          for( MCFBlock::Index i = 0; i < m; ++i){
+          for( MCFBlock::Index i = 0; i < n; i++){
             bm.set( dgp->nodeFromId(i), -b[i]);
           }
           f_algo->supplyMap(bm);
