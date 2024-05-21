@@ -225,6 +225,8 @@ class MCFLemonSolver : public CDASolver
 
  MCFLemonSolver( void ) : CDASolver() {
   f_algo = NULL;
+  f_pivot_rule = NULL;
+  f_method = NULL;
 
  /* static_assert( std::is_same< Algo< GR , V , C > ,
                                SMSppCapacityScaling< GR , V , C > >::value ||
@@ -285,36 +287,71 @@ class MCFLemonSolver : public CDASolver
     */
 
 /*--------------------------------------------------------------------------*/
- /// public enum "extending" int_par_type_CDAS to MCFSolver
+ /// public enum "extending" int_par_type_CDAS to
+ /// MCFLemonSolver< NetworkSimplex, C , V >
 
- enum int_par_type_MCFS {
-  kReopt = intLastParCDAS, ///< whether or not to reoptimize
-  intLastParMCF       ///< first allowed parameter value for derived classes
-                      /**< convenience value for easily allow derived classes
+ enum int_par_type_LEMON_NS{
+  kPivot = intLastParCDAS ///< the pivot rule
+                /**< convenience value for easily allow derived classes
 		       * to further extend the set of types of return codes */
-  };  // end( int_par_type_MCFS )
+  };  // end( int_par_type_LEMON_NS )
+  
+  ///public enum "extending" int_par_type_CDAS to
+  /// MCFLemonSolver< CostScaling, C , V >
+
+  enum int_par_type_LEMON_COS{
+    kMethod = intLastParCDAS ///< the method for scaling the costs
+  };
+
+/* /// public enum "extending" int_par_type_CDAS to
+  /// MCFLemonSolver< CapacityScaling, C , V >
+
+  enum int_par_type_LEMON_CAS{
+    kMethod = intLastParCDAS ///< the method for scaling the capacities
+  };*/
+
+  /// public enum "extending" int_par_type_CDAS to
+  /// MCFLemonSolver< CycleCanceling, C , V >
+
+ /* enum int_par_type_LEMON_CC{
+    kMethod = intLastParCDAS ///< the method for run() function
+  }; */
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// public enum "extending" dbl_par_type_CDAS to MCFSolver
+ /// public enum "extending" dbl_par_type_CDAS 
+ /// to MCFLemonSolver< NetworkSimplex , C , V >
 
- enum dbl_par_type_MCFS {
-  dblLastParMCF = dblLastParCDAS
-  ///< first allowed parameter value for derived classes
+ enum dbl_par_type_LEMON_NS {
+  dblBlockSizeFactor = dblLastParCDAS ///< the block size factor
+
   /**< convenience value for easily allow derived classes
    * to further extend the set of types of return codes */
-  };  // end( dbl_par_type_MCFS )
+  };  // end( dbl_par_type_LEMON_NS )
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// public enum "extending" str_par_type_CDAS to MCFSolver
-
- enum str_par_type_MCFS {
-  strDMXFile = strLastParCDAS, ///< DMX filename to output the instance
-  strLastParMCF        ///< first allowed parameter value for derived classes
-                       /**< convenience value for easily allow derived classes
-			* to further extend the set of types of return codes */
-  };  // end( dbl_par_type_MCFS )
+  /// public enum "extending" dbl_par_type_CDAS 
+  /// to MCFLemonSolver< CostScaling , C , V >
 
  /// public enum for the type of the solution
+ /// to MCFLemonSolver< CostScaling , C , V >
+
+ enum dbl_par_type_LEMON_COS{
+  dblCostScaleFactor = dblLastParCDAS ///< the cost scale factor
+ };
+
+/// public enum for the type of the solution
+/// to MCFLemonSolver< CapacityScaling , C , V >
+
+enum dbl_par_type_LEMON_CAS{
+  dblCapacityScaleFactor = dblLastParCDAS ///< the capacity scale factor
+};
+
+/// public enum for the type of the solution
+/// to MCFLemonSolver< CycleCanceling , C , V >
+
+enum dbl_par_type_LEMON_CC{
+  dblCycleCancelingFactor = dblLastParCDAS ///< the cycle canceling factor
+};
+
 
  enum sol_type
  {
@@ -476,6 +513,7 @@ class MCFLemonSolver : public CDASolver
 
         // TODO: maybe log it
         //delete dgp;
+        
       }
       
     } // end( set_Block )
@@ -487,21 +525,41 @@ class MCFLemonSolver : public CDASolver
     // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
     /*--------------------------------------------------------------------------*/
-    /* //TODO: change MCFC function to Algo function.
-    void set_par(idx_type par, int value) override
+    template < NetworkSimplex ,  GR,  V,  C >
+    void set_par(idx_type par, int value) 
     {
-      if (Solver_2_MCFClass_int[par] >= 0)
-        MCFC::SetPar(Solver_2_MCFClass_int[par], int(value));
+      if(par == kPivot){
+        switch(par){
+          case PivotRule::FIRST_ELIGIBLE:
+              FirstEligiblePivotRule(f_algo);
+              break;
+          case PivotRule::BEST_ELIGIBLE:
+              BestEligiblePivotRule(f_algo);
+              break;
+          case PivotRule::BLOCK_SEARCH:
+              BlockSearchPivotRule(f_algo);
+              break;
+          case PivotRule::ALTERING_LIST:
+              AlteringListPivotRule(f_algo);
+              break;
+          default:
+            break;          
+        }
+
+        return;
+      }
+
+      CDASolver::set_par(par, value);
     }
-    */
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /*//TODO: change MCFC function to Algo function.
+    //TODO: change MCFC function to Algo function.
     void set_par(idx_type par, double value) override
     {
       if (Solver_2_MCFClass_dbl[par] >= 0)
         MCFC::SetPar(Solver_2_MCFClass_dbl[par], double(value));
     }
-    */
+    
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     void set_par(idx_type par, const std::string &value) override
@@ -516,12 +574,11 @@ class MCFLemonSolver : public CDASolver
     /*--------------------------------------------------------------------------*/
     /** @name Solving the MCF encoded by the current MCFBlock
      *  @{ */
-
+    ///Method assuming NetworkSimplex as Algo used
     /// (try to) solve the MCF encoded in the MCFBlock
-    int compute( bool changedvars = true ) override
+    template< NetworkSimplex,  GR,  C,  V>
+    int compute( bool changedvars = true ) 
     {
-      //TODO: map errors from Algo to MCFSolver. DONE
-      //TODO: resolve for NULL values in LemonStatus_2_MCFstatus.
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
         kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
         UNBOUNDED, kErrorStatus};
@@ -558,20 +615,225 @@ class MCFLemonSolver : public CDASolver
       if (!owned)               // if the [MCF]Block was actually read_locked
         f_Block->read_unlock(); // read_unlock it
 
-      // ensure the timer exists (or reset it)
-      //TODO: implement timer with ctime. feature not present in Algo.
-      
-      //this->MCFC::SetMCFTime();
-
       // then (try to) solve the MCF
-      //TODO: change MCFC function to Algo function. DONE
-      //Probably running the method run of the Algo class. DONE
 
       auto start = chrono::system_clock::now();
 
-      //this->MCFC::SolveMCF();
-      this->status = f_algo->run();
+      if(f_pivot_rule != NULL){
+          this->status = f_algo->run(f_pivot_rule);
+      }else{
+        //Build f_pivot_rule and execute run() method
+      }
+       
+      auto end = chrono::system_clock::now();
 
+      chrono::duration< double > elapsed = end - start;
+      ticks = elapsed.count();
+
+      if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
+        return Solver::kError;
+      }
+
+      
+      
+      unlock(); // release self-lock
+
+      // now give out the result: note that the vector MCFstatus_2_sol_type[]
+      // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
+      // hence the returned status has to be shifted by + 1
+      //TODO: change MCFC function to Algo function.
+      //Da rivedere, this->get_status() potrebbe non essere corretta.
+      return (MCFstatus_2_sol_type[this->get_status()]);
+    }
+
+    /// @brief partial specialization for 1st parameter CapacityScaling 
+    /// @param changedvars 
+    /// @return type of solution
+    template< CapacityScaling,  GR,  C,  V>
+    int compute( bool changedvars = true ) 
+    {
+      const static std::array<int, 6> LemonStatus_2_MCFstatus = {
+        kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
+        UNBOUNDED, kErrorStatus};
+      
+      const static std::array<int, 6> MCFstatus_2_sol_type = {
+          kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
+          Solver::kError};
+
+      lock(); // first of all, acquire self-lock
+
+      if (!f_Block)            // there is no [MCFBlock] to solve
+        return (kBlockLocked); // return error
+
+      bool owned = f_Block->is_owned_by(f_id); // check if already locked
+      if ((!owned) && (!f_Block->read_lock())) // if not try to read_lock
+        return (kBlockLocked);                 // return error on failure
+
+      // while [read_]locked, process any outstanding Modification
+      //TODO: ensure that modification are actually processed for MCFLemonSolver.
+      //process_outstanding_Modification();
+
+      if (!f_dmx_file.empty())
+      { // if so required
+        // output the current instance (after the changes) to a DMX file
+        std::ofstream ProbFile(f_dmx_file, ios_base::out | ios_base::trunc);
+        if (!ProbFile.is_open())
+          throw(std::logic_error("cannot open DMX file " + f_dmx_file));
+
+        //WriteMCF(ProbFile);
+        writeDimacsMat(ProbFile, *dgp);
+        ProbFile.close();
+      }
+
+      if (!owned)               // if the [MCF]Block was actually read_locked
+        f_Block->read_unlock(); // read_unlock it
+
+      auto start = chrono::system_clock::now();
+      //TODO: check if factor parameter needs to be changed.
+      this->status = f_algo->run();
+       
+      auto end = chrono::system_clock::now();
+
+      chrono::duration< double > elapsed = end - start;
+      ticks = elapsed.count();
+      if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
+        return Solver::kError;
+      }
+
+      
+      
+      unlock(); // release self-lock
+
+      // now give out the result: note that the vector MCFstatus_2_sol_type[]
+      // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
+      // hence the returned status has to be shifted by + 1
+      //TODO: change MCFC function to Algo function.
+      //Da rivedere, this->get_status() potrebbe non essere corretta.
+      return (MCFstatus_2_sol_type[this->get_status()]);
+    }
+
+    /// @brief partial specialization of 1st parameter for CostScaling
+    /// @param changedvars 
+    /// @return type of solution
+    template< CostScaling,  GR,  C,  V>    
+    int compute( bool changedvars = true ) 
+    {.
+      const static std::array<int, 6> LemonStatus_2_MCFstatus = {
+        kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
+        UNBOUNDED, kErrorStatus};
+      
+      const static std::array<int, 6> MCFstatus_2_sol_type = {
+          kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
+          Solver::kError};
+
+      lock(); // first of all, acquire self-lock
+
+      if (!f_Block)            // there is no [MCFBlock] to solve
+        return (kBlockLocked); // return error
+
+      bool owned = f_Block->is_owned_by(f_id); // check if already locked
+      if ((!owned) && (!f_Block->read_lock())) // if not try to read_lock
+        return (kBlockLocked);                 // return error on failure
+
+      // while [read_]locked, process any outstanding Modification
+      //TODO: ensure that modification are actually processed for MCFLemonSolver.
+      //process_outstanding_Modification();
+
+      if (!f_dmx_file.empty())
+      { // if so required
+        // output the current instance (after the changes) to a DMX file
+        std::ofstream ProbFile(f_dmx_file, ios_base::out | ios_base::trunc);
+        if (!ProbFile.is_open())
+          throw(std::logic_error("cannot open DMX file " + f_dmx_file));
+
+        //WriteMCF(ProbFile);
+        writeDimacsMat(ProbFile, *dgp);
+        ProbFile.close();
+      }
+
+      if (!owned)               // if the [MCF]Block was actually read_locked
+        f_Block->read_unlock(); // read_unlock it
+
+      auto start = chrono::system_clock::now();
+      
+      if(f_method != NULL){
+      this->status = f_algo->run(f_method);
+      }else{
+        //Build f_method and execute run() method
+      }
+       
+      auto end = chrono::system_clock::now();
+
+      chrono::duration< double > elapsed = end - start;
+      ticks = elapsed.count();
+      if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
+        return Solver::kError;
+      }
+
+      
+      
+      unlock(); // release self-lock
+
+      // now give out the result: note that the vector MCFstatus_2_sol_type[]
+      // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
+      // hence the returned status has to be shifted by + 1
+      return (MCFstatus_2_sol_type[this->get_status()]);
+    }
+
+
+    /// @brief partial specialization of 1st parameter CycleCanceling
+    /// @tparam GR 
+    /// @tparam C 
+    /// @tparam V   
+    /// @param changedvars 
+    /// @return type of solution
+    template< CycleCanceling,  GR,  C,  V>
+    int compute( bool changedvars = true ) 
+    {
+      const static std::array<int, 6> LemonStatus_2_MCFstatus = {
+        kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
+        UNBOUNDED, kErrorStatus};
+      
+      const static std::array<int, 6> MCFstatus_2_sol_type = {
+          kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
+          Solver::kError};
+
+      lock(); // first of all, acquire self-lock
+
+      if (!f_Block)            // there is no [MCFBlock] to solve
+        return (kBlockLocked); // return error
+
+      bool owned = f_Block->is_owned_by(f_id); // check if already locked
+      if ((!owned) && (!f_Block->read_lock())) // if not try to read_lock
+        return (kBlockLocked);                 // return error on failure
+
+      // while [read_]locked, process any outstanding Modification
+      //TODO: ensure that modification are actually processed for MCFLemonSolver.
+      //process_outstanding_Modification();
+
+      if (!f_dmx_file.empty())
+      { // if so required
+        // output the current instance (after the changes) to a DMX file
+        std::ofstream ProbFile(f_dmx_file, ios_base::out | ios_base::trunc);
+        if (!ProbFile.is_open())
+          throw(std::logic_error("cannot open DMX file " + f_dmx_file));
+
+        //WriteMCF(ProbFile);
+        writeDimacsMat(ProbFile, *dgp);
+        ProbFile.close();
+      }
+
+      if (!owned)               // if the [MCF]Block was actually read_locked
+        f_Block->read_unlock(); // read_unlock it
+
+      auto start = chrono::system_clock::now();
+     
+      if(f_method != NULL){
+      this->status = f_algo->run(f_method);
+      }else{
+        //Build f_method and execute run() method
+      }
+       
       auto end = chrono::system_clock::now();
 
       chrono::duration< double > elapsed = end - start;
@@ -582,7 +844,7 @@ class MCFLemonSolver : public CDASolver
       }
 
       
-
+      
       unlock(); // release self-lock
 
       // now give out the result: note that the vector MCFstatus_2_sol_type[]
@@ -592,6 +854,7 @@ class MCFLemonSolver : public CDASolver
       //Da rivedere, this->get_status() potrebbe non essere corretta.
       return (MCFstatus_2_sol_type[status]);
     }
+
 
     /** @} ---------------------------------------------------------------------*/
     /*---------------------- METHODS FOR READING RESULTS -----------------------*/
@@ -1078,7 +1341,14 @@ class MCFLemonSolver : public CDASolver
     const static std::vector<int> Solver_2_MCFClass_dbl;
     // the (static const) map between Solver int parameters and MCFClass ones
 
-    std::string f_dmx_file; // string for DMX file output
+    std::string f_dmx_file; 
+    // string for DMX file output
+
+    PivotRule *f_pivot_rule;
+    // PivotRule for NetworkSimplex istance
+
+    Method *f_method;
+    // Method for CycleCanceling, CostScaling istances
 
     /*--------------------------------------------------------------------------*/
     /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
