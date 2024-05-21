@@ -577,7 +577,7 @@ enum dbl_par_type_LEMON_CC{
     ///Method assuming NetworkSimplex as Algo used
     /// (try to) solve the MCF encoded in the MCFBlock
     template< NetworkSimplex,  GR,  C,  V>
-    int compute( bool changedvars = true ) 
+    int compute( bool changedvars = true ) override
     {
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
         kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
@@ -650,7 +650,7 @@ enum dbl_par_type_LEMON_CC{
     /// @param changedvars 
     /// @return type of solution
     template< CapacityScaling,  GR,  C,  V>
-    int compute( bool changedvars = true ) 
+    int compute( bool changedvars = true ) override
     {
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
         kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
@@ -716,7 +716,7 @@ enum dbl_par_type_LEMON_CC{
     /// @param changedvars 
     /// @return type of solution
     template< CostScaling,  GR,  C,  V>    
-    int compute( bool changedvars = true ) 
+    int compute( bool changedvars = true ) override
     {.
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
         kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
@@ -788,7 +788,7 @@ enum dbl_par_type_LEMON_CC{
     /// @param changedvars 
     /// @return type of solution
     template< CycleCanceling,  GR,  C,  V>
-    int compute( bool changedvars = true ) 
+    int compute( bool changedvars = true ) override
     {
       const static std::array<int, 6> LemonStatus_2_MCFstatus = {
         kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
