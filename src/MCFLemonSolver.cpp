@@ -38,7 +38,7 @@ using namespace SMSpp_di_unipi_it;
   struct Fields {};
  */  
   template<typename GR, typename V, typename C, typename TR>
-  struct Fields< SMSppCapacityScaling > {
+  struct Fields< SMSppCapacityScaling< GR, V, C, TR > > {
     int f_factor;
   };
 
