@@ -116,13 +116,13 @@ namespace SMSpp_di_unipi_it
    !!*/
 
  /// CapacityScaling algorithm using the default trait
- template< LEMONGraph GR , typename V , typename C, typename TR >
+ template< LEMONGraph GR , typename V , typename C >
  class SMSppCapacityScaling : public
   CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >
   {};
 
  /// CostScaling algorithm using the default trait
- template < LEMONGraph GR , typename V , typename C, typename TR >
+ template < LEMONGraph GR , typename V , typename C>
  class SMSppCostScaling : public
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
   {};
