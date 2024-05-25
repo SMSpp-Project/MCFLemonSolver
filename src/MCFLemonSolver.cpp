@@ -201,10 +201,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     */
 
 /*--------------------------------------------------------------------------*/
-
+ enum LEMON_NS_dbl_par_type{
+        dblLastParLEMON_NS
+ };
 
  enum LEMON_NS_int_par_type{
-        kPivot = intLastParCDAS
+        kPivot = intLastParCDAS,
+        intLastParLEMON_NS
  };
 
  enum sol_type
@@ -382,22 +385,23 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
  
     void set_par(idx_type par, int value){
         
-        if(par != kPivot){
-                CDASolver::set_par(par, value);
+        if(par == kPivot){      
+
+                if( (value < 0) || (value > 4)){
+                throw(std::invalid_argument(std::to_string(value)));
+                }                
+
+                if( value == f_pivot_rule_type ){
+                        return; //nothing is changed
+                }
+                
+                f_pivot_rule_type = value;
+                free(Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule);
+                Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule = NULL;
                 return;
         }
 
-        if( (value < 0) || (value > 4)){
-                throw(std::invalid_argument(std::to_string(value)));
-        } 
-
-        if( value == f_pivot_rule_type){
-                return; //nothing is changed
-        }
-        
-        f_pivot_rule_type = value;
-        free(Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule);
-        Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule = NULL;
+        CDASolver::set_par(par, value);
         return;
 
     }
@@ -725,53 +729,59 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
 
 
     [[nodiscard]] idx_type get_num_int_par(void) const override
-    {/*
-      return (CDASolver::get_num_int_par() + 1);
-    */}
+    {
+        return (intLastParLEMON_NS);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
-    {/*
-      return (CDASolver::get_num_dbl_par());
-    */}
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    [[nodiscard]] idx_type get_num_str_par(void) const override
-    {/*
-      return (CDASolver::get_num_str_par() + 1);
-    */}
+    {
+        return (dblLastParLEMON_NS);
+    }
     
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
-    {/*
-      if (par == intLastParCDAS)
-        return (MCFClass::kYes);
+    {
+      if( par > intLastParLEMON_NS){
+        throw std::invalid_argument(std::to_string(par));
+      }
 
-      return (CDASolver::get_dflt_int_par(par));
-    */}
+      switch(par){
+        case kPivot: return f_pivot_rule_type;
+        default: return(CDASolver::get_dflt_int_par(par));
+        
+      }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
-    {/*
-      return (CDASolver::get_dflt_dbl_par(par));
-    */}
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
-        const override
     {
-      static const std::string _empty;
-      if (par == strLastParCDAS)
-        return (_empty);
+      if( par > dblLastParLEMON_NS){
+        throw std::invalid_argument(std::to_string(par));
+      }
+      switch(par){
+        default: return(CDASolver::get_dflt_dbl_par(par)); 
+      }
 
-      return (CDASolver::get_dflt_str_par(par));
+      
     }
-    
+        
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ 
+    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
+   /*     
+        if( par == strDMXFile )
+        return( this->f_dmx_file );
+
+        return( get_dflt_str_par( par ) );
+   */     }
+   
+        /*--------------------------------------------------------------------------*/
+
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_int_par(idx_type par) const override
@@ -804,41 +814,54 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
-    {/*
-      if (name == "kReopt")
-        return (kReopt);
+    {
+      if (name == "kPivot")
+        return (kPivot);
 
       return (CDASolver::int_par_str2idx(name));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
-    {/*
+    {
       return (CDASolver::dbl_par_str2idx(name));
-    */}
+    }
       
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
-    {/*
-      static const std::string my_name = "kReopt";
+    {
 
-      if (idx == intLastParCDAS)
-        return (my_name);
+      if(idx > intLastParLEMON_NS){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+      static const std::string par = "kPivot";
+      switch(idx){
+        case kPivot: return (par);
+        default: break;
+      }
 
       return (CDASolver::int_par_idx2str(idx));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
-    {/*
+    {
+      if(idx > dblLastParLEMON_NS){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+
+      switch(idx){
+        default: break;
+      }
+
       return (CDASolver::dbl_par_idx2str(idx));
-    */}
+    }
     
     /** @} ---------------------------------------------------------------------*/
     /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
@@ -1073,7 +1096,8 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : public CDASolver, Fields< Cycle
     */
 
  enum LEMON_CC_int_par_type{
-        kMethod = intLastParCDAS
+        kMethod = intLastParCDAS,
+        intLastParLEMON_CC
  };
 
 /*--------------------------------------------------------------------------*/
@@ -1108,7 +1132,8 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : public CDASolver, Fields< Cycle
 /// to MCFLemonSolver< CycleCanceling , C , V >
 
 enum dbl_par_type_LEMON_CC{
-  dblCycleCancelingFactor = dblLastParCDAS ///< the cycle canceling factor
+  dblCycleCancelingFactor = dblLastParCDAS ,///< the cycle canceling factor
+  dblLastParLEMON_CC
 };
 
 
@@ -1625,16 +1650,16 @@ enum dbl_par_type_LEMON_CC{
 
 
     [[nodiscard]] idx_type get_num_int_par(void) const override
-    {/*
-      return (CDASolver::get_num_int_par() + 1);
-    */}
+    {
+        return (intLastParLEMON_CC);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
-    {/*
-      return (CDASolver::get_num_dbl_par());
-    */}
+    {
+        return (dblLastParLEMON_CC);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
@@ -1646,19 +1671,29 @@ enum dbl_par_type_LEMON_CC{
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
-    {/*
-      if (par == intLastParCDAS)
-        return (MCFClass::kYes);
+    {
+      if(par > intLastParLEMON_CC){
+        throw(std::invalid_argument(std::to_string(par)));
+      }
 
-      return (CDASolver::get_dflt_int_par(par));
-    */}
+      switch(par){
+        case kMethod: return f_method_type;
+        default: return (CDASolver::get_dflt_int_par(par));
+      }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
-    {/*
-      return (CDASolver::get_dflt_dbl_par(par));
-    */}
+    {
+      if(par > dblLastParLEMON_CC){
+        throw(std::invalid_argument(std::to_string(par)));
+      }
+
+      switch(par){
+        default: return (CDASolver::get_dflt_dbl_par(par));
+      }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
@@ -1704,41 +1739,55 @@ enum dbl_par_type_LEMON_CC{
     
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
-    {/*
-      if (name == "kReopt")
-        return (kReopt);
+    {
+      if (name == "kMethod")
+        return (kMethod);
 
       return (CDASolver::int_par_str2idx(name));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
-    {/*
+    {
       return (CDASolver::dbl_par_str2idx(name));
-    */}
+    }
       
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
-    {/*
-      static const std::string my_name = "kReopt";
+    {
 
-      if (idx == intLastParCDAS)
-        return (my_name);
+      if(idx > intLastParLEMON_CC){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+      static const std::string par = "kMethod";
+      switch(idx){
+        case kMethod: return (par);
+        default: break;
+      }
+
 
       return (CDASolver::int_par_idx2str(idx));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
-    {/*
+    {
+      if(idx > dblLastParLEMON_CC){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+
+      switch(idx){
+        default: break;
+      }
+
       return (CDASolver::dbl_par_idx2str(idx));
-    */}
+    }
     
     /** @} ---------------------------------------------------------------------*/
     /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
@@ -1970,6 +2019,12 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
     intLastParCDAS     first allowed parameter value for derived classes
     */
 
+        enum LEMON_CS_int_par_type{
+                kMethod = intLastParCDAS,
+                intLastParLEMON_CS
+        };
+
+
 /*--------------------------------------------------------------------------*/
  /* dblMaxTime = 0    maximum time for the next call to solve()
 
@@ -1997,6 +2052,10 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
     */
 
 /*--------------------------------------------------------------------------*/
+
+enum LEMON_CS_dbl_par_type{
+        dblLastParLEMON_CS
+};
 
 
  enum sol_type
@@ -2493,16 +2552,16 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
 
 
     [[nodiscard]] idx_type get_num_int_par(void) const override
-    {/*
-      return (CDASolver::get_num_int_par() + 1);
-    */}
+    {
+        return(intLastParLEMON_CS);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
-    {/*
-      return (CDASolver::get_num_dbl_par());
-    */}
+    {
+        return(dblLastParLEMON_CS);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
@@ -2514,19 +2573,28 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
-    {/*
-      if (par == intLastParCDAS)
-        return (MCFClass::kYes);
+    {
+      if(par > intLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(par));
+      }
 
-      return (CDASolver::get_dflt_int_par(par));
-    */}
+      switch(par){
+        default: return (CDASolver::get_dflt_int_par(par));
+      }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
-    {/*
-      return (CDASolver::get_dflt_dbl_par(par));
-    */}
+    {
+       if(par > intLastParLEMON_CS){
+          throw std::invalid_argument(std::to_string(par));
+       }    
+       
+       switch(par){
+        default: return (CDASolver::get_dflt_dbl_par(par));
+       }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
@@ -2572,41 +2640,50 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
     
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
-    {/*
-      if (name == "kReopt")
-        return (kReopt);
-
+    {
       return (CDASolver::int_par_str2idx(name));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
-    {/*
+    {
       return (CDASolver::dbl_par_str2idx(name));
-    */}
+    }
       
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
-    {/*
-      static const std::string my_name = "kReopt";
+    {
+      if(idx > intLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(idx));
+      }
 
-      if (idx == intLastParCDAS)
-        return (my_name);
+      switch(idx){
+        default: break;
+      }
 
       return (CDASolver::int_par_idx2str(idx));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
-    {/*
+    {
+      if(idx > dblLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+
+      switch(idx){
+        default: break;
+      }
+
       return (CDASolver::dbl_par_idx2str(idx));
-    */}
+    }
+
     
     /** @} ---------------------------------------------------------------------*/
     /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
@@ -2840,7 +2917,8 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     */
 
    enum LEMON_CS_int_par_type{
-        kMethod = intLastParCDAS
+        kMethod = intLastParCDAS,
+        intLastParLEMON_CS
    };
 
 /*--------------------------------------------------------------------------*/
@@ -2870,7 +2948,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     */
 
 /*--------------------------------------------------------------------------*/
-
+ enum LEMON_CS_dbl_par_type{
+        dblLastParLEMON_CS
+ };
 
 
  enum sol_type
@@ -3383,16 +3463,16 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
 
 
     [[nodiscard]] idx_type get_num_int_par(void) const override
-    {/*
-      return (CDASolver::get_num_int_par() + 1);
-    */}
+    { 
+       return (intLastParLEMON_CS);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
-    {/*
-      return (CDASolver::get_num_dbl_par());
-    */}
+    {
+        return (dblLastParLEMON_CS);
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
@@ -3404,19 +3484,30 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
-    {/*
-      if (par == intLastParCDAS)
-        return (MCFClass::kYes);
+    {
 
-      return (CDASolver::get_dflt_int_par(par));
-    */}
+      if(par > intLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(par));
+      }
+
+      switch(par){
+        case kMethod: return f_method_type;
+        default: return (CDASolver::get_dflt_int_par(par));
+      }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
-    {/*
-      return (CDASolver::get_dflt_dbl_par(par));
-    */}
+    {
+      if(par > intLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(par));
+      }
+      
+      switch(par){
+        default: return(CDASolver::get_dflt_dbl_par(par));
+      }
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
@@ -3462,41 +3553,54 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
-    {/*
-      if (name == "kReopt")
-        return (kReopt);
+    {
+      if (name == "kMethod")
+        return (kMethod);
 
       return (CDASolver::int_par_str2idx(name));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
-    {/*
-      return (CDASolver::dbl_par_str2idx(name));
-    */}
+    {
+      return ( name == "kMethod" ? kMethod : CDASolver::dbl_par_str2idx(name));
+    }
       
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
-    {/*
-      static const std::string my_name = "kReopt";
-
-      if (idx == intLastParCDAS)
-        return (my_name);
+    {
+      if(idx > intLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+      
+      static const std::string par = "kMethod";
+      switch(idx){
+        case kMethod: return (par);
+        default: break;
+      }
 
       return (CDASolver::int_par_idx2str(idx));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
-    {/*
+    {
+      if(idx > dblLastParLEMON_CS){
+        throw std::invalid_argument(std::to_string(idx));
+      }
+
+      switch(idx){
+        default: break;
+      }
+
       return (CDASolver::dbl_par_idx2str(idx));
-    */}
+    }
     
     /** @} ---------------------------------------------------------------------*/
     /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
