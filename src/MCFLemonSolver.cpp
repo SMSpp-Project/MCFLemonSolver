@@ -209,6 +209,14 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
         kPivot = intLastParCDAS,
         intLastParLEMON_NS
  };
+ 
+ enum str_par_type_MCFS {
+  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
+  strLastParLEMON_NS    ///< first allowed parameter value for derived classes
+                   /**< convenience value for easily allow derived classes
+                    * to further extend the set of types of return codes */
+  };  
+
 
  enum sol_type
  {
@@ -383,7 +391,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
 
     /*--------------------------------------------------------------------------*/
  
-    void set_par(idx_type par, int value){
+    void set_par(idx_type par, int value) override {
         
         if(par == kPivot){      
 
@@ -739,6 +747,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     {
         return (dblLastParLEMON_NS);
     }
+
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+    [[nodiscard]] idx_type get_num_str_par(void) const override
+    {
+      return (strLastParLEMON_NS);
+    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -768,47 +783,51 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
 
       
     }
+
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
+        const override
+    {
+      static const std::string _empty;
+      if (par == strLastParLEMON_NS)
+        return (_empty);
+
+      return (CDASolver::get_dflt_str_par(par));
+    }
         
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
-   /*     
+        
         if( par == strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
-   */     }
+        }
    
-        /*--------------------------------------------------------------------------*/
 
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_int_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_int[par] >= 0)
-      {
-        int val;
-        this->GetPar(Solver_2_MCFClass_int[par], val);
-        return (val);
+    {
+    
+      if(par == kPivot){
+        return f_pivot_rule_type;
       }
 
       return (get_dflt_int_par(par));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dbl_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_dbl[par] >= 0)
-      {
-        double val;
-        this->GetPar(Solver_2_MCFClass_dbl[par], val);
-        return (val);
-      }
+    {
+      //Da finire parametri algoritmici dbl
 
       return (get_dflt_dbl_par(par));
-    */}
+    }
         
     /*--------------------------------------------------------------------------*/
     
@@ -1135,6 +1154,13 @@ enum dbl_par_type_LEMON_CC{
   dblCycleCancelingFactor = dblLastParCDAS ,///< the cycle canceling factor
   dblLastParLEMON_CC
 };
+
+enum str_par_type_LEMON_CC {
+  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
+  strLastParLEMON_CC   ///< first allowed parameter value for derived classes
+                   /**< convenience value for easily allow derived classes
+                    * to further extend the set of types of return codes */
+  };  
 
 
  enum sol_type
@@ -1664,9 +1690,9 @@ enum dbl_par_type_LEMON_CC{
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_str_par(void) const override
-    {/*
-      return (CDASolver::get_num_str_par() + 1);
-    */}
+    {
+      return (strLastParLEMON_CC);
+    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -1701,7 +1727,7 @@ enum dbl_par_type_LEMON_CC{
         const override
     {
       static const std::string _empty;
-      if (par == strLastParCDAS)
+      if (par == strLastParLEMON_CC)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -1710,31 +1736,35 @@ enum dbl_par_type_LEMON_CC{
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_int_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_int[par] >= 0)
-      {
-        int val;
-        this->GetPar(Solver_2_MCFClass_int[par], val);
-        return (val);
+    {
+      
+      if(par == kMethod){
+        return f_method_type;
       }
 
       return (get_dflt_int_par(par));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dbl_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_dbl[par] >= 0)
-      {
-        double val;
-        this->GetPar(Solver_2_MCFClass_dbl[par], val);
-        return (val);
-      }
-
+    {
+      //Da finire parametri algoritmici dbl
       return (get_dflt_dbl_par(par));
-    */}
+    }
+    
+    
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
+        if( par == strDMXFile )
+        return( this->f_dmx_file );
+
+        return( get_dflt_str_par( par ) );
+        }
+   
+
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
@@ -2056,6 +2086,13 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
 enum LEMON_CS_dbl_par_type{
         dblLastParLEMON_CS
 };
+
+enum str_par_type_LEMON_CC {
+  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
+  strLastParLEMON_CS   ///< first allowed parameter value for derived classes
+                   /**< convenience value for easily allow derived classes
+                    * to further extend the set of types of return codes */
+};  
 
 
  enum sol_type
@@ -2566,9 +2603,9 @@ enum LEMON_CS_dbl_par_type{
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_str_par(void) const override
-    {/*
-      return (CDASolver::get_num_str_par() + 1);
-    */}
+    {
+      return (strLastParLEMON_CS);
+    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -2611,33 +2648,34 @@ enum LEMON_CS_dbl_par_type{
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_int_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_int[par] >= 0)
-      {
-        int val;
-        this->GetPar(Solver_2_MCFClass_int[par], val);
-        return (val);
-      }
-
+    {
+      //No int parameters
       return (get_dflt_int_par(par));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dbl_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_dbl[par] >= 0)
-      {
-        double val;
-        this->GetPar(Solver_2_MCFClass_dbl[par], val);
-        return (val);
-      }
-
+    {
+      //No dbl parameters
       return (get_dflt_dbl_par(par));
-    */}
+    }
+        
         
     /*--------------------------------------------------------------------------*/
     
+    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
+        
+        if( par == strDMXFile )
+        return( this->f_dmx_file );
+
+        return( get_dflt_str_par( par ) );
+        }
+   
+
+    /*--------------------------------------------------------------------------*/
+
+
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
@@ -2952,6 +2990,12 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
         dblLastParLEMON_CS
  };
 
+enum str_par_type_LEMON_CC {
+  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
+  strLastParLEMON_CS   ///< first allowed parameter value for derived classes
+                   /**< convenience value for easily allow derived classes
+                    * to further extend the set of types of return codes */
+};  
 
  enum sol_type
  {
@@ -3477,9 +3521,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] idx_type get_num_str_par(void) const override
-    {/*
-      return (CDASolver::get_num_str_par() + 1);
-    */}
+    {
+      return (strLastParLEMON_CS);
+    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -3515,7 +3559,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
         const override
     {
       static const std::string _empty;
-      if (par == strLastParCDAS)
+      if (par == strLastParLEMON_CS)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -3524,33 +3568,35 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     /*--------------------------------------------------------------------------*/
     
     [[nodiscard]] int get_int_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_int[par] >= 0)
-      {
-        int val;
-        this->GetPar(Solver_2_MCFClass_int[par], val);
-        return (val);
-      }
+    {
 
+      if(par == kMethod){
+        return f_method_type;
+      }
       return (get_dflt_int_par(par));
-    */}
+    }
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
     [[nodiscard]] double get_dbl_par(idx_type par) const override
-    {/*
-      if (Solver_2_MCFClass_dbl[par] >= 0)
-      {
-        double val;
-        this->GetPar(Solver_2_MCFClass_dbl[par], val);
-        return (val);
-      }
-
+    {
       return (get_dflt_dbl_par(par));
-    */}
+    }
         
     /*--------------------------------------------------------------------------*/
     
+    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
+        
+        if( par == strDMXFile )
+        return( this->f_dmx_file );
+
+        return( get_dflt_str_par( par ) );
+    }  
+    
+    
+    /*--------------------------------------------------------------------------*/
+
+
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
