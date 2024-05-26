@@ -154,7 +154,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
  
   ~MCFLemonSolver( void ) {
     delete f_algo;
-    free(Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule);
+    delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
     delete dgp;
     
     
@@ -210,7 +210,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
         intLastParLEMON_NS
  };
  
- enum str_par_type_MCFS {
+ enum str_par_type_LEMON_NS {
   strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
   strLastParLEMON_NS    ///< first allowed parameter value for derived classes
                    /**< convenience value for easily allow derived classes
@@ -218,15 +218,6 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
   };  
 
 
- enum sol_type
- {
-  UNSOLVED, //= NULL, ///< the problem has not been solved yet
-  OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
-  INFEASIBLE,   ///< the problem is provably infeasible
-  UNBOUNDED,    ///< the problem is provably unbounded
-  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };               // end( sol_type )
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -404,7 +395,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
                 }
                 
                 f_pivot_rule_type = value;
-                free(Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule);
+                delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
                 Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule = NULL;
                 return;
         }
@@ -439,8 +430,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
-                UNBOUNDED, kErrorStatus};
+                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL, kErrorStatus , 
+                SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
+                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -480,8 +472,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
         this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
         }else{
                 //Build f_pivot and execute run() method
-                Fields<NetworkSimplex<GR, V, C> >::f_pivot_rule = (typename NetworkSimplex<GR, V, C>::PivotRule *)calloc(1, sizeof(typename NetworkSimplex<GR, V, C>::PivotRule));
-                *Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule = static_cast<typename NetworkSimplex<GR, V, C>::PivotRule>(f_pivot_rule_type);
+                Fields<NetworkSimplex<GR, V, C> >::f_pivot_rule = new typename NetworkSimplex<GR, V, C>::PivotRule(static_cast<typename NetworkSimplex<GR, V, C>::PivotRule>(f_pivot_rule_type));
                 this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
         }
         
@@ -489,9 +480,6 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
 
         chrono::duration< double > elapsed = end - start;
         ticks = elapsed.count();
-        if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
-                return Solver::kError;
-        }
 
         
         
@@ -764,7 +752,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
       }
 
       switch(par){
-        case kPivot: return f_pivot_rule_type;
+        case kPivot: return static_cast<int>(NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH);
         default: return(CDASolver::get_dflt_int_par(par));
         
       }
@@ -1009,7 +997,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
-    int status = UNSOLVED;  //Variable used in compute function for getting status
+    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename NetworkSimplex< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     
@@ -1095,7 +1083,7 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : public CDASolver, Fields< Cycle
  
   ~MCFLemonSolver( void ) {
     delete f_algo;
-    free(Fields<CycleCanceling< GR, V, C > >::f_method);
+    delete Fields<CycleCanceling< GR, V, C > >::f_method;
     delete dgp;
     
   }
@@ -1161,17 +1149,6 @@ enum str_par_type_LEMON_CC {
                    /**< convenience value for easily allow derived classes
                     * to further extend the set of types of return codes */
   };  
-
-
- enum sol_type
- {
-  UNSOLVED, //= NULL, ///< the problem has not been solved yet
-  OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
-  INFEASIBLE,   ///< the problem is provably infeasible
-  UNBOUNDED,    ///< the problem is provably unbounded
-  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };               // end( sol_type )
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -1351,7 +1328,7 @@ enum str_par_type_LEMON_CC {
         }
 
         f_method_type = value;
-        free(Fields<CycleCanceling<GR, V, C>>::f_method);
+        delete Fields<CycleCanceling<GR, V, C>>::f_method;
         Fields<CycleCanceling<GR, V, C>>::f_method = NULL;
         return;
     } 
@@ -1377,8 +1354,9 @@ enum str_par_type_LEMON_CC {
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
-                UNBOUNDED, kErrorStatus};
+                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL,
+                 kErrorStatus , SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
+                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -1418,8 +1396,7 @@ enum str_par_type_LEMON_CC {
         this->status = f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
         }else{
                 //Build f_method and execute run() method
-                Fields<CycleCanceling<GR, V, C> >::f_method = (typename CycleCanceling<GR, V, C>::Method *)calloc(1, sizeof(typename CycleCanceling<GR, V, C>::Method));
-                *Fields<CycleCanceling<GR, V, C>>::f_method = static_cast<typename CycleCanceling<GR, V, C>::Method>(f_method_type);
+                Fields<CycleCanceling<GR, V, C> >::f_method = new typename   CycleCanceling<GR, V, C>::Method(f_method_type);
                 this->status = f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
                
         }
@@ -1428,9 +1405,7 @@ enum str_par_type_LEMON_CC {
 
         chrono::duration< double > elapsed = end - start;
         ticks = elapsed.count();
-        if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
-                return Solver::kError;
-        }
+
 
         
         
@@ -1703,7 +1678,7 @@ enum str_par_type_LEMON_CC {
       }
 
       switch(par){
-        case kMethod: return f_method_type;
+        case kMethod: return CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
         default: return (CDASolver::get_dflt_int_par(par));
       }
     }
@@ -1946,7 +1921,7 @@ enum str_par_type_LEMON_CC {
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
-    int status = UNSOLVED;  //Variable used in compute function for getting status
+    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename CycleCanceling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     int f_method_type;
@@ -2094,16 +2069,6 @@ enum str_par_type_LEMON_CC {
                     * to further extend the set of types of return codes */
 };  
 
-
- enum sol_type
- {
-  UNSOLVED, //= NULL, ///< the problem has not been solved yet
-  OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
-  INFEASIBLE,   ///< the problem is provably infeasible
-  UNBOUNDED,    ///< the problem is provably unbounded
-  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };               // end( sol_type )
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -2296,8 +2261,9 @@ enum str_par_type_LEMON_CC {
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
-                UNBOUNDED, kErrorStatus};
+                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL,
+                 kErrorStatus , SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
+                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -2341,9 +2307,6 @@ enum str_par_type_LEMON_CC {
 
         chrono::duration< double > elapsed = end - start;
         ticks = elapsed.count();
-        if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
-                return Solver::kError;
-        }
 
         
         
@@ -2850,7 +2813,7 @@ enum str_par_type_LEMON_CC {
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
-    int status = UNSOLVED;  //Variable used in compute function for getting status
+    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename SMSppCapacityScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     
@@ -2935,7 +2898,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
  
   ~MCFLemonSolver( void ) {
     delete f_algo;
-    free(Fields<SMSppCostScaling<GR, V, C>>::f_method);
+    delete Fields<SMSppCostScaling<GR, V, C>>::f_method;
     delete dgp;
     
   }
@@ -2997,15 +2960,6 @@ enum str_par_type_LEMON_CC {
                     * to further extend the set of types of return codes */
 };  
 
- enum sol_type
- {
-  UNSOLVED, //= NULL, ///< the problem has not been solved yet
-  OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
-  INFEASIBLE,   ///< the problem is provably infeasible
-  UNBOUNDED,    ///< the problem is provably unbounded
-  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };               // end( sol_type )
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -3208,8 +3162,9 @@ enum str_par_type_LEMON_CC {
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, OPTIMAL, kErrorStatus , INFEASIBLE,
-                UNBOUNDED, kErrorStatus};
+                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL,
+                 kErrorStatus , SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
+                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -3249,8 +3204,7 @@ enum str_par_type_LEMON_CC {
         this->status = f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
         }else{
                 //Build f_method and execute run() method
-                Fields<SMSppCostScaling<GR, V, C> >::f_method = (typename SMSppCostScaling<GR, V, C>::Method *)calloc(1, sizeof(typename SMSppCostScaling<GR, V, C>::Method));
-                *Fields<SMSppCostScaling<GR, V, C>>::f_method = static_cast<typename SMSppCapacityScaling<GR, V, C>::Method>(f_method_type);
+                Fields<SMSppCostScaling<GR, V, C> >::f_method = new typename SMSppCostScaling<GR, V, C>::Method(f_method_type);
                 this->status = f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
                 
         }
@@ -3259,9 +3213,6 @@ enum str_par_type_LEMON_CC {
 
         chrono::duration< double > elapsed = end - start;
         ticks = elapsed.count();
-        if(LemonStatus_2_MCFstatus[this->get_status()] == kErrorStatus){
-                return Solver::kError;
-        }
 
         
         
@@ -3535,7 +3486,7 @@ enum str_par_type_LEMON_CC {
       }
 
       switch(par){
-        case kMethod: return f_method_type;
+        case kMethod: return SMSppCostScaling<GR, V, C>::Method::PARTIAL_AUGMENT;
         default: return (CDASolver::get_dflt_int_par(par));
       }
     }
@@ -3775,7 +3726,7 @@ enum str_par_type_LEMON_CC {
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
-    int status = UNSOLVED;  //Variable used in compute function for getting status
+    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename SMSppCostScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     int f_method_type;

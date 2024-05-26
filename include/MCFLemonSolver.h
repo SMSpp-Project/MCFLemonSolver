@@ -173,32 +173,23 @@ namespace SMSpp_di_unipi_it
   template< typename Algo >
   struct Fields {};
    
-  /*template<typename GR, typename V, typename C, typename TR>
-  struct Fields< SMSppCapacityScaling< GR, V, C, TR > > {
-    int f_factor;
-  };
+  enum LEMON_sol_type
+  {
+  UNSOLVED, //= NULL, ///< the problem has not been solved yet
+  OPTIMAL,           ///< the problem has been solved
+  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
+  INFEASIBLE,   ///< the problem is provably infeasible
+  UNBOUNDED,    ///< the problem is provably unbounded
+  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
+  };               // end( sol_type )
 
-  template<typename GR, typename V, typename C, typename TR>  
-  struct Fields< SMSppCostScaling< GR, V, C, TR > > {
-    using CSMethod = typename SMSppCostScaling< GR, V, C, TR >::Method;
-    int f_factor;
-    CSMethod f_method;
-  };
-  template<typename GR, typename V, typename C>
-  struct Fields< NetworkSimplex<GR, V, C> > {
-    using NSPivotRule = typename NetworkSimplex<GR, V, C>::PivotRule;
-    NSPivotRule f_pivot_rule;
-  };
-  template<typename GR, typename V, typename C>
-  struct Fields< CycleCanceling<GR, V, C> > {
-    using CCMethod = typename CycleCanceling<GR, V, C>::Method;
-    CCMethod f_method;
-  };*/
+
 
 template< template< typename , typename , typename > typename Algo ,
           typename GR , typename V , typename C >
   requires LEMONGraph< GR >
 class MCFLemonSolver: public CDASolver, Fields< Algo<GR, V, C> > {
+
 
   int compute(bool changedvars = true) override;
 };
