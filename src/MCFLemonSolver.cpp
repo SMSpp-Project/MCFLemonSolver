@@ -30,8 +30,8 @@
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
 /*--------------------------------------------------------------------------*/
-
 using namespace SMSpp_di_unipi_it;
+
 
 /*template< typename Algo >
   struct Fields {};
@@ -80,7 +80,7 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< NetworkSimplex<GR, V, C> >
+class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< NetworkSimplex<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -136,8 +136,8 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
  /** Void constructor: does nothing special, except verifying the template
   * arguments. */
 
- MCFLemonSolver( void ) : CDASolver(), Fields<NetworkSimplex<GR, V, C > >() {
-  f_algo = NULL;
+ MCFLemonSolver( void ) :  CDASolver(), Fields<NetworkSimplex<GR, V, C > >() {
+  //f_algo = NULL;
   f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
 
  /* static_assert( std::is_same< Algo< GR , V , C > ,
@@ -153,11 +153,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
   }
  
   ~MCFLemonSolver( void ) {
-    delete f_algo;
-    delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
-    delete dgp;
-    
-    
+    delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;  
   }
  
  
@@ -267,112 +263,6 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
  *
  *  @{ */
 
- /// set the (pointer to the) Block that the Solver has to solve
- void set_Block(Block *block) override
-    {
-     
-      
-      if (block == f_Block) // actually doing nothing
-        return;             // cowardly and silently return
-      
-      delete f_algo;
-      f_algo=NULL;
-
-      Solver::set_Block(block); // attach to the new Block
-
-      if (block)
-      { // this is not just resetting everything
-        auto MCFB = dynamic_cast<MCFBlock *>(block);
-        if (!MCFB)
-          throw(std::invalid_argument(
-              "MCFSolver:set_Block: block must be a MCFBlock"));
-
-        bool owned = MCFB->is_owned_by(f_id);
-        if ((!owned) && (!MCFB->read_lock()))
-          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-        // load the new MCFBlock into the :MCFClass object
-        // TODO: change MCFC function to Algo function.
-        // TODO: convert array from MCFB functions to Map for Algo functions.
-        dgp = new GR;
-        dgp->clear();
-
-        dgp->reserveNode( MCFB->get_MaxNNodes() );
-        MCFBlock::Index n = MCFB->get_NNodes();
-
-        for( MCFBlock::Index i = 0; i < n; ++i)
-          dgp->addNode();
-
-        dgp->reserveArc( MCFB->get_MaxNArcs() );
-        MCFBlock::Index m = MCFB->get_NArcs();
-
-        MCFBlock::c_Subset & sn = MCFB->get_SN();
-        MCFBlock::c_Subset & en = MCFB->get_EN();
-
-        for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
-        }
-
-
-        
-        f_algo = new NetworkSimplex< GR , V, C >(*dgp);
-
-        using MCFArcMapV = typename GR::template ArcMap< V >;
-        using MCFNodeMapV = typename GR::template NodeMap< V >;
-
-        if(!MCFB->get_U().empty())
-        {
-          MCFArcMapV um(*dgp);
-          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-          um.set( dgp->arcFromId(i), u[i]);
-          }
-          f_algo->upperMap(um);
-        }
-
-        if(!MCFB->get_C().empty())
-        {
-          MCFArcMapV cm(*dgp);
-          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-            cm.set( dgp->arcFromId(i), c[i]);
-          }
-          f_algo->costMap(cm);
-
-        }
-
-        if(!MCFB->get_B().empty())
-        {
-
-          MCFNodeMapV bm(*dgp);
-          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-          for( MCFBlock::Index i = 0; i < n; i++){
-            bm.set( dgp->nodeFromId(i), -b[i]);
-          }
-          f_algo->supplyMap(bm);
-
-        }
-
-        
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the data
-        //       changes, some of the deductions (say, reducing the capacity but
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       there isn't any proper way to handle this. Thus, PreProcess() has
-        //       to be disabled for now; maybe later on someone will take care to
-        //       make this work (or maybe not).
-        // MCFC::PreProcess();
-
-        // once done, read_unlock the MCFBlock (if it was read-lock()-ed)
-        if (!owned)
-          MCFB->read_unlock();
-
-        // TODO: maybe log it
-        //delete dgp;
-        
-      }
-      
-    } // end( set_Block )
 
     /*--------------------------------------------------------------------------*/
     // set the ostream for the Solver log
@@ -450,7 +340,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
         // while [read_]locked, process any outstanding Modification
         //TODO: ensure that modification are actually processed for MCFLemonSolver.
         //process_outstanding_Modification();
-
+        
         if (!f_dmx_file.empty())
         { // if so required
                 // output the current instance (after the changes) to a DMX file
@@ -459,7 +349,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *dgp);
+                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
                 ProbFile.close();
         }
 
@@ -469,11 +359,11 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
         auto start = chrono::system_clock::now();
         
         if(Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule != NULL){
-        this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
+        this->status = MCFLemonSolver::f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
         }else{
                 //Build f_pivot and execute run() method
                 Fields<NetworkSimplex<GR, V, C> >::f_pivot_rule = new typename NetworkSimplex<GR, V, C>::PivotRule(static_cast<typename NetworkSimplex<GR, V, C>::PivotRule>(f_pivot_rule_type));
-                this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
+                this->status = MCFLemonSolver::f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
         }
         
         auto end = chrono::system_clock::now();
@@ -517,11 +407,11 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -991,9 +881,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    NetworkSimplex< GR , V , C > * f_algo;  //Algorithm used by lemon
+   // NetworkSimplex< GR , V , C > * f_algo;  //Algorithm used by lemon
 
-    GR* dgp;  //Rapresentation of directed graph
+    //GR* dgp;  //Rapresentation of directed graph
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
@@ -1009,7 +899,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
   }; // end( class MCFLemonSolver<NetworkSimplex, GR, V, C>  Specialization)
 
   template< typename GR, typename V, typename C>
-class MCFLemonSolver<CycleCanceling, GR, V, C> : public CDASolver, Fields< CycleCanceling<GR, V, C> >
+class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< CycleCanceling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -1066,7 +956,6 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : public CDASolver, Fields< Cycle
   * arguments. */
 
  MCFLemonSolver( void ) : CDASolver(), Fields<CycleCanceling<GR, V, C > >() {
-  f_algo = NULL;
   f_method_type = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
 
  /* static_assert( std::is_same< Algo< GR , V , C > ,
@@ -1082,10 +971,7 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : public CDASolver, Fields< Cycle
   }
  
   ~MCFLemonSolver( void ) {
-    delete f_algo;
-    delete Fields<CycleCanceling< GR, V, C > >::f_method;
-    delete dgp;
-    
+    delete Fields<CycleCanceling< GR, V, C > >::f_method;   
   }
  
  
@@ -1143,13 +1029,6 @@ enum dbl_par_type_LEMON_CC{
   dblLastParLEMON_CC
 };
 
-enum str_par_type_LEMON_CC {
-  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
-  strLastParLEMON_CC   ///< first allowed parameter value for derived classes
-                   /**< convenience value for easily allow derived classes
-                    * to further extend the set of types of return codes */
-  };  
-
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -1198,112 +1077,7 @@ enum str_par_type_LEMON_CC {
  *
  *  @{ */
 
- /// set the (pointer to the) Block that the Solver has to solve
- void set_Block(Block *block) override
-    {
-     
-      
-      if (block == f_Block) // actually doing nothing
-        return;             // cowardly and silently return
-      
-      delete f_algo;
-      f_algo=NULL;
-
-      Solver::set_Block(block); // attach to the new Block
-
-      if (block)
-      { // this is not just resetting everything
-        auto MCFB = dynamic_cast<MCFBlock *>(block);
-        if (!MCFB)
-          throw(std::invalid_argument(
-              "MCFSolver:set_Block: block must be a MCFBlock"));
-
-        bool owned = MCFB->is_owned_by(f_id);
-        if ((!owned) && (!MCFB->read_lock()))
-          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-        // load the new MCFBlock into the :MCFClass object
-        // TODO: change MCFC function to Algo function.
-        // TODO: convert array from MCFB functions to Map for Algo functions.
-        dgp = new GR;
-        dgp->clear();
-
-        dgp->reserveNode( MCFB->get_MaxNNodes() );
-        MCFBlock::Index n = MCFB->get_NNodes();
-
-        for( MCFBlock::Index i = 0; i < n; ++i)
-          dgp->addNode();
-
-        dgp->reserveArc( MCFB->get_MaxNArcs() );
-        MCFBlock::Index m = MCFB->get_NArcs();
-
-        MCFBlock::c_Subset & sn = MCFB->get_SN();
-        MCFBlock::c_Subset & en = MCFB->get_EN();
-
-        for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
-        }
-
-
-        
-        f_algo = new CycleCanceling< GR , V, C >(*dgp);
-
-        using MCFArcMapV = typename GR::template ArcMap< V >;
-        using MCFNodeMapV = typename GR::template NodeMap< V >;
-
-        if(!MCFB->get_U().empty())
-        {
-          MCFArcMapV um(*dgp);
-          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-          um.set( dgp->arcFromId(i), u[i]);
-          }
-          f_algo->upperMap(um);
-        }
-
-        if(!MCFB->get_C().empty())
-        {
-          MCFArcMapV cm(*dgp);
-          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-            cm.set( dgp->arcFromId(i), c[i]);
-          }
-          f_algo->costMap(cm);
-
-        }
-
-        if(!MCFB->get_B().empty())
-        {
-
-          MCFNodeMapV bm(*dgp);
-          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-          for( MCFBlock::Index i = 0; i < n; i++){
-            bm.set( dgp->nodeFromId(i), -b[i]);
-          }
-          f_algo->supplyMap(bm);
-
-        }
-
-        
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the data
-        //       changes, some of the deductions (say, reducing the capacity but
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       there isn't any proper way to handle this. Thus, PreProcess() has
-        //       to be disabled for now; maybe later on someone will take care to
-        //       make this work (or maybe not).
-        // MCFC::PreProcess();
-
-        // once done, read_unlock the MCFBlock (if it was read-lock()-ed)
-        if (!owned)
-          MCFB->read_unlock();
-
-        // TODO: maybe log it
-        //delete dgp;
-        
-      }
-      
-    } // end( set_Block )
+ 
 
     /*--------------------------------------------------------------------------*/
     // set the ostream for the Solver log
@@ -1915,9 +1689,6 @@ enum str_par_type_LEMON_CC {
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    CycleCanceling< GR , V , C > * f_algo;  //Algorithm used by lemon
-
-    GR* dgp;  //Rapresentation of directed graph
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
@@ -1932,7 +1703,7 @@ enum str_par_type_LEMON_CC {
 
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields< SMSppCapacityScaling<GR, V, C> >
+class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< SMSppCapacityScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -1989,7 +1760,6 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
   * arguments. */
 
  MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCapacityScaling<GR, V, C > >() {
-  f_algo = NULL;
 
 
  /* static_assert( std::is_same< Algo< GR , V , C > ,
@@ -2004,10 +1774,7 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
   */
   }
  
-  ~MCFLemonSolver( void ) {
-    delete f_algo;
-    delete dgp;
-    
+  ~MCFLemonSolver( void ) {   
   }
  
  
@@ -2024,10 +1791,10 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
     intLastParCDAS     first allowed parameter value for derived classes
     */
 
-        enum LEMON_CS_int_par_type{
-                kMethod = intLastParCDAS,
-                intLastParLEMON_CS
-        };
+  enum LEMON_CS_int_par_type{
+    kMethod = intLastParCDAS,
+    intLastParLEMON_CS
+  };
 
 
 /*--------------------------------------------------------------------------*/
@@ -2062,12 +1829,6 @@ enum LEMON_CS_dbl_par_type{
         dblLastParLEMON_CS
 };
 
-enum str_par_type_LEMON_CC {
-  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
-  strLastParLEMON_CS   ///< first allowed parameter value for derived classes
-                   /**< convenience value for easily allow derived classes
-                    * to further extend the set of types of return codes */
-};  
 
 
 /** @} ---------------------------------------------------------------------*/
@@ -2118,112 +1879,7 @@ enum str_par_type_LEMON_CC {
  *
  *  @{ */
 
- /// set the (pointer to the) Block that the Solver has to solve
- void set_Block(Block *block) override
-    {
-     
-      
-      if (block == f_Block) // actually doing nothing
-        return;             // cowardly and silently return
-      
-      delete f_algo;
-      f_algo=NULL;
 
-      Solver::set_Block(block); // attach to the new Block
-
-      if (block)
-      { // this is not just resetting everything
-        auto MCFB = dynamic_cast<MCFBlock *>(block);
-        if (!MCFB)
-          throw(std::invalid_argument(
-              "MCFSolver:set_Block: block must be a MCFBlock"));
-
-        bool owned = MCFB->is_owned_by(f_id);
-        if ((!owned) && (!MCFB->read_lock()))
-          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-        // load the new MCFBlock into the :MCFClass object
-        // TODO: change MCFC function to Algo function.
-        // TODO: convert array from MCFB functions to Map for Algo functions.
-        dgp = new GR;
-        dgp->clear();
-
-        dgp->reserveNode( MCFB->get_MaxNNodes() );
-        MCFBlock::Index n = MCFB->get_NNodes();
-
-        for( MCFBlock::Index i = 0; i < n; ++i)
-          dgp->addNode();
-
-        dgp->reserveArc( MCFB->get_MaxNArcs() );
-        MCFBlock::Index m = MCFB->get_NArcs();
-
-        MCFBlock::c_Subset & sn = MCFB->get_SN();
-        MCFBlock::c_Subset & en = MCFB->get_EN();
-
-        for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
-        }
-
-
-        
-        f_algo = new SMSppCapacityScaling< GR , V, C >(*dgp);
-
-        using MCFArcMapV = typename GR::template ArcMap< V >;
-        using MCFNodeMapV = typename GR::template NodeMap< V >;
-
-        if(!MCFB->get_U().empty())
-        {
-          MCFArcMapV um(*dgp);
-          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-          um.set( dgp->arcFromId(i), u[i]);
-          }
-          f_algo->upperMap(um);
-        }
-
-        if(!MCFB->get_C().empty())
-        {
-          MCFArcMapV cm(*dgp);
-          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-            cm.set( dgp->arcFromId(i), c[i]);
-          }
-          f_algo->costMap(cm);
-
-        }
-
-        if(!MCFB->get_B().empty())
-        {
-
-          MCFNodeMapV bm(*dgp);
-          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-          for( MCFBlock::Index i = 0; i < n; i++){
-            bm.set( dgp->nodeFromId(i), -b[i]);
-          }
-          f_algo->supplyMap(bm);
-
-        }
-
-        
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the data
-        //       changes, some of the deductions (say, reducing the capacity but
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       there isn't any proper way to handle this. Thus, PreProcess() has
-        //       to be disabled for now; maybe later on someone will take care to
-        //       make this work (or maybe not).
-        // MCFC::PreProcess();
-
-        // once done, read_unlock the MCFBlock (if it was read-lock()-ed)
-        if (!owned)
-          MCFB->read_unlock();
-
-        // TODO: maybe log it
-        //delete dgp;
-        
-      }
-      
-    } // end( set_Block )
 
     /*--------------------------------------------------------------------------*/
     // set the ostream for the Solver log
@@ -2807,9 +2463,6 @@ enum str_par_type_LEMON_CC {
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    SMSppCapacityScaling< GR , V , C > * f_algo;  //Algorithm used by lemon
-
-    GR* dgp;  //Rapresentation of directed graph
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
@@ -2823,7 +2476,7 @@ enum str_par_type_LEMON_CC {
   }; // end( class MCFLemonSolver<SMSppCapacityScaling, GR, V, C>  Specialization)
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMSppCostScaling<GR, V, C> >
+class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< SMSppCostScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -2880,7 +2533,6 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
   * arguments. */
 
  MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCostScaling<GR, V, C > >() {
-  f_algo = NULL;
   f_method_type = SMSppCostScaling<GR, V, C>::Method::PARTIAL_AUGMENT;
 
 
@@ -2897,10 +2549,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
   }
  
   ~MCFLemonSolver( void ) {
-    delete f_algo;
-    delete Fields<SMSppCostScaling<GR, V, C>>::f_method;
-    delete dgp;
-    
+    delete Fields<SMSppCostScaling<GR, V, C>>::f_method;    
   }
  
  
@@ -2953,14 +2602,6 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
         dblLastParLEMON_CS
  };
 
-enum str_par_type_LEMON_CC {
-  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
-  strLastParLEMON_CS   ///< first allowed parameter value for derived classes
-                   /**< convenience value for easily allow derived classes
-                    * to further extend the set of types of return codes */
-};  
-
-
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -3009,112 +2650,7 @@ enum str_par_type_LEMON_CC {
  *
  *  @{ */
 
- /// set the (pointer to the) Block that the Solver has to solve
- void set_Block(Block *block) override
-    {
-     
-      
-      if (block == f_Block) // actually doing nothing
-        return;             // cowardly and silently return
-      
-      delete f_algo;
-      f_algo=NULL;
 
-      Solver::set_Block(block); // attach to the new Block
-
-      if (block)
-      { // this is not just resetting everything
-        auto MCFB = dynamic_cast<MCFBlock *>(block);
-        if (!MCFB)
-          throw(std::invalid_argument(
-              "MCFSolver:set_Block: block must be a MCFBlock"));
-
-        bool owned = MCFB->is_owned_by(f_id);
-        if ((!owned) && (!MCFB->read_lock()))
-          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-        // load the new MCFBlock into the :MCFClass object
-        // TODO: change MCFC function to Algo function.
-        // TODO: convert array from MCFB functions to Map for Algo functions.
-        dgp = new GR;
-        dgp->clear();
-
-        dgp->reserveNode( MCFB->get_MaxNNodes() );
-        MCFBlock::Index n = MCFB->get_NNodes();
-
-        for( MCFBlock::Index i = 0; i < n; ++i)
-          dgp->addNode();
-
-        dgp->reserveArc( MCFB->get_MaxNArcs() );
-        MCFBlock::Index m = MCFB->get_NArcs();
-
-        MCFBlock::c_Subset & sn = MCFB->get_SN();
-        MCFBlock::c_Subset & en = MCFB->get_EN();
-
-        for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
-        }
-
-
-        
-        f_algo = new SMSppCostScaling< GR , V, C >(*dgp);
-
-        using MCFArcMapV = typename GR::template ArcMap< V >;
-        using MCFNodeMapV = typename GR::template NodeMap< V >;
-
-        if(!MCFB->get_U().empty())
-        {
-          MCFArcMapV um(*dgp);
-          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-          um.set( dgp->arcFromId(i), u[i]);
-          }
-          f_algo->upperMap(um);
-        }
-
-        if(!MCFB->get_C().empty())
-        {
-          MCFArcMapV cm(*dgp);
-          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-            cm.set( dgp->arcFromId(i), c[i]);
-          }
-          f_algo->costMap(cm);
-
-        }
-
-        if(!MCFB->get_B().empty())
-        {
-
-          MCFNodeMapV bm(*dgp);
-          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-          for( MCFBlock::Index i = 0; i < n; i++){
-            bm.set( dgp->nodeFromId(i), -b[i]);
-          }
-          f_algo->supplyMap(bm);
-
-        }
-
-        
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the data
-        //       changes, some of the deductions (say, reducing the capacity but
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       there isn't any proper way to handle this. Thus, PreProcess() has
-        //       to be disabled for now; maybe later on someone will take care to
-        //       make this work (or maybe not).
-        // MCFC::PreProcess();
-
-        // once done, read_unlock the MCFBlock (if it was read-lock()-ed)
-        if (!owned)
-          MCFB->read_unlock();
-
-        // TODO: maybe log it
-        //delete dgp;
-        
-      }
-      
-    } // end( set_Block )
 
     /*--------------------------------------------------------------------------*/
     // set the ostream for the Solver log
@@ -3720,9 +3256,6 @@ enum str_par_type_LEMON_CC {
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    SMSppCostScaling< GR , V , C > * f_algo;  //Algorithm used by lemon
-
-    GR* dgp;  //Rapresentation of directed graph
     V* value;   //Type of value of node
     C* costs;  //Type of costs of arcs
     int counter=0;
@@ -3730,7 +3263,8 @@ enum str_par_type_LEMON_CC {
     typename SMSppCostScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     int f_method_type;
-    double ticks;  //Elaped time in ticks for compute() method
+    double ticks;  //Elapsed time in ticks for compute() method
+
     /*--------------------------------------------------------------------------*/
 
   }; // end( class MCFLemonSolver<SMSppCostScaling, GR, V, C>  Specialization)

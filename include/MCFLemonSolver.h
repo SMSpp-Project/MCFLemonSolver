@@ -188,10 +188,145 @@ namespace SMSpp_di_unipi_it
 template< template< typename , typename , typename > typename Algo ,
           typename GR , typename V , typename C >
   requires LEMONGraph< GR >
-class MCFLemonSolver: public CDASolver, Fields< Algo<GR, V, C> > {
+
+class MCFLemonSolverBase: virtual public CDASolver {
+
+  public:
+
+  enum str_par_type_LEMON_NS {
+  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
+  strLastParLEMON_NS    ///< first allowed parameter value for derived classes
+                   /**< convenience value for easily allow derived classes
+                    * to further extend the set of types of return codes */
+  };
+
+  MCFLemonSolverBase(): CDASolver() {
+    f_algo = NULL;
+  }
+
+  ~MCFLemonSolverBase( void ) {
+    delete f_algo;
+    delete dgp;
+  
+  }
+
+  void set_Block(Block *block) override
+    {
+     
+      
+      if (block == f_Block) // actually doing nothing
+        return;             // cowardly and silently return
+      
+      delete f_algo;
+      f_algo=NULL;
+
+      Solver::set_Block(block); // attach to the new Block
+
+      if (block)
+      { // this is not just resetting everything
+        auto MCFB = dynamic_cast<MCFBlock *>(block);
+        if (!MCFB)
+          throw(std::invalid_argument(
+              "MCFSolver:set_Block: block must be a MCFBlock"));
+
+        bool owned = MCFB->is_owned_by(f_id);
+        if ((!owned) && (!MCFB->read_lock()))
+          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
+
+        // load the new MCFBlock into the :MCFClass object
+        // TODO: change MCFC function to Algo function.
+        // TODO: convert array from MCFB functions to Map for Algo functions.
+        dgp = new GR;
+        dgp->clear();
+
+        dgp->reserveNode( MCFB->get_MaxNNodes() );
+        MCFBlock::Index n = MCFB->get_NNodes();
+
+        for( MCFBlock::Index i = 0; i < n; ++i)
+          dgp->addNode();
+
+        dgp->reserveArc( MCFB->get_MaxNArcs() );
+        MCFBlock::Index m = MCFB->get_NArcs();
+
+        MCFBlock::c_Subset & sn = MCFB->get_SN();
+        MCFBlock::c_Subset & en = MCFB->get_EN();
+
+        for( MCFBlock::Index i = 0; i < m; ++i){
+          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
+        }
 
 
-  int compute(bool changedvars = true) override;
+        
+        f_algo = new Algo< GR , V, C >(*dgp);
+
+        using MCFArcMapV = typename GR::template ArcMap< V >;
+        using MCFNodeMapV = typename GR::template NodeMap< V >;
+
+        if(!MCFB->get_U().empty())
+        {
+          MCFArcMapV um(*dgp);
+          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
+          for( MCFBlock::Index i = 0; i < m; ++i){
+          um.set( dgp->arcFromId(i), u[i]);
+          }
+          f_algo->upperMap(um);
+        }
+
+        if(!MCFB->get_C().empty())
+        {
+          MCFArcMapV cm(*dgp);
+          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
+          for( MCFBlock::Index i = 0; i < m; ++i){
+            cm.set( dgp->arcFromId(i), c[i]);
+          }
+          f_algo->costMap(cm);
+
+        }
+
+        if(!MCFB->get_B().empty())
+        {
+
+          MCFNodeMapV bm(*dgp);
+          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
+          for( MCFBlock::Index i = 0; i < n; i++){
+            bm.set( dgp->nodeFromId(i), -b[i]);
+          }
+          f_algo->supplyMap(bm);
+
+        }
+
+        
+        // TODO: PreProcess() changes the internal data of the MCFSolver using
+        //       information about how the data of the MCF is *now*. If the data
+        //       changes, some of the deductions (say, reducing the capacity but
+        //       of some arcs) may no longer be correct and they should be undone,
+        //       there isn't any proper way to handle this. Thus, PreProcess() has
+        //       to be disabled for now; maybe later on someone will take care to
+        //       make this work (or maybe not).
+        // MCFC::PreProcess();
+
+        // once done, read_unlock the MCFBlock (if it was read-lock()-ed)
+        if (!owned)
+          MCFB->read_unlock();
+
+        // TODO: maybe log it
+        //delete dgp;
+        
+      }
+      
+    } // end( set_Block )
+
+
+  protected:
+    Algo<GR, V, C> * f_algo;
+    GR *dgp;
+
+}; // end( MCFLemonSolverBase )
+
+template< template< typename , typename , typename > typename Algo ,
+          typename GR , typename V , typename C >
+  requires LEMONGraph< GR >
+class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
 };
           
 
