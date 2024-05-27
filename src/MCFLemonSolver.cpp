@@ -102,9 +102,9 @@ struct Fields< CycleCanceling<GR, V, C> > {
  *    maximum compatibility, but int (or even smaller) would yeld better
  *    performances;
 */
-
-template< typename GR, typename V, typename C>
-class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< NetworkSimplex<GR, V, C> >
+template< typename GR , typename V , typename C >
+class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
+  public CDASolver , private Fields< NetworkSimplex< GR , V , C > >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -112,43 +112,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
 
  public:
 
-   
-
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PUBLIC TYPES --------------------------------*/
 /*--------------------------------------------------------------------------*/
-/** @name Public Types
-   kUnEval = 0     compute() has not been called yet
-
-   kUnbounded = kUnEval + 1     the model is provably unbounded
- *  @{ */
-  const int kErrorStatus = -1;
-/*
-    
-    kUnEval = 0     compute() has not been called yet
-
-    kUnbounded = kUnEval + 1     the model is provably unbounded
-
-    kInfeasible                  the model is provably infeasible
-
-    kBothInfeasible = kInfeasible + 1     both primal and dual infeasible
-
-    kOK = 7         successful compute()
-                    Any return value between kUnEval (excluded) and kOK
-        (included) means that the object ran smoothly
-
-    kStopTime = kOK + 1          stopped because of time limit
-
-    kStopIter                    stopped because of iteration limit
-
-    kError = 15     compute() stopped because of unrecoverable error
-                    Any return value >= kError means that the object was
-         forced to stop due to some error, e.g. of numerical nature
-
-    kLowPrecision = kError + 1   a solution found but not provably optimal
-    */
-
-
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
@@ -157,10 +123,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
  *  @{ */
 
  /// constructor: Initializes algorithm parameters
- /** Void constructor. Define f_pivot_rule_type to the default algorithm parameters used by NetworkSimplex.
+ /** Void constructor. Define f_pivot_rule_type to the default algorithm
+  * parameters used by NetworkSimplex.
   */
 
- MCFLemonSolver( void ) :  CDASolver(),  Fields<NetworkSimplex<GR, V, C > >() {
+ MCFLemonSolver( void ) : CDASolver() , Fields< ThisAlgo >() {
+//			  Fields< NetworkSimplex< GR , V , C > >()   {
+  guts_of_constructor();
   f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
   }
  
@@ -169,8 +138,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
    *  NetworkSimplex
    * */  
   ~MCFLemonSolver( void ) {
-    delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;  
-  }
+   delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
+   guts_of_destructor();
+   }
  
  
 
@@ -226,15 +196,6 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
                             * to further extend the set of types of return codes */
  };
  
- enum str_par_type_LEMON_NS {
-  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
-  strLastParLEMON_NS    ///< first allowed parameter value for derived classes
-                   /**< convenience value for easily allow derived classes
-                    * to further extend the set of types of return codes */
-  };  
-
-
-
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -284,13 +245,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
  *  @{ */
 
 
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
     // set the ostream for the Solver log
     // not really, MCFClass objects are remarkably silent
     //
     // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  
   /// @brief set the parameter par with value
   /// @param par 
@@ -317,9 +278,8 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
     return;
 
   }
-    
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //TODO: change MCFC function to Algo function.
     /*void set_par(idx_type par, double value) override
     {
@@ -328,12 +288,12 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< Netwo
       //  MCFC::SetPar(Solver_2_MCFClass_dbl[par], double(value));
     }*/
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
 
-    /** @} ---------------------------------------------------------------------*/
-    /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
-    /*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
+/*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
+/*--------------------------------------------------------------------------*/
     /** @name Solving the MCF encoded by the current MCFBlock
      *  @{ */
     /// (try to) solve the MCF encoded in the MCFBlock 

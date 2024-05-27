@@ -264,11 +264,17 @@ class MCFLemonSolverBase: virtual public CDASolver {
 template< template< typename , typename , typename > typename Algo ,
           typename GR , typename V , typename C >
   requires LEMONGraph< GR >
-class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
+class MCFLemonSolver : public CDASolver ,
+                       private Fields< Algo< GR , V , C > >
+{
+/*--------------------------------------------------------------------------*/
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
-  
-  public:
+ public:
 
+  using ThisAlgo = Algo< GR , V , C >;
+ 
   enum str_par_type_LEMON_NS {
   strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
   strLastParLEMON    ///< first allowed parameter value for derived classes
@@ -276,47 +282,33 @@ class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
                     * to further extend the set of types of return codes */
   };
 
-  /// constructor: Initializes f_algo
-  /** Void constructor. Initialize f_algo to nullptr
-  */
-
-  MCFLemonSolver(): CDASolver() {
-    f_algo = NULL;
-  }
+  /// constructor
+  // MCFLemonSolver() : CDASolver() { f_algo = nullptr; }
 
   /// destructor: delete heap memory
-  /**
-   * Void destructor. delete f_algo and dgp fields from memory
-   * Actually we have trouble with deleting dgp.
-  */
-  ~MCFLemonSolver( void ) {
-    delete f_algo;
-    delete dgp;
-  
-  }
+  // ~MCFLemonSolver( void ) { delete f_algo; delete dgp; }
 
   ///set_block function. Initialize dgp and f_algo
   /**
    * Prepare the block to be solved, initialize structure useful for LEMON algorithm
   */
 
-  void set_Block(Block *block) override
-    {
-     
-      
-      if (block == f_Block) // actually doing nothing
-        return;             // cowardly and silently return
-      
-      delete f_algo;
-      f_algo=NULL;
+ void set_Block( Block *block ) override
+ {
+  if( block == f_Block )  // actually doing nothing
+   return;                // cowardly and silently return
 
-      Solver::set_Block(block); // attach to the new Block
+  delete f_algo;
+  f_algo = nullptr;
 
-      if (block)
-      { // this is not just resetting everything
-        auto MCFB = dynamic_cast<MCFBlock *>(block);
-        if (!MCFB)
-          throw(std::invalid_argument(
+  Solver::set_Block( block );  // attach to the new Block
+
+  if( ! block )  // this is just: go sit down in a corner and wait
+   return;       // all done
+ 
+  auto MCFB = dynamic_cast< MCFBlock * >( block );
+  if( ! MCFB )
+   throw( std::invalid_argument(
               "MCFSolver:set_Block: block must be a MCFBlock"));
 
         bool owned = MCFB->is_owned_by(f_id);
@@ -394,32 +386,35 @@ class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
 
         }
 
-        
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the data
-        //       changes, some of the deductions (say, reducing the capacity but
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       there isn't any proper way to handle this. Thus, PreProcess() has
-        //       to be disabled for now; maybe later on someone will take care to
-        //       make this work (or maybe not).
-        // MCFC::PreProcess();
-
-        // once done, read_unlock the MCFBlock (if it was read-lock()-ed)
         if (!owned)
           MCFB->read_unlock();
 
         
-      }
-      
-    } // end( set_Block )
 
+      
+  }  // end( set_Block )
+
+  int compute( bool changedvars = true ) override;
 
   protected:
 
-    Algo<GR, V, C> * f_algo; ///f_algo represents the algorithm used by Lemon for solving the MCFBlock
-    GR *dgp; ///dgp represents the directed graph implemented by two classes by Lemon (ListDigraph and SmartDigraph)
+  void guts_of_constructor( void ) {
+   f_algo = nullptr;
+   }
 
-};
+  void guts_of_destructor( void ) {
+   delete f_algo;
+   delete dgp;
+   }
+
+  Algo< GR , V , C > * f_algo;
+  ///< the actual LEMON algorithm for solving the MCFBlock
+
+  GR * dgp;
+  /**< represents the directed graph implemented by two classes by Lemon
+   * (ListDigraph and SmartDigraph) */
+
+ };
           
 
   /*--------------------------------------------------------------------------*/
