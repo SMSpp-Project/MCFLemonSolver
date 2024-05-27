@@ -67,12 +67,42 @@ struct Fields< CycleCanceling<GR, V, C> > {
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the various static maps
 
+
+
 /*--------------------------------------------------------------------------*/
-/*--------------------------------- SPECIALIZED CLASSES --------------------*/
+/*-------------------------------- SPECIALIZED CLASSES --------------------*/
 /*--------------------------------------------------------------------------*/
-/** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C>
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- NETWORKSIMPLEX --------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+
+/** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C> that contains specialized
+ *  compute() method, enums for indexing algorithimc parameters and function
+ *  set/get_*_par for manage them.
+ *  This class derives from MCFLemonSolverBase for using set_Block() methods and
+ *  for inherit f_algo and dgp fields.
  * 
+ *  Template parameters are:
+ * 
+ *  - NetworkSimplex, implements the primal Network Simplex algorithm for finding
+ *    a minimum cost flow. This algorithm is a highly efficient specialized version
+ *    of the linear programming simplex method directly for the minimum cost flow
+ *    problem.
+ * 
+ *  - GR that represents the directed graph, the possibilities are described in the
+ *    file MCFLemonSolver.h at line 339
+ *  
+ *  - V, which is the type of flows / deficits; typically, double can be used
+ *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+ *  
+ * - C, which is the type of ar costs; typically, double can be used for
+ *    maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
 */
+
 template< typename GR, typename V, typename C>
 class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< NetworkSimplex<GR, V, C> >
 {
@@ -184,12 +214,16 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 
 /*--------------------------------------------------------------------------*/
  enum LEMON_NS_dbl_par_type{
-        dblLastParLEMON_NS
+        dblLastParLEMON_NS ///< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
  };
 
  enum LEMON_NS_int_par_type{
         kPivot = intLastParCDAS,
-        intLastParLEMON_NS
+        intLastParLEMON_NS ///< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
  };
  
  enum str_par_type_LEMON_NS {
@@ -258,32 +292,31 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 
     /*--------------------------------------------------------------------------*/
  
-    void set_par(idx_type par, int value) override {
+  /// @brief set the parameter par with value
+  /// @param par 
+  /// @param value 
+  void set_par(idx_type par, int value) override {
         
-        if(par == kPivot){      
+    if(par == kPivot){      
 
-                if( (value < 0) || (value > 4)){
-                throw(std::invalid_argument(std::to_string(value)));
-                }                
+      if( (value < 0) || (value > 4)){
+        throw(std::invalid_argument(std::to_string(value)));
+      }                
 
-                if( value == f_pivot_rule_type ){
-                        return; //nothing is changed
-                }
+      if( value == f_pivot_rule_type ){
+        return; //nothing is changed
+      }
                 
-                f_pivot_rule_type = value;
-                delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
-                Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule = NULL;
-                return;
-        }
-
-        CDASolver::set_par(par, value);
-        return;
-
+      f_pivot_rule_type = value;
+      delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
+      Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule = NULL;
+      return;
     }
-      
-           
 
-      //CDASolver::set_par(par, value);
+    CDASolver::set_par(par, value);
+    return;
+
+  }
     
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -375,15 +408,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     /** @name Accessing the found solutions (if any)
      *  @{ */
     
-    
-
-
     int get_status(void) const 
     {
       return (this->status);
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    ///Get elapsed time for run() method
     double get_elapsed_time(void) const override
     {
       return (this->ticks);
@@ -400,7 +431,6 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
-    //TODO: change MCFC function to Algo function. DONE
     bool has_var_solution(void) override
     {
      switch (this->get_status()) {
@@ -413,7 +443,6 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
     bool has_dual_solution(void) override
     {
      switch( this->get_status() ) {
@@ -600,6 +629,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
      *  @{ */
 
 
+    ///@return number of int algorithmic parameters
     [[nodiscard]] idx_type get_num_int_par(void) const override
     {
         return (intLastParLEMON_NS);
@@ -607,6 +637,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @return number of dbl algorithmic parameters
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
     {
         return (dblLastParLEMON_NS);
@@ -614,6 +645,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
+    /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
       return (MCFLemonSolver::strLastParLEMON);
@@ -621,10 +653,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for obtain default value of an int parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
     {
       if( par > intLastParLEMON_NS){
-        throw std::invalid_argument(std::to_string(par));
+        throw std::invalid_argument("Invalid int parameter: out_of_range " + std::to_string(par));
       }
 
       switch(par){
@@ -636,10 +671,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of a double parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
       if( par > dblLastParLEMON_NS){
-        throw std::invalid_argument(std::to_string(par));
+        throw std::invalid_argument("Invalid dbl parameter: out_of_range " + std::to_string(par));
       }
       switch(par){
         default: return(CDASolver::get_dflt_dbl_par(par)); 
@@ -650,11 +688,17 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
+    /// @brief used for obtain default value of a string parameter
+    /// @param par
+    /// @return default valule of parameter par, if exists
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
+      if(par > MCFLemonSolverBase<NetworkSimplex, GR, V, C>::strLastParLEMON){
+        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
+      }
       static const std::string _empty;
-      if (par == MCFLemonSolver::strLastParLEMON)
+      if (par == MCFLemonSolverBase<NetworkSimplex, GR, V, C>::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -662,10 +706,13 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
         
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- 
+
+    /// @brief used for get the value of string parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolver::strDMXFile )
+        if( par == MCFLemonSolverBase<NetworkSimplex, GR, V, C>::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -674,6 +721,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for get the value of int parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] int get_int_par(idx_type par) const override
     {
     
@@ -686,6 +736,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for get the value of dbl parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] double get_dbl_par(idx_type par) const override
     {
       //Da finire parametri algoritmici dbl
@@ -695,6 +748,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
         
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for convert string to int parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
@@ -706,6 +762,9 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert string to dbl parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
     {
@@ -714,12 +773,15 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
       
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for convert int index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
     {
 
       if(idx > intLastParLEMON_NS){
-        throw std::invalid_argument(std::to_string(idx));
+        throw std::invalid_argument("Invalid index: out_of_range " + std::to_string(idx));
       }
       static const std::string par = "kPivot";
       switch(idx){
@@ -732,11 +794,14 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert dbl index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
       if(idx > dblLastParLEMON_NS){
-        throw std::invalid_argument(std::to_string(idx));
+        throw std::invalid_argument("Invalid index: out_of_range " + std::to_string(idx));
       }
 
       switch(idx){
@@ -866,24 +931,51 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
      /*--------------------------------------------------------------------------*/
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
-
-   // NetworkSimplex< GR , V , C > * f_algo;  //Algorithm used by lemon
-
-    //GR* dgp;  //Rapresentation of directed graph
-    V* value;   //Type of value of node
-    C* costs;  //Type of costs of arcs
-    int counter=0;
     int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename NetworkSimplex< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     
-    int f_pivot_rule_type;
+    int f_pivot_rule_type; // Variable used in set_par for switching value with f_pivot_rule
 
     double ticks;  //Elaped time in ticks for compute() method
     /*--------------------------------------------------------------------------*/
 
   }; // end( class MCFLemonSolver<NetworkSimplex, GR, V, C>  Specialization)
 
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- SPECIALIZED CLASSES ---------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- CYCLECANCELING --------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+
+/** Specialized MCFLemonSolver<CycleCanceling, GR, V, C> that contains specialized
+ *  compute() method, enums for indexing algorithimc parameters and function
+ *  set/get_*_par for manage them.
+ *  This class derives from MCFLemonSolverBase for using set_Block() methods and
+ *  for inherit f_algo and dgp fields.
+ * 
+ *  Template parameters are:
+ * 
+ *  -  CycleCanceling implements three different cycle-canceling algorithms for finding 
+ *     a minimum cost flow. The most efficent one is the Cancel-and-tighten algorithm,
+ *     thus it is the default method. It runs in strongly polynomial time, but in practice, 
+ *     it is typically orders of magnitude slower than the scaling algorithms and NetworkSimplex.
+ * 
+ *  - GR that represents the directed graph, the possibilities are described in the
+ *    file MCFLemonSolver.h at line 339
+ *  
+ *  - V, which is the type of flows / deficits; typically, double can be used
+ *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+ *  
+ * - C, which is the type of ar costs; typically, double can be used for
+ *    maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+*/
   template< typename GR, typename V, typename C>
 class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<CycleCanceling, GR, V, C>, Fields< CycleCanceling<GR, V, C> >
 {
@@ -937,25 +1029,15 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, publi
 /** @name Constructing and destructing MCFLemonSolver
  *  @{ */
 
- /// constructor: does nothing special
- /** Void constructor: does nothing special, except verifying the template
-  * arguments. */
+ /// constructor: assign the default parameter
+ /** Void constructor: Build f_method_type with default parameter */
 
  MCFLemonSolver( void ) : CDASolver(), MCFLemonSolverBase<CycleCanceling, GR, V, C>(),  Fields<CycleCanceling<GR, V, C > >() {
   f_method_type = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
-
- /* static_assert( std::is_same< Algo< GR , V , C > ,
-                               SMSppCapacityScaling< GR , V , C > >::value ||
-		 std::is_same< Algo< GR , V , C > ,
-                               SMSppCostScaling< GR , V , C >::value     ||
-		 std::is_same< Algo< GR , V , C > ,
-                               CycleCanceling< GR , V , C > >::value       ||
-		 std::is_same< Algo< GR , V , C > ,
-		               NetworkSimplex< GR , V , C > >::value ,
-		 "Algo must be one of the LEMON algorithms");
-  */
   }
  
+ ///destructor:
+ /**Void destructor: Delete f_method from memory */
   ~MCFLemonSolver( void ) {
     delete Fields<CycleCanceling< GR, V, C > >::f_method;   
   }
@@ -976,7 +1058,9 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, publi
 
  enum LEMON_CC_int_par_type{
         kMethod = intLastParCDAS,
-        intLastParLEMON_CC
+        intLastParLEMON_CC ///< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
  };
 
 /*--------------------------------------------------------------------------*/
@@ -1011,8 +1095,10 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, publi
 /// to MCFLemonSolver< CycleCanceling , C , V >
 
 enum dbl_par_type_LEMON_CC{
-  dblCycleCancelingFactor = dblLastParCDAS ,///< the cycle canceling factor
-  dblLastParLEMON_CC
+  dblCycleCancelingFactor = dblLastParCDAS ,
+  dblLastParLEMON_CC ///< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
 };
 
 /** @} ---------------------------------------------------------------------*/
@@ -1072,7 +1158,9 @@ enum dbl_par_type_LEMON_CC{
     // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
     /*--------------------------------------------------------------------------*/
-
+    /// @brief set the parameter par with value
+    /// @param par 
+    /// @param value 
     void set_par(idx_type par, int value){
         if(par != kMethod){
                 CDASolver::set_par(par, value);
@@ -1187,13 +1275,15 @@ enum dbl_par_type_LEMON_CC{
     
     
 
-
+    ///Return the status of the run() in compute method
     int get_status(void) const 
     {
       return (this->status);
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    
+    //Return the elapsed time for the run() in compute method   
     double get_elapsed_time(void) const override
     {
       return (this->ticks);
@@ -1210,7 +1300,10 @@ enum dbl_par_type_LEMON_CC{
     OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
-    //TODO: change MCFC function to Algo function. DONE
+    
+    /// @brief Analyze the return status of run() 
+    /// @param  
+    /// @return if the solution found is OPTIMAL or UNBOUNDED returns true else false
     bool has_var_solution(void) override
     {
      switch (this->get_status()) {
@@ -1223,7 +1316,10 @@ enum dbl_par_type_LEMON_CC{
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
+    
+    /// @brief Analyze the return status of run()
+    /// @param  
+    /// @return if the solution found is OPTIMAL or INFEASIBLE returns true else false
     bool has_dual_solution(void) override
     {
      switch( this->get_status() ) {
@@ -1410,6 +1506,7 @@ enum dbl_par_type_LEMON_CC{
      *  @{ */
 
 
+     ///@return number of int algorithmic parameters
     [[nodiscard]] idx_type get_num_int_par(void) const override
     {
         return (intLastParLEMON_CC);
@@ -1417,6 +1514,7 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @return number of dbl algorithmic parameters
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
     {
         return (dblLastParLEMON_CC);
@@ -1424,6 +1522,7 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
       return (MCFLemonSolver::strLastParLEMON);
@@ -1431,6 +1530,9 @@ enum dbl_par_type_LEMON_CC{
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for obtain default value of an int parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
     {
       if(par > intLastParLEMON_CC){
@@ -1445,6 +1547,9 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of a double parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
       if(par > dblLastParLEMON_CC){
@@ -1458,11 +1563,19 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of a string parameter
+    /// @param par
+    /// @return default valule of parameter par, if exists
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
+
+       if(par > MCFLemonSolverBase<CycleCanceling, GR, V, C>::strLastParLEMON){
+        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
+      }
+
       static const std::string _empty;
-      if (par == MCFLemonSolver::strLastParLEMON)
+      if (par == MCFLemonSolverBase<CycleCanceling, GR, V, C>::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -1470,6 +1583,9 @@ enum dbl_par_type_LEMON_CC{
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for get the value of int parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] int get_int_par(idx_type par) const override
     {
       
@@ -1482,6 +1598,9 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for get the value of dbl parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] double get_dbl_par(idx_type par) const override
     {
       //Da finire parametri algoritmici dbl
@@ -1491,17 +1610,23 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
+    /// @brief used for get the value of string parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
+    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolver::strDMXFile )
+      if( par == MCFLemonSolverBase<CycleCanceling, GR, V, C>::strDMXFile )
         return( this->f_dmx_file );
 
-        return( get_dflt_str_par( par ) );
-        }
+      return( get_dflt_str_par( par ) );
+    }
    
 
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for convert string to int parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
@@ -1513,6 +1638,9 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert string to dbl parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
     {
@@ -1521,6 +1649,9 @@ enum dbl_par_type_LEMON_CC{
       
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for convert int index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
     {
@@ -1540,6 +1671,9 @@ enum dbl_par_type_LEMON_CC{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert dbl index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
@@ -1675,17 +1809,48 @@ enum dbl_par_type_LEMON_CC{
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    int counter=0;
     int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename CycleCanceling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
-    int f_method_type;
+    int f_method_type; //Variable used in set_par for switching value with f_method
     double ticks;  //Elaped time in ticks for compute() method
     /*--------------------------------------------------------------------------*/
 
   }; // end( class MCFLemonSolver<CycleCanceling> specialization )
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- SPECIALIZED CLASSES ---------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- CAPACITYSCALING -------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
+
+/** Specialized MCFLemonSolver<CapacityScaling, GR, V, C> that contains specialized
+ *  compute() method, enums for indexing algorithimc parameters and function
+ *  set/get_*_par for manage them.
+ *  This class derives from MCFLemonSolverBase for using set_Block() methods and
+ *  for inherit f_algo and dgp fields.
+ * 
+ *  Template parameters are:
+ * 
+ *   - CapacityScaling implements the capacity scaling version of the successive shortest path
+ *     algorithm for finding a minimum cost flow. It is an efficient dual solution method,
+ *     which runs in polynomial time.
+ *     In special case it can be more efficient than CostScaling and NetworkSimplex algorithms.
+ * 
+ *  - GR that represents the directed graph, the possibilities are described in the
+ *    file MCFLemonSolver.h at line 339
+ *  
+ *  - V, which is the type of flows / deficits; typically, double can be used
+ *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+ *  
+ * - C, which is the type of ar costs; typically, double can be used for
+ *    maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+*/
 template< typename GR, typename V, typename C>
 class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>, Fields< SMSppCapacityScaling<GR, V, C> >
 {
@@ -1739,25 +1904,12 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver,
 /** @name Constructing and destructing MCFLemonSolver
  *  @{ */
 
- /// constructor: does nothing special
- /** Void constructor: does nothing special, except verifying the template
-  * arguments. */
-
+ /// constructor: does nothing
  MCFLemonSolver( void ) : CDASolver(), MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>(), Fields<SMSppCapacityScaling<GR, V, C > >() {
 
-
- /* static_assert( std::is_same< Algo< GR , V , C > ,
-                               SMSppCapacityScaling< GR , V , C > >::value ||
-		 std::is_same< Algo< GR , V , C > ,
-                               SMSppCostScaling< GR , V , C >::value     ||
-		 std::is_same< Algo< GR , V , C > ,
-                               CycleCanceling< GR , V , C > >::value       ||
-		 std::is_same< Algo< GR , V , C > ,
-		               NetworkSimplex< GR , V , C > >::value ,
-		 "Algo must be one of the LEMON algorithms");
-  */
-  }
+ }
  
+  /// destructor: doesnothing  
   ~MCFLemonSolver( void ) {   
   }
  
@@ -1776,8 +1928,9 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver,
     */
 
   enum LEMON_CS_int_par_type{
-    kMethod = intLastParCDAS,
-    intLastParLEMON_CS
+    intLastParLEMON_CS //< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
   };
 
 
@@ -1810,7 +1963,9 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver,
 /*--------------------------------------------------------------------------*/
 
 enum LEMON_CS_dbl_par_type{
-        dblLastParLEMON_CS
+        dblLastParLEMON_CS //< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
 };
 
 
@@ -1968,13 +2123,16 @@ enum LEMON_CS_dbl_par_type{
     
     
 
-
+    /// @brief getter for status field
+    /// @param  
+    /// @return value of this->status
     int get_status(void) const 
     {
       return (this->status);
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    ///Get elapsed time in run() method
     double get_elapsed_time(void) const override
     {
       return (this->ticks);
@@ -2190,7 +2348,7 @@ enum LEMON_CS_dbl_par_type{
      *
      *  @{ */
 
-
+     ///@return number of int algorithmic parameters
     [[nodiscard]] idx_type get_num_int_par(void) const override
     {
         return(intLastParLEMON_CS);
@@ -2198,6 +2356,7 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @return number of dbl algorithmic parameters
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
     {
         return(dblLastParLEMON_CS);
@@ -2205,6 +2364,7 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
       return (MCFLemonSolver::strLastParLEMON);
@@ -2212,6 +2372,9 @@ enum LEMON_CS_dbl_par_type{
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for obtain default value of an int parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
     {
       if(par > intLastParLEMON_CS){
@@ -2225,6 +2388,9 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of an dbl parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
        if(par > dblLastParLEMON_CS){
@@ -2238,11 +2404,19 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of an string parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
+
+      if(par > MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>::strLastParLEMON){
+        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
+      }
+
       static const std::string _empty;
-      if (par == strLastParCDAS)
+      if (par == MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -2250,6 +2424,9 @@ enum LEMON_CS_dbl_par_type{
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for get the value of int parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] int get_int_par(idx_type par) const override
     {
       //No int parameters
@@ -2258,6 +2435,9 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for get the value of dbl parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] double get_dbl_par(idx_type par) const override
     {
       //No dbl parameters
@@ -2267,9 +2447,12 @@ enum LEMON_CS_dbl_par_type{
         
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for get the value of string parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolver::strDMXFile )
+        if( par == MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -2278,7 +2461,9 @@ enum LEMON_CS_dbl_par_type{
 
     /*--------------------------------------------------------------------------*/
 
-
+    /// @brief used for convert string to int parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
@@ -2287,6 +2472,9 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert string to dbl parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
     {
@@ -2295,6 +2483,9 @@ enum LEMON_CS_dbl_par_type{
       
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for convert int index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
     {
@@ -2311,6 +2502,9 @@ enum LEMON_CS_dbl_par_type{
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert dbl index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
@@ -2446,10 +2640,6 @@ enum LEMON_CS_dbl_par_type{
      /*--------------------------------------------------------------------------*/
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
-
-    V* value;   //Type of value of node
-    C* costs;  //Type of costs of arcs
-    int counter=0;
     int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename SMSppCapacityScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
@@ -2458,6 +2648,41 @@ enum LEMON_CS_dbl_par_type{
     /*--------------------------------------------------------------------------*/
 
   }; // end( class MCFLemonSolver<SMSppCapacityScaling, GR, V, C>  Specialization)
+
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- SPECIALIZED CLASSES ---------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- COSTSCALING -----------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+
+/** Specialized MCFLemonSolver<CostScaling, GR, V, C> that contains specialized
+ *  compute() method, enums for indexing algorithimc parameters and function
+ *  set/get_*_par for manage them.
+ *  This class derives from MCFLemonSolverBase for using set_Block() methods and
+ *  for inherit f_algo and dgp fields.
+ * 
+ *  Template parameters are:
+ * 
+ *   - CostScaling implements a cost scaling algorithm that performs push/augment and
+ *     relabel operations for finding a minimum cost flow. It is a highly efficient primal-dual
+ *     solution method, which can be viewed as the generalization of the preflow push-relabel
+ *     algorithm for the maximum flow problem. It is a polynomial algorithm.
+ * 
+ *  - GR that represents the directed graph, the possibilities are described in the
+ *    file MCFLemonSolver.h at line 339
+ *  
+ *  - V, which is the type of flows / deficits; typically, double can be used
+ *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+ *  
+ * - C, which is the type of ar costs; typically, double can be used for
+ *    maximum compatibility, but int (or even smaller) would yeld better
+ *    performances;
+*/
 
 template< typename GR, typename V, typename C>
 class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<SMSppCostScaling, GR, V, C>, Fields< SMSppCostScaling<GR, V, C> >
@@ -2512,9 +2737,8 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
 /** @name Constructing and destructing MCFLemonSolver
  *  @{ */
 
- /// constructor: does nothing special
- /** Void constructor: does nothing special, except verifying the template
-  * arguments. */
+ /// constructor: Build f_method_type
+ /** Void constructor: Initialize f_method_type to default algorithmic parameter */
 
  MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCostScaling<GR, V, C > >() {
   f_method_type = SMSppCostScaling<GR, V, C>::Method::PARTIAL_AUGMENT;
@@ -2531,7 +2755,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
 		 "Algo must be one of the LEMON algorithms");
   */
   }
- 
+  
+  /// @brief delete f_method algorithmic parameter pointer
+  /// @param  
   ~MCFLemonSolver( void ) {
     delete Fields<SMSppCostScaling<GR, V, C>>::f_method;    
   }
@@ -2552,7 +2778,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
 
    enum LEMON_CS_int_par_type{
         kMethod = intLastParCDAS,
-        intLastParLEMON_CS
+        intLastParLEMON_CS //< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
    };
 
 /*--------------------------------------------------------------------------*/
@@ -2583,7 +2811,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
 
 /*--------------------------------------------------------------------------*/
  enum LEMON_CS_dbl_par_type{
-        dblLastParLEMON_CS
+        dblLastParLEMON_CS //< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
  };
 
 /** @} ---------------------------------------------------------------------*/
@@ -2643,6 +2873,10 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
     /*--------------------------------------------------------------------------*/
+    
+    /// @brief set the parameter par with value
+    /// @param par 
+    /// @param value 
     void set_par(idx_type par, int value) 
     {
         if(par != kMethod){
@@ -2754,13 +2988,18 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     
 
-
+    /// @brief getter of the status
+    /// @param  
+    /// @return this->status
     int get_status(void) const 
     {
       return (this->status);
     }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    
+    /// @brief getter of ticks (elapsed time of run())
+    ///@return this->ticks
     double get_elapsed_time(void) const override
     {
       return (this->ticks);
@@ -2976,7 +3215,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
      *
      *  @{ */
 
-
+    ///@return number of int algorithmic parameters
     [[nodiscard]] idx_type get_num_int_par(void) const override
     { 
        return (intLastParLEMON_CS);
@@ -2984,6 +3223,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    ///@return number of dbl algorithmic parameters
     [[nodiscard]] idx_type get_num_dbl_par(void) const override
     {
         return (dblLastParLEMON_CS);
@@ -2991,6 +3231,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    ///@return number of str algorithmic parameters
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
       return (MCFLemonSolver::strLastParLEMON);
@@ -2998,6 +3239,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for obtain default value of an int parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] int get_dflt_int_par(idx_type par) const override
     {
 
@@ -3013,6 +3257,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of an dbl parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
       if(par > intLastParLEMON_CS){
@@ -3026,11 +3273,19 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for obtain default value of an string parameter
+    /// @param par 
+    /// @return default value of parameter par, if exists
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
+
+      if(par > MCFLemonSolverBase<SMSppCostScaling, GR, V, C>::strLastParLEMON){
+        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
+      }
+
       static const std::string _empty;
-      if (par == MCFLemonSolver::strLastParLEMON)
+      if (par == MCFLemonSolverBase<SMSppCostScaling, GR, V, C>::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -3038,6 +3293,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for get the value of int parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] int get_int_par(idx_type par) const override
     {
 
@@ -3049,6 +3307,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for get the value of dbl parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] double get_dbl_par(idx_type par) const override
     {
       return (get_dflt_dbl_par(par));
@@ -3056,9 +3317,12 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
         
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for get the value of string parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolver::strDMXFile )
+        if( par == MCFLemonSolverBase<SMSppCostScaling, GR, V, C>::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -3067,7 +3331,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*--------------------------------------------------------------------------*/
 
-
+    /// @brief used for convert string to int parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
         const override
     {
@@ -3079,6 +3345,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert string to dbl parameter's index
+    /// @param name 
+    /// @return an index that denotes parameter name
     [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
         const override
     {
@@ -3087,6 +3356,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
       
     /*--------------------------------------------------------------------------*/
     
+    /// @brief used for convert int index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
         const override
     {
@@ -3105,6 +3377,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
+    /// @brief used for convert dbl index idx to phrasal rapresentation
+    /// @param idx 
+    /// @return a string that denotes index idx parameter
     [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
@@ -3239,14 +3514,10 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
      /*--------------------------------------------------------------------------*/
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
-
-    V* value;   //Type of value of node
-    C* costs;  //Type of costs of arcs
-    int counter=0;
     int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename SMSppCostScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
-    int f_method_type;
+    int f_method_type; //Variable used in set_par for switching value with f_method
     double ticks;  //Elapsed time in ticks for compute() method
 
     /*--------------------------------------------------------------------------*/

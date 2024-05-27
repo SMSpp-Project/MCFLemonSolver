@@ -74,7 +74,19 @@ namespace SMSpp_di_unipi_it
  *
  * Algorithms in the LEMON projects are template over at least three types:
  *
- * - GR, which is the type of graph (DISCUSS THE POSSIBILITIES);
+ * - GR, which is the type of graph
+ *  
+ *   The possibilities are:
+ * 
+ *   - SmartDigraph is a simple and fast directed graph implementation
+ *     It is quite memory efficient but at the price that it does not support
+ *     node and arc deletion.
+ *     It will be hard find the best way for modification.
+ * 
+ *   - ListDigraph, a versatile and fast directed graph implementation based
+ *     on linked lists that are stored in std::vector structures.
+ *     This class provides only linear time counting for nodes and arcs.
+ *     It support node and arc deletion, useful for modification.
  *
  * - V, which is the type of flows / deficits; typically, double can be used
  *   for maximum compatibility, but int (or even smaller) would yeld better
@@ -93,7 +105,17 @@ namespace SMSpp_di_unipi_it
  * trait.
  *
  * Thus, the concept LEMONGraph is defined that only allows all possible
- * types of LEMON graphs, i.e., (DISCUSS THE POSSIBILITIES);
+ * types of LEMON graphs, i.e.,
+ * 
+ *   - SmartDigraph is a simple and fast directed graph implementation
+ *     It is quite memory efficient but at the price that it does not support
+ *     node and arc deletion.
+ *     It will be hard find the best way for modification.
+ * 
+ *   - ListDigraph, a versatile and fast directed graph implementation based
+ *     on linked lists that are stored in std::vector structures.
+ *     This class provides only linear time counting for nodes and arcs.
+ *     It support node and arc deletion, useful for modification.
  *
  * Similarly, the concept LEMONAlgorithm is defined that only allows all
  * possible types of LEMON algorithms, i.e., [SMSpp]CapacityScaling,
