@@ -188,6 +188,85 @@ template< template< typename , typename , typename > typename Algo ,
   requires LEMONGraph< GR >
 class MCFLemonSolverBase: virtual public CDASolver {
 
+}; // end( MCFLemonSolverBase )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS MCFLemonSolver ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------- GENERAL NOTES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// CDASolver for MCFBlock based on the LEMON project
+/** The MCFLemonSolver implements Solver interface for MCFBlock that represent
+ * (Linear) Min-Cost Flow (MCF) problems, using algorithms of LEMON library.
+ * Because MCF is a Linear Program it has a(n exact) dual, and therefore
+ * MCFLemonSolver implements the CDASolver interface for also giving out dual
+ * information.
+ *
+ * The MCFLemonSolver is template over four different types:
+ *
+ * - GR, which is the type of graph:
+ * 
+ *   The possibilities are:
+ *   - SmartDigraph is a simple and fast directed graph implementation
+ *     It is quite memory efficient but at the price that it does not support
+ *     node and arc deletion.
+ *     It will be hard find the best way for modification.
+ * 
+ *   - ListDigraph, a versatile and fast directed graph implementation based
+ *     on linked lists that are stored in std::vector structures.
+ *     This class provides only linear time counting for nodes and arcs.
+ *     It support node and arc deletion, useful for modification.
+ *
+ * - V, which is the type of flows / deficits; typically, double can be used
+ *   for maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - C, which is the type of ar costs; typically, double can be used for
+ *   maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - Algo, which is the specific algorithm (itself, template over GR, V, and
+ *   C) implemented in the LEMON class:
+ *   The possibilities are:
+ * 
+ *   - NetworkSimplex implements the primal Network Simplex algorithm for finding
+ *     a minimum cost flow. This algorithm is a highly efficient specialized version
+ *     of the linear programming simplex method directly for the minimum cost flow
+ *     problem.
+ *     
+ *   - CycleCanceling implements three different cycle-canceling algorithms for finding 
+ *     a minimum cost flow. The most efficent one is the Cancel-and-tighten algorithm,
+ *     thus it is the default method. It runs in strongly polynomial time, but in practice, 
+ *     it is typically orders of magnitude slower than the scaling algorithms and NetworkSimplex.
+ * 
+ *   - CostScaling implements a cost scaling algorithm that performs push/augment and
+ *     relabel operations for finding a minimum cost flow. It is a highly efficient primal-dual
+ *     solution method, which can be viewed as the generalization of the preflow push-relabel
+ *     algorithm for the maximum flow problem. It is a polynomial algorithm.
+ * 
+ *   - CapacityScaling implements the capacity scaling version of the successive shortest path
+ *     algorithm for finding a minimum cost flow. It is an efficient dual solution method,
+ *     which runs in polynomial time.
+ *     In special case it can be more efficient than CostScaling and NetworkSimplex algorithms.
+ * 
+ *   In general, NetworkSimplex and CostScaling are the fastest implementations available in LEMON
+ *   for solving this problem.
+ *    
+ *   Note that scaling-type algorithms may behave in different ways according
+ *   to which combination of V and C is used, and there are different
+ *   "traits" for this which are another scaling parameter. However, in order
+ *   to make MCFLemonSolver class template over always the same number of
+ *   template parameters we fix the use of the default trait, which is why
+ *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
+ *   < GR , V , C >) that are meant to be used instead of the original
+ *   CapacityScaling and CostScaling. */
+
+template< template< typename , typename , typename > typename Algo ,
+          typename GR , typename V , typename C >
+  requires LEMONGraph< GR >
+class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
+
+  
   public:
 
   enum str_par_type_LEMON_NS {
@@ -201,7 +280,7 @@ class MCFLemonSolverBase: virtual public CDASolver {
   /** Void constructor. Initialize f_algo to nullptr
   */
 
-  MCFLemonSolverBase(): CDASolver() {
+  MCFLemonSolver(): CDASolver() {
     f_algo = NULL;
   }
 
@@ -210,7 +289,7 @@ class MCFLemonSolverBase: virtual public CDASolver {
    * Void destructor. delete f_algo and dgp fields from memory
    * Actually we have trouble with deleting dgp.
   */
-  ~MCFLemonSolverBase( void ) {
+  ~MCFLemonSolver( void ) {
     delete f_algo;
     delete dgp;
   
@@ -340,83 +419,6 @@ class MCFLemonSolverBase: virtual public CDASolver {
     Algo<GR, V, C> * f_algo; ///f_algo represents the algorithm used by Lemon for solving the MCFBlock
     GR *dgp; ///dgp represents the directed graph implemented by two classes by Lemon (ListDigraph and SmartDigraph)
 
-}; // end( MCFLemonSolverBase )
-
-/*--------------------------------------------------------------------------*/
-/*------------------------ CLASS MCFLemonSolver ----------------------------*/
-/*--------------------------------------------------------------------------*/
-/*--------------------------- GENERAL NOTES --------------------------------*/
-/*--------------------------------------------------------------------------*/
-/// CDASolver for MCFBlock based on the LEMON project
-/** The MCFLemonSolver implements Solver interface for MCFBlock that represent
- * (Linear) Min-Cost Flow (MCF) problems, using algorithms of LEMON library.
- * Because MCF is a Linear Program it has a(n exact) dual, and therefore
- * MCFLemonSolver implements the CDASolver interface for also giving out dual
- * information.
- *
- * The MCFLemonSolver is template over four different types:
- *
- * - GR, which is the type of graph:
- * 
- *   The possibilities are:
- *   - SmartDigraph is a simple and fast directed graph implementation
- *     It is quite memory efficient but at the price that it does not support
- *     node and arc deletion.
- *     It will be hard find the best way for modification.
- * 
- *   - ListDigraph, a versatile and fast directed graph implementation based
- *     on linked lists that are stored in std::vector structures.
- *     This class provides only linear time counting for nodes and arcs.
- *     It support node and arc deletion, useful for modification.
- *
- * - V, which is the type of flows / deficits; typically, double can be used
- *   for maximum compatibility, but int (or even smaller) would yeld better
- *   performances;
- *
- * - C, which is the type of ar costs; typically, double can be used for
- *   maximum compatibility, but int (or even smaller) would yeld better
- *   performances;
- *
- * - Algo, which is the specific algorithm (itself, template over GR, V, and
- *   C) implemented in the LEMON class:
- *   The possibilities are:
- * 
- *   - NetworkSimplex implements the primal Network Simplex algorithm for finding
- *     a minimum cost flow. This algorithm is a highly efficient specialized version
- *     of the linear programming simplex method directly for the minimum cost flow
- *     problem.
- *     
- *   - CycleCanceling implements three different cycle-canceling algorithms for finding 
- *     a minimum cost flow. The most efficent one is the Cancel-and-tighten algorithm,
- *     thus it is the default method. It runs in strongly polynomial time, but in practice, 
- *     it is typically orders of magnitude slower than the scaling algorithms and NetworkSimplex.
- * 
- *   - CostScaling implements a cost scaling algorithm that performs push/augment and
- *     relabel operations for finding a minimum cost flow. It is a highly efficient primal-dual
- *     solution method, which can be viewed as the generalization of the preflow push-relabel
- *     algorithm for the maximum flow problem. It is a polynomial algorithm.
- * 
- *   - CapacityScaling implements the capacity scaling version of the successive shortest path
- *     algorithm for finding a minimum cost flow. It is an efficient dual solution method,
- *     which runs in polynomial time.
- *     In special case it can be more efficient than CostScaling and NetworkSimplex algorithms.
- * 
- *   In general, NetworkSimplex and CostScaling are the fastest implementations available in LEMON
- *   for solving this problem.
- *    
- *   Note that scaling-type algorithms may behave in different ways according
- *   to which combination of V and C is used, and there are different
- *   "traits" for this which are another scaling parameter. However, in order
- *   to make MCFLemonSolver class template over always the same number of
- *   template parameters we fix the use of the default trait, which is why
- *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
- *   < GR , V , C >) that are meant to be used instead of the original
- *   CapacityScaling and CostScaling. */
-
-template< template< typename , typename , typename > typename Algo ,
-          typename GR , typename V , typename C >
-  requires LEMONGraph< GR >
-class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
 };
           
 

@@ -104,7 +104,7 @@ struct Fields< CycleCanceling<GR, V, C> > {
 */
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< NetworkSimplex<GR, V, C> >
+class MCFLemonSolver<NetworkSimplex, GR, V, C> : public CDASolver, Fields< NetworkSimplex<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -160,7 +160,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
  /** Void constructor. Define f_pivot_rule_type to the default algorithm parameters used by NetworkSimplex.
   */
 
- MCFLemonSolver( void ) :  CDASolver(), MCFLemonSolverBase<NetworkSimplex, GR, V , C>(), Fields<NetworkSimplex<GR, V, C > >() {
+ MCFLemonSolver( void ) :  CDASolver(),  Fields<NetworkSimplex<GR, V, C > >() {
   f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
   }
  
@@ -368,7 +368,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
+                writeDimacsMat(ProbFile, *dgp);
                 ProbFile.close();
         }
 
@@ -378,11 +378,11 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
         auto start = chrono::system_clock::now();
         
         if(Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule != NULL){
-        this->status = MCFLemonSolver::f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
+        this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
         }else{
                 //Build f_pivot and execute run() method
                 Fields<NetworkSimplex<GR, V, C> >::f_pivot_rule = new typename NetworkSimplex<GR, V, C>::PivotRule(static_cast<typename NetworkSimplex<GR, V, C>::PivotRule>(f_pivot_rule_type));
-                this->status = MCFLemonSolver::f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
+                this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
         }
         
         auto end = chrono::system_clock::now();
@@ -977,7 +977,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
  *    performances;
 */
   template< typename GR, typename V, typename C>
-class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<CycleCanceling, GR, V, C>, Fields< CycleCanceling<GR, V, C> >
+class MCFLemonSolver<CycleCanceling, GR, V, C> :  public CDASolver, Fields< CycleCanceling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -1032,7 +1032,7 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, publi
  /// constructor: assign the default parameter
  /** Void constructor: Build f_method_type with default parameter */
 
- MCFLemonSolver( void ) : CDASolver(), MCFLemonSolverBase<CycleCanceling, GR, V, C>(),  Fields<CycleCanceling<GR, V, C > >() {
+ MCFLemonSolver( void ) : CDASolver(), Fields<CycleCanceling<GR, V, C > >() {
   f_method_type = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
   }
  
@@ -1852,7 +1852,7 @@ enum dbl_par_type_LEMON_CC{
  *    performances;
 */
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>, Fields< SMSppCapacityScaling<GR, V, C> >
+class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields< SMSppCapacityScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -1905,7 +1905,7 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver,
  *  @{ */
 
  /// constructor: does nothing
- MCFLemonSolver( void ) : CDASolver(), MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>(), Fields<SMSppCapacityScaling<GR, V, C > >() {
+ MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCapacityScaling<GR, V, C > >() {
 
  }
  
@@ -2685,7 +2685,7 @@ enum LEMON_CS_dbl_par_type{
 */
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<SMSppCostScaling, GR, V, C>, Fields< SMSppCostScaling<GR, V, C> >
+class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMSppCostScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
