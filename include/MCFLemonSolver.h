@@ -135,40 +135,7 @@ namespace SMSpp_di_unipi_it
 /** @defgroup MCFLemonSolver_CLASSES Classes in MCFLemonSolver.h
  *  @{ */
 
-/*--------------------------------------------------------------------------*/
-/*------------------------ CLASS MCFLemonSolver ----------------------------*/
-/*--------------------------------------------------------------------------*/
-/*--------------------------- GENERAL NOTES --------------------------------*/
-/*--------------------------------------------------------------------------*/
-/// CDASolver for MCFBlock based on the LEMON project
-/** The MCFLemonSolver implements Solver interface for MCFBlock that represent
- * (Linear) Min-Cost Flow (MCF) problems, using algorithms of LEMON library.
- * Because MCF is a Linear Program it has a(n exact) dual, and therefore
- * MCFLemonSolver implements the CDASolver interface for also giving out dual
- * information.
- *
- * The MCFLemonSolver is template over four different types:
- *
- * - GR, which is the type of graph (DISCUSS THE POSSIBILITIES);
- *
- * - V, which is the type of flows / deficits; typically, double can be used
- *   for maximum compatibility, but int (or even smaller) would yeld better
- *   performances;
- *
- * - C, which is the type of ar costs; typically, double can be used for
- *   maximum compatibility, but int (or even smaller) would yeld better
- *   performances;
- *
- * - Algo, which is the specific algorithm (itself, template over GR, V, and
- *   C) implemented in the LEMON class (DISCUSS THE POSSIBILITIES);
- *   Note that scaling-type algorithms may behave in different ways according
- *   to which combination of V and C is used, and there are different
- *   "traits" for this which are another scaling parameter. However, in order
- *   to make MCFLemonSolver class template over always the same number of
- *   template parameters we fix the use of the default trait, which is why
- *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
- *   < GR , V , C >) that are meant to be used instead of the original
- *   CapacityScaling and CostScaling. */
+
 
   template< typename Algo >
   struct Fields {};
@@ -181,34 +148,56 @@ namespace SMSpp_di_unipi_it
   INFEASIBLE,   ///< the problem is provably infeasible
   UNBOUNDED,    ///< the problem is provably unbounded
   KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };               // end( sol_type )
+  };// end( sol_type )
 
-
-
+/*--------------------------------------------------------------------------*/
+/*--------------------------------- BASE CLASS -----------------------------*/
+/*--------------------------------------------------------------------------*/
+/** This class contains the fields and functions that every specialized version
+ * of MCFLemonSolver<> has in common. For now this class contains:
+ * 
+ * set_Block() function
+ * f_algo private field of type pointer to Algo<GR, V, C>
+ * dgp private field of type pointer to GR
+ * 
+*/
 template< template< typename , typename , typename > typename Algo ,
           typename GR , typename V , typename C >
   requires LEMONGraph< GR >
-
 class MCFLemonSolverBase: virtual public CDASolver {
 
   public:
 
   enum str_par_type_LEMON_NS {
   strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
-  strLastParLEMON_NS    ///< first allowed parameter value for derived classes
+  strLastParLEMON    ///< first allowed parameter value for derived classes
                    /**< convenience value for easily allow derived classes
                     * to further extend the set of types of return codes */
   };
+
+  /// constructor: Initializes f_algo
+  /** Void constructor. Initialize f_algo to nullptr
+  */
 
   MCFLemonSolverBase(): CDASolver() {
     f_algo = NULL;
   }
 
+  /// destructor: delete heap memory
+  /**
+   * Void destructor. delete f_algo and dgp fields from memory
+   * Actually we have trouble with deleting dgp.
+  */
   ~MCFLemonSolverBase( void ) {
     delete f_algo;
     delete dgp;
   
   }
+
+  ///set_block function. Initialize dgp and f_algo
+  /**
+   * Prepare the block to be solved, initialize structure useful for LEMON algorithm
+  */
 
   void set_Block(Block *block) override
     {
@@ -233,35 +222,42 @@ class MCFLemonSolverBase: virtual public CDASolver {
         if ((!owned) && (!MCFB->read_lock()))
           throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
 
-        // load the new MCFBlock into the :MCFClass object
-        // TODO: change MCFC function to Algo function.
-        // TODO: convert array from MCFB functions to Map for Algo functions.
+        // create and clear new Graph (ListDigraph or SmartDigraph)
         dgp = new GR;
         dgp->clear();
 
+        //Actually reserve get_MaxNNodes() node space in dgp
         dgp->reserveNode( MCFB->get_MaxNNodes() );
         MCFBlock::Index n = MCFB->get_NNodes();
 
         for( MCFBlock::Index i = 0; i < n; ++i)
           dgp->addNode();
-
+        
+        //Reserve gete_MaxNArcs() arcs space
         dgp->reserveArc( MCFB->get_MaxNArcs() );
         MCFBlock::Index m = MCFB->get_NArcs();
 
+        //Get starting node subset and ending node subset
         MCFBlock::c_Subset & sn = MCFB->get_SN();
         MCFBlock::c_Subset & en = MCFB->get_EN();
 
+        //Add arc in dgp
+        /// sn[i] - 1 and en[i] - 1 are used because sn,en nodes start from 1
         for( MCFBlock::Index i = 0; i < m; ++i){
           dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
         }
 
 
-        
+        //New instance of Lemon Algorithm
         f_algo = new Algo< GR , V, C >(*dgp);
 
+        //Defining names for types for readability
         using MCFArcMapV = typename GR::template ArcMap< V >;
         using MCFNodeMapV = typename GR::template NodeMap< V >;
 
+
+        //Now we are going to fill up ArcMap
+        //This is the case of upperMap 
         if(!MCFB->get_U().empty())
         {
           MCFArcMapV um(*dgp);
@@ -272,6 +268,7 @@ class MCFLemonSolverBase: virtual public CDASolver {
           f_algo->upperMap(um);
         }
 
+        //This is the case of CostMap
         if(!MCFB->get_C().empty())
         {
           MCFArcMapV cm(*dgp);
@@ -283,6 +280,7 @@ class MCFLemonSolverBase: virtual public CDASolver {
 
         }
 
+        //This is the case of supplyMap
         if(!MCFB->get_B().empty())
         {
 
@@ -309,8 +307,6 @@ class MCFLemonSolverBase: virtual public CDASolver {
         if (!owned)
           MCFB->read_unlock();
 
-        // TODO: maybe log it
-        //delete dgp;
         
       }
       
@@ -318,10 +314,82 @@ class MCFLemonSolverBase: virtual public CDASolver {
 
 
   protected:
-    Algo<GR, V, C> * f_algo;
-    GR *dgp;
+
+    Algo<GR, V, C> * f_algo; ///f_algo represents the algorithm used by Lemon for solving the MCFBlock
+    GR *dgp; ///dgp represents the directed graph implemented by two classes by Lemon (ListDigraph and SmartDigraph)
 
 }; // end( MCFLemonSolverBase )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------ CLASS MCFLemonSolver ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------------- GENERAL NOTES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/// CDASolver for MCFBlock based on the LEMON project
+/** The MCFLemonSolver implements Solver interface for MCFBlock that represent
+ * (Linear) Min-Cost Flow (MCF) problems, using algorithms of LEMON library.
+ * Because MCF is a Linear Program it has a(n exact) dual, and therefore
+ * MCFLemonSolver implements the CDASolver interface for also giving out dual
+ * information.
+ *
+ * The MCFLemonSolver is template over four different types:
+ *
+ * - GR, which is the type of graph:
+ * 
+ *   The possibilities are:
+ *   - SmartDigraph is a simple and fast directed graph implementation
+ *     It is quite memory efficient but at the price that it does not support
+ *     node and arc deletion.
+ *     It will be hard find the best way for modification.
+ * 
+ *   - ListDigraph, a versatile and fast directed graph implementation based
+ *     on linked lists that are stored in std::vector structures.
+ *     This class provides only linear time counting for nodes and arcs.
+ *     It support node and arc deletion, useful for modification.
+ *
+ * - V, which is the type of flows / deficits; typically, double can be used
+ *   for maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - C, which is the type of ar costs; typically, double can be used for
+ *   maximum compatibility, but int (or even smaller) would yeld better
+ *   performances;
+ *
+ * - Algo, which is the specific algorithm (itself, template over GR, V, and
+ *   C) implemented in the LEMON class:
+ *   The possibilities are:
+ * 
+ *   - NetworkSimplex implements the primal Network Simplex algorithm for finding
+ *     a minimum cost flow. This algorithm is a highly efficient specialized version
+ *     of the linear programming simplex method directly for the minimum cost flow
+ *     problem.
+ *     
+ *   - CycleCanceling implements three different cycle-canceling algorithms for finding 
+ *     a minimum cost flow. The most efficent one is the Cancel-and-tighten algorithm,
+ *     thus it is the default method. It runs in strongly polynomial time, but in practice, 
+ *     it is typically orders of magnitude slower than the scaling algorithms and NetworkSimplex.
+ * 
+ *   - CostScaling implements a cost scaling algorithm that performs push/augment and
+ *     relabel operations for finding a minimum cost flow. It is a highly efficient primal-dual
+ *     solution method, which can be viewed as the generalization of the preflow push-relabel
+ *     algorithm for the maximum flow problem. It is a polynomial algorithm.
+ * 
+ *   - CapacityScaling implements the capacity scaling version of the successive shortest path
+ *     algorithm for finding a minimum cost flow. It is an efficient dual solution method,
+ *     which runs in polynomial time.
+ *     In special case it can be more efficient than CostScaling and NetworkSimplex algorithms.
+ * 
+ *   In general, NetworkSimplex and CostScaling are the fastest implementations available in LEMON
+ *   for solving this problem.
+ *    
+ *   Note that scaling-type algorithms may behave in different ways according
+ *   to which combination of V and C is used, and there are different
+ *   "traits" for this which are another scaling parameter. However, in order
+ *   to make MCFLemonSolver class template over always the same number of
+ *   template parameters we fix the use of the default trait, which is why
+ *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
+ *   < GR , V , C >) that are meant to be used instead of the original
+ *   CapacityScaling and CostScaling. */
 
 template< template< typename , typename , typename > typename Algo ,
           typename GR , typename V , typename C >
@@ -331,10 +399,10 @@ class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
           
 
   /*--------------------------------------------------------------------------*/
-  /*------------------------- CLASS MCFSolverState ---------------------------*/
+  /*------------------------- CLASS MCFLemonState ---------------------------*/
   /*--------------------------------------------------------------------------*/
-  /// class to describe the "internal state" of a MCFSolver
-  /** Derived class from State to describe the "internal state" of a MCFSolver,
+  /// class to describe the "internal state" of a MCFLemonSolver
+  /** Derived class from State to describe the "internal state" of a MCFLemonSolver,
    *  i.e., a MCFClass::MCFState (*). Since MCFClass::MCFState does not allow
    *  serialization, all that part does not work.  */
 
@@ -343,7 +411,7 @@ class MCFLemonSolver: virtual public CDASolver, Fields< Algo<GR, V, C> > {
     /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
 
   public:
-    /*------------- CONSTRUCTING AND DESTRUCTING MCFSolverState ----------------*/
+    /*------------- CONSTRUCTING AND DESTRUCTING MCFLemonState ----------------*/
 
     /// constructor, doing everything or nothing.
     /** Constructor of MCFSolverState. If provided with a pointer to a MCFSolver

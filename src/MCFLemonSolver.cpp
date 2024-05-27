@@ -33,36 +33,28 @@
 using namespace SMSpp_di_unipi_it;
 
 
-/*template< typename Algo >
-  struct Fields {};
- */  
-  template<typename GR, typename V, typename C>
-  struct Fields< SMSppCapacityScaling< GR, V, C> > {
-    int f_factor;
-  };
+template<typename GR, typename V, typename C>
+struct Fields< SMSppCapacityScaling< GR, V, C> > {
+  int f_factor;
+};
 
-  template<typename GR, typename V, typename C>  
-  struct Fields< SMSppCostScaling< GR, V, C> > {
-    using CSMethod = typename SMSppCostScaling< GR, V, C >::Method;
-    int f_factor;
-    CSMethod f_method;
-  };
-  template<typename GR, typename V, typename C>
-  struct Fields< NetworkSimplex<GR, V, C> > {
-    using NSPivotRule = typename NetworkSimplex<GR, V, C>::PivotRule;
-    NSPivotRule *f_pivot_rule;
-  };
-  template<typename GR, typename V, typename C>
-  struct Fields< CycleCanceling<GR, V, C> > {
-    using CCMethod = typename CycleCanceling<GR, V, C>::Method;
-    CCMethod *f_method;
-  };
+template<typename GR, typename V, typename C>  
+struct Fields< SMSppCostScaling< GR, V, C> > {
+  using CSMethod = typename SMSppCostScaling< GR, V, C >::Method;
+  int f_factor;
+  CSMethod f_method;
+};
+template<typename GR, typename V, typename C>
+struct Fields< NetworkSimplex<GR, V, C> > {
+  using NSPivotRule = typename NetworkSimplex<GR, V, C>::PivotRule;
+  NSPivotRule *f_pivot_rule;
+};
+template<typename GR, typename V, typename C>
+struct Fields< CycleCanceling<GR, V, C> > {
+  using CCMethod = typename CycleCanceling<GR, V, C>::Method;
+  CCMethod *f_method;
+};
 
-/*--------------------------------------------------------------------------*/
-/*----------------------------- STATIC MEMBERS -----------------------------*/
-/*--------------------------------------------------------------------------*/
-
-// register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
 
 
 
@@ -76,9 +68,11 @@ using namespace SMSpp_di_unipi_it;
 // the various static maps
 
 /*--------------------------------------------------------------------------*/
-/*--------------------------------- SPECIALIZED CLASSES --------------------------------*/
+/*--------------------------------- SPECIALIZED CLASSES --------------------*/
 /*--------------------------------------------------------------------------*/
-
+/** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C>
+ * 
+*/
 template< typename GR, typename V, typename C>
 class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< NetworkSimplex<GR, V, C> >
 {
@@ -132,26 +126,18 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 /** @name Constructing and destructing MCFLemonSolver
  *  @{ */
 
- /// constructor: does nothing special
- /** Void constructor: does nothing special, except verifying the template
-  * arguments. */
-
- MCFLemonSolver( void ) :  CDASolver(), Fields<NetworkSimplex<GR, V, C > >() {
-  //f_algo = NULL;
-  f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
-
- /* static_assert( std::is_same< Algo< GR , V , C > ,
-                               SMSppCapacityScaling< GR , V , C > >::value ||
-		 std::is_same< Algo< GR , V , C > ,
-                               SMSppCostScaling< GR , V , C >::value     ||
-		 std::is_same< Algo< GR , V , C > ,
-                               CycleCanceling< GR , V , C > >::value       ||
-		 std::is_same< Algo< GR , V , C > ,
-		               NetworkSimplex< GR , V , C > >::value ,
-		 "Algo must be one of the LEMON algorithms");
+ /// constructor: Initializes algorithm parameters
+ /** Void constructor. Define f_pivot_rule_type to the default algorithm parameters used by NetworkSimplex.
   */
+
+ MCFLemonSolver( void ) :  CDASolver(), MCFLemonSolverBase<NetworkSimplex, GR, V , C>(), Fields<NetworkSimplex<GR, V, C > >() {
+  f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
   }
  
+  /// destructor: delete algorithm parameter
+  /** Does nothing special, delete Fields f_pivot_rule, an algorithmic parameter of
+   *  NetworkSimplex
+   * */  
   ~MCFLemonSolver( void ) {
     delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;  
   }
@@ -630,7 +616,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (strLastParLEMON_NS);
+      return (MCFLemonSolver::strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -668,7 +654,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
         const override
     {
       static const std::string _empty;
-      if (par == strLastParLEMON_NS)
+      if (par == MCFLemonSolver::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -679,7 +665,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
  
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == strDMXFile )
+        if( par == MCFLemonSolver::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -899,7 +885,7 @@ class MCFLemonSolver<NetworkSimplex, GR, V, C> : virtual public CDASolver, publi
   }; // end( class MCFLemonSolver<NetworkSimplex, GR, V, C>  Specialization)
 
   template< typename GR, typename V, typename C>
-class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< CycleCanceling<GR, V, C> >
+class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<CycleCanceling, GR, V, C>, Fields< CycleCanceling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -955,7 +941,7 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> : virtual public CDASolver, publi
  /** Void constructor: does nothing special, except verifying the template
   * arguments. */
 
- MCFLemonSolver( void ) : CDASolver(), Fields<CycleCanceling<GR, V, C > >() {
+ MCFLemonSolver( void ) : CDASolver(), MCFLemonSolverBase<CycleCanceling, GR, V, C>(),  Fields<CycleCanceling<GR, V, C > >() {
   f_method_type = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
 
  /* static_assert( std::is_same< Algo< GR , V , C > ,
@@ -1157,7 +1143,7 @@ enum dbl_par_type_LEMON_CC{
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *dgp);
+                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
                 ProbFile.close();
         }
 
@@ -1167,11 +1153,11 @@ enum dbl_par_type_LEMON_CC{
         auto start = chrono::system_clock::now();
         
         if(Fields<CycleCanceling< GR, V, C > >::f_method != NULL){
-        this->status = f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
+        this->status = MCFLemonSolver::f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
         }else{
                 //Build f_method and execute run() method
                 Fields<CycleCanceling<GR, V, C> >::f_method = new typename   CycleCanceling<GR, V, C>::Method(f_method_type);
-                this->status = f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
+                this->status = MCFLemonSolver::f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
                
         }
         
@@ -1217,11 +1203,11 @@ enum dbl_par_type_LEMON_CC{
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -1440,7 +1426,7 @@ enum dbl_par_type_LEMON_CC{
     
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (strLastParLEMON_CC);
+      return (MCFLemonSolver::strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -1476,7 +1462,7 @@ enum dbl_par_type_LEMON_CC{
         const override
     {
       static const std::string _empty;
-      if (par == strLastParLEMON_CC)
+      if (par == MCFLemonSolver::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -1507,7 +1493,7 @@ enum dbl_par_type_LEMON_CC{
 
      [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == strDMXFile )
+        if( par == MCFLemonSolver::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -1689,8 +1675,6 @@ enum dbl_par_type_LEMON_CC{
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    V* value;   //Type of value of node
-    C* costs;  //Type of costs of arcs
     int counter=0;
     int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
     typename CycleCanceling< GR , V , C >::ProblemType status_2_pType;
@@ -1703,7 +1687,7 @@ enum dbl_par_type_LEMON_CC{
 
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< SMSppCapacityScaling<GR, V, C> >
+class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>, Fields< SMSppCapacityScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -1759,7 +1743,7 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : virtual public CDASolver,
  /** Void constructor: does nothing special, except verifying the template
   * arguments. */
 
- MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCapacityScaling<GR, V, C > >() {
+ MCFLemonSolver( void ) : CDASolver(), MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>(), Fields<SMSppCapacityScaling<GR, V, C > >() {
 
 
  /* static_assert( std::is_same< Algo< GR , V , C > ,
@@ -1946,7 +1930,7 @@ enum LEMON_CS_dbl_par_type{
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *dgp);
+                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
                 ProbFile.close();
         }
 
@@ -1956,7 +1940,7 @@ enum LEMON_CS_dbl_par_type{
         auto start = chrono::system_clock::now();
         
       
-        this->status = f_algo->run();
+        this->status = MCFLemonSolver::f_algo->run();
 
         
         auto end = chrono::system_clock::now();
@@ -2000,11 +1984,11 @@ enum LEMON_CS_dbl_par_type{
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -2223,7 +2207,7 @@ enum LEMON_CS_dbl_par_type{
     
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (strLastParLEMON_CS);
+      return (MCFLemonSolver::strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -2243,7 +2227,7 @@ enum LEMON_CS_dbl_par_type{
     
     [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
-       if(par > intLastParLEMON_CS){
+       if(par > dblLastParLEMON_CS){
           throw std::invalid_argument(std::to_string(par));
        }    
        
@@ -2285,7 +2269,7 @@ enum LEMON_CS_dbl_par_type{
     
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == strDMXFile )
+        if( par == MCFLemonSolver::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -2476,7 +2460,7 @@ enum LEMON_CS_dbl_par_type{
   }; // end( class MCFLemonSolver<SMSppCapacityScaling, GR, V, C>  Specialization)
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<NetworkSimplex, GR, V, C>, Fields< SMSppCostScaling<GR, V, C> >
+class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, public MCFLemonSolverBase<SMSppCostScaling, GR, V, C>, Fields< SMSppCostScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -2727,7 +2711,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *dgp);
+                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
                 ProbFile.close();
         }
 
@@ -2737,11 +2721,11 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
         auto start = chrono::system_clock::now();
         
         if(*Fields<SMSppCostScaling< GR, V, C > >::f_method != NULL){
-        this->status = f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
+        this->status = MCFLemonSolver::f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
         }else{
                 //Build f_method and execute run() method
                 Fields<SMSppCostScaling<GR, V, C> >::f_method = new typename SMSppCostScaling<GR, V, C>::Method(f_method_type);
-                this->status = f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
+                this->status = MCFLemonSolver::f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
                 
         }
         
@@ -2786,11 +2770,11 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -3009,7 +2993,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (strLastParLEMON_CS);
+      return (MCFLemonSolver::strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -3046,7 +3030,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
         const override
     {
       static const std::string _empty;
-      if (par == strLastParLEMON_CS)
+      if (par == MCFLemonSolver::strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -3074,7 +3058,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
     
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == strDMXFile )
+        if( par == MCFLemonSolver::strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -3269,11 +3253,16 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : virtual public CDASolver, pub
 
   }; // end( class MCFLemonSolver<SMSppCostScaling, GR, V, C>  Specialization)
 
+
+
+/*--------------------------------------------------------------------------*/
+/*----------------------------- STATIC MEMBERS -----------------------------*/
+/*--------------------------------------------------------------------------*/
+
+// register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
+
   SMSpp_insert_in_factory_cpp_0_t(
  MCFLemonSolver< NetworkSimplex , SmartDigraph , double , double >);
-
-
-
 
 
 
