@@ -32,7 +32,7 @@
 /*--------------------------------------------------------------------------*/
 using namespace SMSpp_di_unipi_it;
 
-
+/*!!
 template<typename GR, typename V, typename C>
 struct Fields< SMSppCapacityScaling< GR, V, C> > {
   int f_factor;
@@ -55,7 +55,7 @@ struct Fields< CycleCanceling<GR, V, C> > {
   CCMethod *f_method;
 };
 
-
+!!*/
 
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -76,21 +76,19 @@ struct Fields< CycleCanceling<GR, V, C> > {
 /*-------------------------------- NETWORKSIMPLEX --------------------------*/
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
-
-
-/** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C> that contains specialized
- *  compute() method, enums for indexing algorithimc parameters and function
- *  set/get_*_par for manage them.
+/** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C> that contains
+ * specialized  compute() method, enums for indexing algorithimc parameters
+ * and function  set/get_*_par for manage them.
  * 
  *  Template parameters are:
  * 
- *  - NetworkSimplex, implements the primal Network Simplex algorithm for finding
- *    a minimum cost flow. This algorithm is a highly efficient specialized version
- *    of the linear programming simplex method directly for the minimum cost flow
- *    problem.
+ *  - NetworkSimplex, implements the primal Network Simplex algorithm for
+ *    finding a minimum cost flow. This algorithm is a highly efficient
+ *    specialized version of the linear programming simplex method directly
+ *    for the minimum cost flow problem.
  * 
- *  - GR that represents the directed graph, the possibilities are described in the
- *    file MCFLemonSolver.h at line 339
+ *  - GR that represents the directed graph, the possibilities are described 
+ *    in the file MCFLemonSolver.h
  *  
  *  - V, which is the type of flows / deficits; typically, double can be used
  *    for maximum compatibility, but int (or even smaller) would yeld better
@@ -99,10 +97,11 @@ struct Fields< CycleCanceling<GR, V, C> > {
  * - C, which is the type of ar costs; typically, double can be used for
  *    maximum compatibility, but int (or even smaller) would yeld better
  *    performances;
-*/
-template <typename GR, typename V, typename C>
-class MCFLemonSolverNetworkSimplex:
-  public MCFLemonSolver<NetworkSimplex, GR, V, C >,  private Fields< NetworkSimplex< GR , V , C > >
+ */
+
+template < typename GR , typename V , typename C >
+class MCFLemonSolverNetworkSimplex :
+  public MCFLemonSolver< NetworkSimplex , GR , V , C >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -113,6 +112,14 @@ class MCFLemonSolverNetworkSimplex:
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PUBLIC TYPES --------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+ using BaseClass = MCFLemonSolver< NetworkSimplex , GR , V , C >;
+ 
+ using BaseClass::intLastParCDAS;
+ //using BaseClass::idx_type;
+
+ using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::Solver::OFValue;
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
@@ -125,22 +132,19 @@ class MCFLemonSolverNetworkSimplex:
   * parameters used by NetworkSimplex.
   */
 
- MCFLemonSolverNetworkSimplex( void ) : CDASolver() , MCFLemonSolver<NetworkSimplex<GR, V, C> , GR, V, C>(),  Fields< ThisAlgo >() {
-//			  Fields< NetworkSimplex< GR , V , C > >()   {
+ MCFLemonSolverNetworkSimplex( void ) {
   guts_of_constructor();
-  f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
+  f_pivot_rule_type = ThisAlgo::PivotRule::BLOCK_SEARCH;
   }
  
   /// destructor: delete algorithm parameter
-  /** Does nothing special, delete Fields f_pivot_rule, an algorithmic parameter of
-   *  NetworkSimplex
-   * */  
-  ~MCFLemonSolverNetworkSimplex( void ) {
-   delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
+  /** Does nothing special, delete Fields f_pivot_rule, an algorithmic
+   * parameter of  NetworkSimplex */
+
+  ~MCFLemonSolverNetworkSimplex() {
+   delete ThisAlgo::f_pivot_rule;
    guts_of_destructor();
    }
- 
- 
 
 /*--------------------------------------------------------------------------*/
  /* intMaxIter = 0     maximum iterations for the next call to solve()

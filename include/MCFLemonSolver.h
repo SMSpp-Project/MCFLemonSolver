@@ -149,46 +149,11 @@ namespace SMSpp_di_unipi_it
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
   {};
 
-
-
 /** @} ---------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @defgroup MCFLemonSolver_CLASSES Classes in MCFLemonSolver.h
  *  @{ */
-
-
-
-  template< typename Algo >
-  struct Fields {};
-   
-  enum LEMON_sol_type
-  {
-  UNSOLVED, //= NULL, ///< the problem has not been solved yet
-  OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
-  INFEASIBLE,   ///< the problem is provably infeasible
-  UNBOUNDED,    ///< the problem is provably unbounded
-  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };// end( sol_type )
-
-/*--------------------------------------------------------------------------*/
-/*--------------------------------- BASE CLASS -----------------------------*/
-/*--------------------------------------------------------------------------*/
-/** This class contains the fields and functions that every specialized version
- * of MCFLemonSolver<> has in common. For now this class contains:
- * 
- * set_Block() function
- * f_algo private field of type pointer to Algo<GR, V, C>
- * dgp private field of type pointer to GR
- * 
-*/
-template< template< typename , typename , typename > typename Algo ,
-          typename GR , typename V , typename C >
-  requires LEMONGraph< GR >
-class MCFLemonSolverBase: virtual public CDASolver {
-
-}; // end( MCFLemonSolverBase )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------ CLASS MCFLemonSolver ----------------------------*/
@@ -264,8 +229,7 @@ class MCFLemonSolverBase: virtual public CDASolver {
 template< template< typename , typename , typename > class Algo ,
           typename GR , typename V , typename C >
   requires LEMONGraph< GR >
-class MCFLemonSolver : public CDASolver ,
-                       private Fields< Algo< GR , V , C > >
+ class MCFLemonSolver : public CDASolver
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -281,6 +245,17 @@ class MCFLemonSolver : public CDASolver ,
                    /**< convenience value for easily allow derived classes
                     * to further extend the set of types of return codes */
   };
+
+  enum LEMON_sol_type
+  {
+  UNSOLVED, //= NULL, ///< the problem has not been solved yet
+  OPTIMAL,           ///< the problem has been solved
+  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
+  INFEASIBLE,   ///< the problem is provably infeasible
+  UNBOUNDED,    ///< the problem is provably unbounded
+  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
+  };// end( sol_type )
+
 
   /// constructor
   // MCFLemonSolver() : CDASolver() { f_algo = nullptr; }
@@ -396,6 +371,8 @@ class MCFLemonSolver : public CDASolver ,
 
   int compute( bool changedvars = true ) override;
 
+  void set_par( idx_type par , int value ) override;
+
   protected:
 
   void guts_of_constructor( void ) {
@@ -407,7 +384,7 @@ class MCFLemonSolver : public CDASolver ,
    delete dgp;
    }
 
-  ThisAlgo* f_algo;
+  ThisAlgo * f_algo;
   ///< the actual LEMON algorithm for solving the MCFBlock
 
   GR * dgp;
@@ -417,13 +394,12 @@ class MCFLemonSolver : public CDASolver ,
  };
           
 
-  /*--------------------------------------------------------------------------*/
-  /*------------------------- CLASS MCFLemonState ---------------------------*/
-  /*--------------------------------------------------------------------------*/
-  /// class to describe the "internal state" of a MCFLemonSolver
-  /** Derived class from State to describe the "internal state" of a MCFLemonSolver,
-   *  i.e., a MCFClass::MCFState (*). Since MCFClass::MCFState does not allow
-   *  serialization, all that part does not work.  */
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS MCFLemonState ---------------------------*/
+/*--------------------------------------------------------------------------*/
+/// class to describe the "internal state" of a MCFLemonSolver
+/** Derived class from State to describe the "internal state" of a
+ * MCFLemonSolver.  */
 
   class MCFLemonState : public State
   {
