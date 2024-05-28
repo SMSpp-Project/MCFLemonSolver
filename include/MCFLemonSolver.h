@@ -261,7 +261,7 @@ class MCFLemonSolverBase: virtual public CDASolver {
  *   < GR , V , C >) that are meant to be used instead of the original
  *   CapacityScaling and CostScaling. */
 
-template< template< typename , typename , typename > typename Algo ,
+template< template< typename , typename , typename > class Algo ,
           typename GR , typename V , typename C >
   requires LEMONGraph< GR >
 class MCFLemonSolver : public CDASolver ,
@@ -407,7 +407,7 @@ class MCFLemonSolver : public CDASolver ,
    delete dgp;
    }
 
-  Algo< GR , V , C > * f_algo;
+  ThisAlgo* f_algo;
   ///< the actual LEMON algorithm for solving the MCFBlock
 
   GR * dgp;

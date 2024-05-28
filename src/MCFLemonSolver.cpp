@@ -81,8 +81,6 @@ struct Fields< CycleCanceling<GR, V, C> > {
 /** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C> that contains specialized
  *  compute() method, enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
- *  This class derives from MCFLemonSolverBase for using set_Block() methods and
- *  for inherit f_algo and dgp fields.
  * 
  *  Template parameters are:
  * 
@@ -102,9 +100,9 @@ struct Fields< CycleCanceling<GR, V, C> > {
  *    maximum compatibility, but int (or even smaller) would yeld better
  *    performances;
 */
-template< typename GR , typename V , typename C >
-class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
-  public CDASolver , private Fields< NetworkSimplex< GR , V , C > >
+template <typename GR, typename V, typename C>
+class MCFLemonSolverNetworkSimplex:
+  public MCFLemonSolver<NetworkSimplex, GR, V, C >,  private Fields< NetworkSimplex< GR , V , C > >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -127,7 +125,7 @@ class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
   * parameters used by NetworkSimplex.
   */
 
- MCFLemonSolver( void ) : CDASolver() , Fields< ThisAlgo >() {
+ MCFLemonSolverNetworkSimplex( void ) : CDASolver() , MCFLemonSolver<NetworkSimplex<GR, V, C> , GR, V, C>(),  Fields< ThisAlgo >() {
 //			  Fields< NetworkSimplex< GR , V , C > >()   {
   guts_of_constructor();
   f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
@@ -137,7 +135,7 @@ class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
   /** Does nothing special, delete Fields f_pivot_rule, an algorithmic parameter of
    *  NetworkSimplex
    * */  
-  ~MCFLemonSolver( void ) {
+  ~MCFLemonSolverNetworkSimplex( void ) {
    delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
    guts_of_destructor();
    }
@@ -654,11 +652,11 @@ class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
-      if(par > MCFLemonSolverBase<NetworkSimplex, GR, V, C>::strLastParLEMON){
+      if(par > strLastParLEMON){
         throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
       }
       static const std::string _empty;
-      if (par == MCFLemonSolverBase<NetworkSimplex, GR, V, C>::strLastParLEMON)
+      if (par == strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -672,7 +670,7 @@ class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
     /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolverBase<NetworkSimplex, GR, V, C>::strDMXFile )
+        if( par == strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -915,8 +913,6 @@ class MCFLemonSolver< NetworkSimplex< GR , V , C > , GR , V , C > :
 /** Specialized MCFLemonSolver<CycleCanceling, GR, V, C> that contains specialized
  *  compute() method, enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
- *  This class derives from MCFLemonSolverBase for using set_Block() methods and
- *  for inherit f_algo and dgp fields.
  * 
  *  Template parameters are:
  * 
@@ -1530,12 +1526,12 @@ enum dbl_par_type_LEMON_CC{
         const override
     {
 
-       if(par > MCFLemonSolverBase<CycleCanceling, GR, V, C>::strLastParLEMON){
+       if(par > strLastParLEMON){
         throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
       }
 
       static const std::string _empty;
-      if (par == MCFLemonSolverBase<CycleCanceling, GR, V, C>::strLastParLEMON)
+      if (par == strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -1575,7 +1571,7 @@ enum dbl_par_type_LEMON_CC{
     /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-      if( par == MCFLemonSolverBase<CycleCanceling, GR, V, C>::strDMXFile )
+      if( par == strDMXFile )
         return( this->f_dmx_file );
 
       return( get_dflt_str_par( par ) );
@@ -1790,8 +1786,6 @@ enum dbl_par_type_LEMON_CC{
 /** Specialized MCFLemonSolver<CapacityScaling, GR, V, C> that contains specialized
  *  compute() method, enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
- *  This class derives from MCFLemonSolverBase for using set_Block() methods and
- *  for inherit f_algo and dgp fields.
  * 
  *  Template parameters are:
  * 
@@ -2371,12 +2365,12 @@ enum LEMON_CS_dbl_par_type{
         const override
     {
 
-      if(par > MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>::strLastParLEMON){
+      if(par > strLastParLEMON){
         throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
       }
 
       static const std::string _empty;
-      if (par == MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>::strLastParLEMON)
+      if (par == strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -2412,7 +2406,7 @@ enum LEMON_CS_dbl_par_type{
     /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolverBase<SMSppCapacityScaling, GR, V, C>::strDMXFile )
+        if( par == strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
@@ -2622,8 +2616,6 @@ enum LEMON_CS_dbl_par_type{
 /** Specialized MCFLemonSolver<CostScaling, GR, V, C> that contains specialized
  *  compute() method, enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
- *  This class derives from MCFLemonSolverBase for using set_Block() methods and
- *  for inherit f_algo and dgp fields.
  * 
  *  Template parameters are:
  * 
@@ -3240,12 +3232,12 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
         const override
     {
 
-      if(par > MCFLemonSolverBase<SMSppCostScaling, GR, V, C>::strLastParLEMON){
+      if(par > strLastParLEMON){
         throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
       }
 
       static const std::string _empty;
-      if (par == MCFLemonSolverBase<SMSppCostScaling, GR, V, C>::strLastParLEMON)
+      if (par == strLastParLEMON)
         return (_empty);
 
       return (CDASolver::get_dflt_str_par(par));
@@ -3282,7 +3274,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     /// @return value of parameter indexed by par
     [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
         
-        if( par == MCFLemonSolverBase<SMSppCostScaling, GR, V, C>::strDMXFile )
+        if( par == strDMXFile )
         return( this->f_dmx_file );
 
         return( get_dflt_str_par( par ) );
