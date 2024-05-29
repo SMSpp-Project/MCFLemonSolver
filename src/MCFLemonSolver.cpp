@@ -32,7 +32,7 @@
 /*--------------------------------------------------------------------------*/
 using namespace SMSpp_di_unipi_it;
 
-
+/*!!
 template<typename GR, typename V, typename C>
 struct Fields< SMSppCapacityScaling< GR, V, C> > {
   int f_factor;
@@ -54,7 +54,7 @@ struct Fields< CycleCanceling<GR, V, C> > {
   using CCMethod = typename CycleCanceling<GR, V, C>::Method;
   CCMethod *f_method;
 };
-
+*/
 
 
 
@@ -101,7 +101,7 @@ struct Fields< CycleCanceling<GR, V, C> > {
 
 template < typename GR , typename V , typename C >
 class MCFLemonSolverNetworkSimplex :
-   MCFLemonSolver< NetworkSimplex , GR , V , C >,  Fields<NetworkSimplex<GR, V, C>>
+ public MCFLemonSolver< NetworkSimplex , GR , V , C >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -118,14 +118,14 @@ class MCFLemonSolverNetworkSimplex :
  using BaseClass::intLastParCDAS;
  //using BaseClass::idx_type;
 
- using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
  using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
  using SMSpp_di_unipi_it::CDASolver::kStopTime;
  using SMSpp_di_unipi_it::CDASolver::kInfeasible;
  using SMSpp_di_unipi_it::Solver::lock;
  using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::Solver::f_Block;
  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
  using SMSpp_di_unipi_it::Solver::f_id;
  using BaseClass::dgp;
@@ -133,6 +133,10 @@ class MCFLemonSolverNetworkSimplex :
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
  using BaseClass::LEMON_sol_type::UNSOLVED;
+
+ using typename BaseClass::ThisAlgo;
+ using NSPivotRule = ThisAlgo::PivotRule;
+
 /** @} ---------------------------------------------------------------------*/
 /*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
 /*--------------------------------------------------------------------------*/
@@ -145,8 +149,8 @@ class MCFLemonSolverNetworkSimplex :
   */
 
  MCFLemonSolverNetworkSimplex( void ) {
-  MCFLemonSolver<NetworkSimplex, GR, V, C>::guts_of_constructor();
-  f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
+  BaseClass::guts_of_constructor();
+  f_pivot_rule = NSPivotRule::BLOCK_SEARCH;
   }
  
   /// destructor: delete algorithm parameter
@@ -154,8 +158,7 @@ class MCFLemonSolverNetworkSimplex :
    * parameter of  NetworkSimplex */
 
   ~MCFLemonSolverNetworkSimplex() {
-   delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
-   MCFLemonSolver<NetworkSimplex, GR, V, C>::guts_of_destructor();
+   BaseClass::guts_of_destructor();
    }
 
 /*--------------------------------------------------------------------------*/
@@ -198,17 +201,17 @@ class MCFLemonSolverNetworkSimplex :
 
 /*--------------------------------------------------------------------------*/
  enum LEMON_NS_dbl_par_type{
-        dblLastParLEMON_NS ///< first allowed parameter value for derived classes
-                           /**< convenience value for easily allow derived classes
-                            * to further extend the set of types of return codes */
- };
+  dblLastParLEMON_NS ///< first allowed parameter value for derived classes
+  /**< convenience value for easily allow derived classes
+   * to further extend the set of types of return codes */
+  };
 
  enum LEMON_NS_int_par_type{
-        kPivot = intLastParCDAS,
-        intLastParLEMON_NS ///< first allowed parameter value for derived classes
-                           /**< convenience value for easily allow derived classes
-                            * to further extend the set of types of return codes */
- };
+  kPivot = intLastParCDAS,
+  intLastParLEMON_NS ///< first allowed parameter value for derived classes
+  /**< convenience value for easily allow derived classes
+   * to further extend the set of types of return codes */
+  };
  
 /** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -251,160 +254,128 @@ class MCFLemonSolverNetworkSimplex :
  *
  * intLastParCDAS ==> kReopt             whether or not to reoptimize
  *
- * and any other parameter of specific :MCFClass following. This is done
- * via the two const static arrays Solver_2_MCFClass_int and
- * Solver_2_MCFClass_dbl, with a negative entry meaning "there is no such
- * parameter in MCFSolver".
- *
  *  @{ */
 
-  const int kErrorStatus = -1;
-
-
-/*--------------------------------------------------------------------------*/
-    // set the ostream for the Solver log
-    // not really, MCFClass objects are remarkably silent
-    //
-    // virtual void set_log( std::ostream *log_stream = nullptr ) override;
+ static constexpr int kErrorStatus = -1;
 
 /*--------------------------------------------------------------------------*/
- 
-  /// @brief set the parameter par with value
-  /// @param par 
-  /// @param value 
-  void set_par(idx_type par, int value) override {
-        
-    if(par == kPivot){      
+ // set the ostream for the Solver log
+ // not really, MCFClass objects are remarkably silent
+ //
+ // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
-      if( (value < 0) || (value > 4)){
-        throw(std::invalid_argument(std::to_string(value)));
-      }                
+/*--------------------------------------------------------------------------*/
+ /// @brief set the parameter par with value
+ /// @param par 
+ /// @param value 
 
-      if( value == f_pivot_rule_type ){
-        return; //nothing is changed
-      }
-                
-      f_pivot_rule_type = value;
-      delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
-      Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule = NULL;
-      return;
-    }
+ void set_par( idx_type par , int value ) override {      
+  if( par == kPivot ) {      
+   if( ( value < 0 ) || ( value > 4 ) )
+    throw( std::invalid_argument( "Error: invalid kPivot " +
+				  std::to_string( value ) ) );
 
-    CDASolver::set_par(par, value);
-    return;
+   if( value == f_pivot_rule )
+    return;  // nothing is changed
+               
+   f_pivot_rule = NSPivotRule( value );
+   return;
+   }
 
+  CDASolver::set_par( par , value );
+  return;
   }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
-    /*void set_par(idx_type par, double value) override
-    {
-      if (Solver_2_MCFClass_dbl[par] >= 0)
-      ;
-      //  MCFC::SetPar(Solver_2_MCFClass_dbl[par], double(value));
-    }*/
-    
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
 
 /** @} ---------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
 /*--------------------------------------------------------------------------*/
-    /** @name Solving the MCF encoded by the current MCFBlock
-     *  @{ */
-    /// (try to) solve the MCF encoded in the MCFBlock 
-        int compute( bool changedvars = true ) override{
-        const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, BaseClass::LEMON_sol_type::OPTIMAL, kErrorStatus , 
-                BaseClass::LEMON_sol_type::INFEASIBLE,
-                BaseClass::LEMON_sol_type::UNBOUNDED, kErrorStatus};
+/** @name Solving the MCF encoded by the current MCFBlock
+ *  @{ */
+
+ /// (try to) solve the MCF encoded in the MCFBlock 
+
+ int compute( bool changedvars = true ) override {
+  const static std::array< int , 6 > LemonStatus_2_MCFstatus = {
+   kErrorStatus, BaseClass::LEMON_sol_type::OPTIMAL, kErrorStatus , 
+   BaseClass::LEMON_sol_type::INFEASIBLE,
+   BaseClass::LEMON_sol_type::UNBOUNDED, kErrorStatus };
+
+  const static std::array< int , 6 > MCFstatus_2_sol_type = {
+   kUnEval , Solver::kOK , kStopTime , kInfeasible , Solver::kUnbounded ,
+   Solver::kError };
+
+  lock(); // first of all, acquire self-lock
+
+  if ( ! f_Block )          // there is no [MCFBlock] to solve
+   return( kBlockLocked );  // return error
+
+  bool owned = f_Block->is_owned_by( f_id );       // check if already locked
+  if( ( ! owned ) && ( ! f_Block->read_lock() ) )  // if not try to read_lock
+   return( kBlockLocked );                         // return error on failure
+
+  // while [read_]locked, process any outstanding Modification
+  //TODO: ensure that modification are actually processed for MCFLemonSolver.
+  //process_outstanding_Modification();
         
-        const static std::array<int, 6> MCFstatus_2_sol_type = {
-                kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
-                Solver::kError};
+  if( ! f_dmx_file.empty() )  {  // if so required
+   // output the current instance (after the changes) to a DMX file
+   std::ofstream ProbFile( f_dmx_file , ios_base::out | ios_base::trunc );
+   if( ! ProbFile.is_open() )
+    throw( std::logic_error( "cannot open DMX file " + f_dmx_file ) );
 
-        lock(); // first of all, acquire self-lock
+   writeDimacsMat( ProbFile , *dgp );
+   ProbFile.close();
+   }
 
-        if (!f_Block)            // there is no [MCFBlock] to solve
-                return (kBlockLocked); // return error
+  if( ! owned )             // if the [MCF]Block was actually read_locked
+   f_Block->read_unlock();  // read_unlock it
 
-        bool owned = f_Block->is_owned_by(f_id); // check if already locked
-        if ((!owned) && (!f_Block->read_lock())) // if not try to read_lock
-                return (kBlockLocked);                 // return error on failure
+  auto start = chrono::system_clock::now();
 
-        // while [read_]locked, process any outstanding Modification
-        //TODO: ensure that modification are actually processed for MCFLemonSolver.
-        //process_outstanding_Modification();
+  /*!!
+  if( ! f_pivot_rule )  // build f_pivot before executing run()
+   f_pivot_rule = new NSPivotRule( PivotRule( f_pivot_rule_type ) );
+   !!*/
+
+  this->status = f_algo->run( NSPivotRule( f_pivot_rule ) );
         
-        if (!f_dmx_file.empty())
-        { // if so required
-                // output the current instance (after the changes) to a DMX file
-                std::ofstream ProbFile(f_dmx_file, ios_base::out | ios_base::trunc);
-                if (!ProbFile.is_open())
-                throw(std::logic_error("cannot open DMX file " + f_dmx_file));
+  auto end = chrono::system_clock::now();
 
-                //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *dgp);
-                ProbFile.close();
-        }
-
-        if (!owned)               // if the [MCF]Block was actually read_locked
-                f_Block->read_unlock(); // read_unlock it
-
-        auto start = chrono::system_clock::now();
+  chrono::duration< double > elapsed = end - start;
+  ticks = elapsed.count();
         
-        if(Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule != NULL){
-        this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
-        }else{
-                //Build f_pivot and execute run() method
-                Fields<NetworkSimplex<GR, V, C> >::f_pivot_rule = new typename NetworkSimplex<GR, V, C>::PivotRule(static_cast<typename NetworkSimplex<GR, V, C>::PivotRule>(f_pivot_rule_type));
-                this->status = f_algo->run(*Fields<NetworkSimplex< GR, V, C > >::f_pivot_rule);
-        }
-        
-        auto end = chrono::system_clock::now();
+  unlock(); // release self-lock
 
-        chrono::duration< double > elapsed = end - start;
-        ticks = elapsed.count();
+  // now give out the result: note that the vector MCFstatus_2_sol_type[]
+  // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
+  // hence the returned status has to be shifted by + 1
+  return( MCFstatus_2_sol_type[ this->get_status() ] );
+  }
 
-        
-        
-        unlock(); // release self-lock
-
-        // now give out the result: note that the vector MCFstatus_2_sol_type[]
-        // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
-        // hence the returned status has to be shifted by + 1
-        return (MCFstatus_2_sol_type[this->get_status()]);
-        }
-
+/** @} ---------------------------------------------------------------------*/
+/*---------------------- METHODS FOR READING RESULTS -----------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Accessing the found solutions (if any)
+ *  @{ */
     
+ int get_status( void ) const { return( this->status ); }
 
-    /** @} ---------------------------------------------------------------------*/
-    /*---------------------- METHODS FOR READING RESULTS -----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Accessing the found solutions (if any)
-     *  @{ */
-    
-    int get_status(void) const 
-    {
-      return (this->status);
-    }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ ///Get elapsed time for run() method
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    ///Get elapsed time for run() method
-    double get_elapsed_time(void) const override
-    {
-      return (this->ticks);
-    }
+ double get_elapsed_time( void ) const override {
+  return( this->ticks );
+  }
 
+/*--------------------------------------------------------------------------*/
+ //Return the lower bound solution(optimal) for the problem
 
+ OFValue get_lb( void ) override { return( OFValue( f_algo->totalCost() ) ); }
 
-    /*--------------------------------------------------------------------------*/
-    //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ //Return the upper bound solution(optimal) for the problem
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+ OFValue get_ub( void ) override { return( OFValue( f_algo->totalCost() ) ); }
 
     /*--------------------------------------------------------------------------*/
     bool has_var_solution(void) override
@@ -505,168 +476,142 @@ class MCFLemonSolverNetworkSimplex :
      virtual void set_unbounded_threshold( const OFValue thr ) override { }
     */
 
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
-    bool has_var_direction(void) override { return (true); }
+ bool has_var_direction(void) override { return (true); }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-    bool has_dual_direction(void) override { return (true); }
+ bool has_dual_direction(void) override { return (true); }
 
-    /*--------------------------------------------------------------------------*/
-    /// write the current direction in the x ColVariable of the MCFBlock
-    /** Write the unbounded primal direction, i.e., augmenting cycle with
-     * negative cost and unbounded capacity, in the x ColVariable of the
-     * MCFBlock. To keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is done*,
-     * since the Configuration is meant to say "only save/map the dual
-     * information". In all other cases, the direction (cycle) is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
+/*--------------------------------------------------------------------------*/
+ /// write the current direction in the x ColVariable of the MCFBlock
+ /** Write the unbounded primal direction, i.e., augmenting cycle with
+  * negative cost and unbounded capacity, in the x ColVariable of the
+  * MCFBlock. To keep the same format as MCFBlock::get_Solution() and
+  * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
+  * be used to "partly" save it. In particular, if solc != nullptr, it is
+  * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is done*,
+  * since the Configuration is meant to say "only save/map the dual
+  * information". In all other cases, the direction (cycle) is saved.
+  *
+  * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
 
-    void get_var_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
+ void get_var_direction(Configuration *dirc = nullptr) override
+ {
+  auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
+  if (tsolc && (tsolc->f_value == 2))
+   return;
 
-      throw(std::logic_error(
-          "MCFSolver::get_var_direction() not implemented yet"));
+  throw(std::logic_error(
+		   "MCFSolver::get_var_direction() not implemented yet"));
 
-      // TODO: implement using MCFC::MCFGetUnbCycl()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
+  // TODO: implement using MCFC::MCFGetUnbCycl()
+  // anyway, unsure if any current :MCFClass properly implemente the latter
+  }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the current dual direction in the Constraint of the MCFBlock
-    /** Write the current unbounded dual direction, i.e., a cut separating two
-     * shores to that the residual demand in one is greater than the capacity
-     * across them, in the Constraint of the Block, in particular in the dual
-     * variables of the flow conservation ones. To keep the same format as
-     * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
-     * the Configuration *solc can be used to "partly" save it. In particular, if
-     * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
-     * then *nothing is done*, since the Configuration is meant to say "only
-     * save/map the primal information". In all other cases, the direction (cut)
-     * is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// write the current dual direction in the Constraint of the MCFBlock
+ /** Write the current unbounded dual direction, i.e., a cut separating two
+  * shores to that the residual demand in one is greater than the capacity
+  * across them, in the Constraint of the Block, in particular in the dual
+  * variables of the flow conservation ones. To keep the same format as
+  * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
+  * the Configuration *solc can be used to "partly" save it. In particular, if
+  * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
+  * then *nothing is done*, since the Configuration is meant to say "only
+  * save/map the primal information". In all other cases, the direction (cut)
+  * is saved.
+  *
+  * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
 
-    void get_dual_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
+ void get_dual_direction(Configuration *dirc = nullptr) override
+ {
+  auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
+  if (tsolc && (tsolc->f_value == 1))
+   return;
 
-      throw(std::logic_error(
+  throw(std::logic_error(
           "MCFSolver::get_dual_direction() not implemented yet"));
 
-      // TODO: implement using MCFC::MCFGetUnfCut()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
+  // TODO: implement using MCFC::MCFGetUnfCut()
+  // anyway, unsure if any current :MCFClass properly implemente the latter
+  }
 
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool new_var_direction( void ) override { return( false ); }
+/*--------------------------------------------------------------------------*/
+ /*
+   virtual bool new_var_direction( void ) override { return( false ); }
+   
+   virtual bool new_dual_direction( void ) override{ return( false ); }
+ */
 
-     virtual bool new_dual_direction( void ) override{ return( false ); }
-    */
-    /** @} ---------------------------------------------------------------------*/
-    /*-------------- METHODS FOR READING THE DATA OF THE Solver ----------------*/
-    /*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
+/*-------------- METHODS FOR READING THE DATA OF THE Solver ----------------*/
+/*--------------------------------------------------------------------------*/
 
-    /*
-     virtual bool is_dual_exact( void ) const override { return( true ); }
-    */
+/*--------------------------------------------------------------------------*/
+/*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
+/*--------------------------------------------------------------------------*/
 
-    /*--------------------------------------------------------------------------*/
-    /// "publicize" MCFClass::WriteMCF
-    /** Make the method
-     *
-     *      void WriteMCF( ostream &oStrm , int frmt = 0 )
-     *
-     * of the base (private) MCFClass public, so that it can be freely used. */
-    //TODO: change MCFC function to Algo function.
-    //using MCFC::WriteMCF;
+ ///@return number of int algorithmic parameters
+ [[nodiscard]] idx_type get_num_int_par( void ) const override
+ {
+  return( intLastParLEMON_NS );
+  }
 
-    /*--------------------------------------------------------------------------*/
-    /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Handling the parameters of the MCFLemonSolver
-     *
-     * Each MCFLemonSolver< Algo > may have its own extra int / double parameters. If
-     * this is the case, it will have to specialize the following methods to
-     * handle them. The general definition just handles the case of the
-     *
-     * intLastParCDAS ==> kReopt             whether or not to reoptimize
-     *
-     *  @{ */
-
-
-    ///@return number of int algorithmic parameters
-    [[nodiscard]] idx_type get_num_int_par(void) const override
-    {
-        return (intLastParLEMON_NS);
-    }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @return number of dbl algorithmic parameters
-    [[nodiscard]] idx_type get_num_dbl_par(void) const override
-    {
-        return (dblLastParLEMON_NS);
-    }
+ /// @return number of dbl algorithmic parameters
+ [[nodiscard]] idx_type get_num_dbl_par(void) const override
+ {
+  return (dblLastParLEMON_NS);
+ }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-    /// @return number of str algorithimc parameters 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// MOVE THIS INTO BASE CLASS
+ /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
       return (strLastParLEMON);
     }
     
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief used for obtain default value of an int parameter
-    /// @param par 
-    /// @return default value of parameter par, if exists
-    [[nodiscard]] int get_dflt_int_par(idx_type par) const override
-    {
-      if( par > intLastParLEMON_NS){
-        throw std::invalid_argument("Invalid int parameter: out_of_range " + std::to_string(par));
-      }
+/*--------------------------------------------------------------------------*/
+ /// @brief used for obtain default value of an int parameter
+ /// @param par 
+ /// @return default value of parameter par, if exists
+ [[nodiscard]] int get_dflt_int_par(idx_type par) const override
+ {
+  if( par > intLastParLEMON_NS)
+   throw std::invalid_argument("Invalid int parameter: out_of_range "
+			       + std::to_string(par));
 
-      switch(par){
-        case kPivot: return static_cast<int>(NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH);
-        default: return(CDASolver::get_dflt_int_par(par));
-        
-      }
-    }
+  if( par == kPivot )
+   return( NSPivotRule::BLOCK_SEARCH );
+
+  return( CDASolver::get_dflt_int_par( par ) );
+  }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for obtain default value of a double parameter
-    /// @param par 
-    /// @return default value of parameter par, if exists
-    [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// @brief used for obtain default value of a double parameter
+ /// @param par 
+ /// @return default value of parameter par, if exists
+ /*
+ [[nodiscard]] double get_dflt_dbl_par(idx_type par) const override
     {
       if( par > dblLastParLEMON_NS){
         throw std::invalid_argument("Invalid dbl parameter: out_of_range " + std::to_string(par));
       }
       switch(par){
         default: return(CDASolver::get_dflt_dbl_par(par)); 
-      }
-
-      
+      }   
     }
+ */
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-    /// @brief used for obtain default value of a string parameter
-    /// @param par
-    /// @return default valule of parameter par, if exists
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// MOVE THIS TO BASE CLASS
+ /// @brief used for obtain default value of a string parameter
+ /// @param par
+ /// @return default valule of parameter par, if exists
     [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
         const override
     {
@@ -680,100 +625,93 @@ class MCFLemonSolverNetworkSimplex :
       return (CDASolver::get_dflt_str_par(par));
     }
         
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+// MOVE THIS TO BASE CLASS
+ /// @brief used for get the value of string parameters
+ /// @param par 
+ /// @return value of parameter indexed by par
+ [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {       
+  if( par == strDMXFile )
+   return( this->f_dmx_file );
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+  return( get_dflt_str_par( par ) );
+  }
 
-    /// @brief used for get the value of string parameters
-    /// @param par 
-    /// @return value of parameter indexed by par
-    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
-        
-        if( par == strDMXFile )
-        return( this->f_dmx_file );
+/*--------------------------------------------------------------------------*/
+ /// @brief used for get the value of int parameters
+ /// @param par 
+ /// @return value of parameter indexed by par
 
-        return( get_dflt_str_par( par ) );
-        }
-   
+ [[nodiscard]] int get_int_par( idx_type par ) const override
+ {
+  if( par == kPivot )
+   return( f_pivot_rule );
 
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief used for get the value of int parameters
-    /// @param par 
-    /// @return value of parameter indexed by par
-    [[nodiscard]] int get_int_par(idx_type par) const override
-    {
-    
-      if(par == kPivot){
-        return f_pivot_rule_type;
-      }
+  return( get_dflt_int_par( par ) );
+  }
 
-      return (get_dflt_int_par(par));
-    }
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for get the value of dbl parameters
-    /// @param par 
-    /// @return value of parameter indexed by par
-    [[nodiscard]] double get_dbl_par(idx_type par) const override
-    {
-      //Da finire parametri algoritmici dbl
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// @brief used for get the value of dbl parameters
+ /// @param par 
+ /// @return value of parameter indexed by par
+ /*
+ [[nodiscard]] double get_dbl_par( idx_type par ) const override
+ {
+  //Da finire parametri algoritmici dbl
 
-      return (get_dflt_dbl_par(par));
-    }
-        
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief used for convert string to int parameter's index
-    /// @param name 
-    /// @return an index that denotes parameter name
-    [[nodiscard]] idx_type int_par_str2idx(const std::string &name)
-        const override
-    {
-      if (name == "kPivot")
-        return (kPivot);
+  return( get_dflt_dbl_par( par ) );
+  }
+ */
+/*--------------------------------------------------------------------------*/
+ /// @brief used for convert string to int parameter's index
+ /// @param name 
+ /// @return an index that denotes parameter name
 
-      return (CDASolver::int_par_str2idx(name));
-    }
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for convert string to dbl parameter's index
-    /// @param name 
-    /// @return an index that denotes parameter name
-    [[nodiscard]] idx_type dbl_par_str2idx(const std::string &name)
-        const override
-    {
-      return (CDASolver::dbl_par_str2idx(name));
-    }
-      
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief used for convert int index idx to phrasal rapresentation
-    /// @param idx 
-    /// @return a string that denotes index idx parameter
-    [[nodiscard]] const std::string &int_par_idx2str(idx_type idx)
-        const override
-    {
+ [[nodiscard]] idx_type int_par_str2idx( const std::string & name )
+ const override {
+  if( name == "kPivot" )
+   return( kPivot );
 
-      if(idx > intLastParLEMON_NS){
-        throw std::invalid_argument("Invalid index: out_of_range " + std::to_string(idx));
-      }
-      static const std::string par = "kPivot";
-      switch(idx){
-        case kPivot: return (par);
-        default: break;
-      }
+  return( CDASolver::int_par_str2idx( name ) );
+  }
 
-      return (CDASolver::int_par_idx2str(idx));
-    }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// @brief used for convert string to dbl parameter's index
+ /// @param name 
+ /// @return an index that denotes parameter name
+
+ /* not useful so far
+ [[nodiscard]] idx_type dbl_par_str2idx( const std::string & name )
+ const override {
+  return (CDASolver::dbl_par_str2idx(name));
+  }
+ */
+
+/*--------------------------------------------------------------------------*/
+ /// @brief used for convert int index idx to phrasal rapresentation
+ /// @param idx 
+ /// @return a string that denotes index idx parameter
+
+ [[nodiscard]] const std::string & int_par_idx2str( idx_type idx )
+ const override {
+  if( idx > intLastParLEMON_NS )
+   throw( std::invalid_argument( "int_par_idx2str: index out_of_range " +
+				 std::to_string( idx ) ) );
+
+  static const std::string par = "kPivot";
+  if( idx == kPivot )
+   return( par );
+
+  return( CDASolver::int_par_idx2str( idx ) );
+  }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for convert dbl index idx to phrasal rapresentation
-    /// @param idx 
-    /// @return a string that denotes index idx parameter
-    [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// @brief used for convert dbl index idx to phrasal rapresentation
+ /// @param idx 
+ /// @return a string that denotes index idx parameter
+
+ /*
+ [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
       if(idx > dblLastParLEMON_NS){
@@ -786,138 +724,139 @@ class MCFLemonSolverNetworkSimplex :
 
       return (CDASolver::dbl_par_idx2str(idx));
     }
-    
-    /** @} ---------------------------------------------------------------------*/
-    /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Handling the State of the MCFSolver
-     *  @{ */
+ */
 
-    //[[nodiscard]] State *get_State(void) const override;
+/** @} ---------------------------------------------------------------------*/
+/*-------- METHODS FOR HANDLING THE State OF THE MCFLemonSolver -----------*/
+/*--------------------------------------------------------------------------*//** @name Handling the State of the MCFSolver
+ *  @{ */
 
-    /*--------------------------------------------------------------------------*/
+ //[[nodiscard]] State *get_State(void) const override;
 
-    //void put_State(const State &state) override;
+/*--------------------------------------------------------------------------*/
 
-    /*--------------------------------------------------------------------------*/
+ //void put_State(const State &state) override;
 
-    //void put_State(State &&state) override;
+/*--------------------------------------------------------------------------*/
 
-    /** @} ---------------------------------------------------------------------*/
-    /*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Changing the data of the model
-     *  @{ */
+ //void put_State(State &&state) override;
 
-    /** The only reason why MCFSolver::add_Modification() needs be defined is to
-     * properly react to NBModification. Indeed, the correct reaction is to
-     * *immediately* reload the MCFBlock, besides clearing the list of
-     * Modification as Solver::add_Modification() already does. The issue is
-     * that if arcs/nodes are added/deleted after the NBModification is issued
-     * but before it is processed, then the number of nodes/arcs at the moment
-     * in which the NBModification is processed is different from that at the
-     * moment in which is issued, which may break the "naming convention"
-     * (because the name of, say, a newly created arc depends on the current
-     * state and/or number of the arcs).
-     *
-     * Important note: THIS VERSION ONLY WORKS PROPERLY IF THE MCFBlock IS
-     * "FRESHLY MINTED", I.E., THERE ARE NO CLOSED OR DELETED ARCS.
-     *
-     * This should ordinarily always happen, as whenever the MCFBlock is changed
-     * the NBModification is immediately issued. The problem may come if the
-     * MCFBlock is a R3Block of another MCFBlock which is loaded and then
-     * further modified, and the NBModification to this MCFBlock is generated by
-     * a map_forward_Modification() of the NBModification to the original
-     * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
-     * closed or deleted arcs and this method would not work. */
+/** @} ---------------------------------------------------------------------*/
+/*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
+/*--------------------------------------------------------------------------*/
+ /** @name Changing the data of the model
+  *  @{ */
 
-    /*void add_Modification(sp_Mod &mod) override
-    {
-      if (std::dynamic_pointer_cast<const NBModification>(mod))
-      {
-        // this is the "nuclear option": the MCFBlock has been re-loaded, so
-        // the MCFClass solver also has to (immediately)
-        //TODO: change MCFC function to Algo function.
-        auto MCFB = static_cast<MCFBlock *>(f_Block);
-        MCFC::LoadNet(MCFB->get_MaxNNodes(), MCFB->get_MaxNArcs(),
-                      MCFB->get_NNodes(), MCFB->get_NArcs(),
-                      MCFB->get_U().empty() ? nullptr : MCFB->get_U().data(),
-                      MCFB->get_C().empty() ? nullptr : MCFB->get_C().data(),
-                      MCFB->get_B().empty() ? nullptr : MCFB->get_B().data(),
-                      MCFB->get_SN().data(), MCFB->get_EN().data());
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the
-        //       data changes, some of the deductions (say, reducing the capacity
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       but there isn't any proper way to handle this. Thus, PreProcess()
-        //       has to be disabled for now; maybe later on someone will take
-        //       care to make this work (or maybe not).
-        // MCFC::PreProcess();
-        // besides, any outstanding modification makes no sense any longer
-        mod_clear();
-      }
-      else
-        push_back(mod);
-    }*/
+/** The only reason why MCFSolver::add_Modification() needs be defined is to
+ * properly react to NBModification. Indeed, the correct reaction is to
+ * *immediately* reload the MCFBlock, besides clearing the list of
+ * Modification as Solver::add_Modification() already does. The issue is
+ * that if arcs/nodes are added/deleted after the NBModification is issued
+ * but before it is processed, then the number of nodes/arcs at the moment
+ * in which the NBModification is processed is different from that at the
+ * moment in which is issued, which may break the "naming convention"
+ * (because the name of, say, a newly created arc depends on the current
+ * state and/or number of the arcs).
+ *
+ * Important note: THIS VERSION ONLY WORKS PROPERLY IF THE MCFBlock IS
+ * "FRESHLY MINTED", I.E., THERE ARE NO CLOSED OR DELETED ARCS.
+ *
+ * This should ordinarily always happen, as whenever the MCFBlock is changed
+ * the NBModification is immediately issued. The problem may come if the
+ * MCFBlock is a R3Block of another MCFBlock which is loaded and then
+ * further modified, and the NBModification to this MCFBlock is generated by
+ * a map_forward_Modification() of the NBModification to the original
+ * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
+ * closed or deleted arcs and this method would not work. */
+ 
+ /*void add_Modification(sp_Mod &mod) override
+   {
+   if (std::dynamic_pointer_cast<const NBModification>(mod))
+   {
+   // this is the "nuclear option": the MCFBlock has been re-loaded, so
+   // the MCFClass solver also has to (immediately)
+   //TODO: change MCFC function to Algo function.
+   auto MCFB = static_cast<MCFBlock *>(f_Block);
+   MCFC::LoadNet(MCFB->get_MaxNNodes(), MCFB->get_MaxNArcs(),
+   MCFB->get_NNodes(), MCFB->get_NArcs(),
+   MCFB->get_U().empty() ? nullptr : MCFB->get_U().data(),
+   MCFB->get_C().empty() ? nullptr : MCFB->get_C().data(),
+   MCFB->get_B().empty() ? nullptr : MCFB->get_B().data(),
+   MCFB->get_SN().data(), MCFB->get_EN().data());
+   // TODO: PreProcess() changes the internal data of the MCFSolver using
+   //       information about how the data of the MCF is *now*. If the
+   //       data changes, some of the deductions (say, reducing the capacity
+   //       of some arcs) may no longer be correct and they should be undone,
+   //       but there isn't any proper way to handle this. Thus, PreProcess()
+   //       has to be disabled for now; maybe later on someone will take
+   //       care to make this work (or maybe not).
+   // MCFC::PreProcess();
+   // besides, any outstanding modification makes no sense any longer
+   mod_clear();
+   }
+   else
+   push_back(mod);
+   }*/
 
-    /*--------------------------------------------------------------------------*/
-    /*-------------------------------- FRIENDS ---------------------------------*/
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------------------------------- FRIENDS ---------------------------------*/
+/*--------------------------------------------------------------------------*/
 
-    friend class MCFLemonState; // make MCFSolverState friend
+ // friend class MCFLemonState; // make MCFSolverState friend
 
-    /** @} ---------------------------------------------------------------------*/
-    /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
-    /*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
+/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
   protected:
-    /*--------------------------------------------------------------------------*/
-    /*-------------------------- PROTECTED METHODS -----------------------------*/
-    /*--------------------------------------------------------------------------*/
 
-    void process_outstanding_Modification(void);
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+/*--------------------------------------------------------------------------*/
 
-    void guts_of_poM(c_p_Mod mod);
+ void process_outstanding_Modification(void);
 
-    /*--------------------------------------------------------------------------*/
-    /*---------------------------- PROTECTED FIELDS  ---------------------------*/
-    /*--------------------------------------------------------------------------*/
+ void guts_of_poM(c_p_Mod mod);
 
-    const static std::vector<int> Solver_2_MCFClass_int;
-    // the (static const) map between Solver int parameters and MCFClass ones
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PROTECTED FIELDS  ---------------------------*/
+/*--------------------------------------------------------------------------*/
 
-    const static std::vector<int> Solver_2_MCFClass_dbl;
-    // the (static const) map between Solver int parameters and MCFClass ones
+ std::string f_dmx_file; 
+ ///< string for DMX file output
 
-    std::string f_dmx_file; 
-    // string for DMX file output
+ NSPivotRule f_pivot_rule;
 
-
-    /*--------------------------------------------------------------------------*/
-    /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
   private:
-    /*--------------------------------------------------------------------------*/
-    /*-------------------------- PRIVATE METHODS -------------------------------*/
-    /*--------------------------------------------------------------------------*/
 
-    SMSpp_insert_in_factory_h;
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE METHODS -------------------------------*/
+/*--------------------------------------------------------------------------*/
 
-     /*--------------------------------------------------------------------------*/
-    /*-------------------------- PRIVATE FIELDS -------------------------------*/
-    /*--------------------------------------------------------------------------*/
-    int status = UNSOLVED;  //Variable used in compute function for getting status
-    typename NetworkSimplex< GR , V , C >::ProblemType status_2_pType;
-    //Status of compute() method
-    
-    int f_pivot_rule_type; // Variable used in set_par for switching value with f_pivot_rule
+ SMSpp_insert_in_factory_h;
 
-    double ticks;  //Elaped time in ticks for compute() method
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE FIELDS -------------------------------*/
+/*--------------------------------------------------------------------------*/
 
-  }; // end( class MCFLemonSolver<NetworkSimplex, GR, V, C>  Specialization)
+ int status = UNSOLVED;
+ // Variable used in compute function for getting status
 
+ typename NetworkSimplex< GR , V , C >::ProblemType status_2_pType;
+ // Status of compute() method
+
+ int f_pivot_rule_type;
+ // Variable used in set_par for switching value with f_pivot_rule
+
+ double ticks;  //Elaped time in ticks for compute() method
+
+/*--------------------------------------------------------------------------*/
+
+ }; // end( class MCFLemonSolver<NetworkSimplex, GR, V, C>  Specialization)
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- SPECIALIZED CLASSES ---------------------*/
@@ -1780,18 +1719,12 @@ enum dbl_par_type_LEMON_CC{
 
     void guts_of_poM(c_p_Mod mod);
 
-    /*--------------------------------------------------------------------------*/
-    /*---------------------------- PROTECTED FIELDS  ---------------------------*/
-    /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PROTECTED FIELDS  ---------------------------*/
+/*--------------------------------------------------------------------------*/
 
-    const static std::vector<int> Solver_2_MCFClass_int;
-    // the (static const) map between Solver int parameters and MCFClass ones
-
-    const static std::vector<int> Solver_2_MCFClass_dbl;
-    // the (static const) map between Solver int parameters and MCFClass ones
-
-    std::string f_dmx_file; 
-    // string for DMX file output
+ std::string f_dmx_file; 
+ // string for DMX file output
 
 
     /*--------------------------------------------------------------------------*/
@@ -2638,14 +2571,8 @@ enum LEMON_CS_dbl_par_type{
     /*---------------------------- PROTECTED FIELDS  ---------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    const static std::vector<int> Solver_2_MCFClass_int;
-    // the (static const) map between Solver int parameters and MCFClass ones
-
-    const static std::vector<int> Solver_2_MCFClass_dbl;
-    // the (static const) map between Solver int parameters and MCFClass ones
-
-    std::string f_dmx_file; 
-    // string for DMX file output
+ std::string f_dmx_file; 
+ // string for DMX file output
 
 
     /*--------------------------------------------------------------------------*/
@@ -3532,14 +3459,8 @@ class MCFLemonSolverCostScaling: public MCFLemonSolver<SMSppCostScaling, GR, V, 
     /*---------------------------- PROTECTED FIELDS  ---------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    const static std::vector<int> Solver_2_MCFClass_int;
-    // the (static const) map between Solver int parameters and MCFClass ones
-
-    const static std::vector<int> Solver_2_MCFClass_dbl;
-    // the (static const) map between Solver int parameters and MCFClass ones
-
-    std::string f_dmx_file; 
-    // string for DMX file output
+ std::string f_dmx_file; 
+ // string for DMX file output
 
 
     /*--------------------------------------------------------------------------*/

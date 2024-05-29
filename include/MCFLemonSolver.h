@@ -364,9 +364,9 @@ template< template< typename , typename , typename > class Algo ,
 
 
 
-  int compute( bool changedvars = true ) override;
+  // int compute( bool changedvars = true ) override;
 
-  void set_par( idx_type par , int value ) override;
+  // void set_par( idx_type par , int value ) override;
 
   protected:
 
