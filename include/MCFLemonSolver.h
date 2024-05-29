@@ -145,13 +145,21 @@ namespace SMSpp_di_unipi_it
  template< LEMONGraph GR , typename V , typename C >
  class SMSppCapacityScaling : public
   CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >
-  {};
+  {
+    public:
+    SMSppCapacityScaling(const GR& dgp) : CostScaling<GR, V, C, CostScalingDefaultTraits<GR, V, C> >(dgp){}
+    ~SMSppCapacityScaling() = default;
+  };
 
  /// CostScaling algorithm using the default trait
  template < LEMONGraph GR , typename V , typename C>
  class SMSppCostScaling : public
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
-  {};
+  {
+    public:
+    SMSppCostScaling(const GR& dgp) : CostScaling<GR, V, C, CostScalingDefaultTraits<GR, V, C> >(dgp){}
+    ~SMSppCostScaling() = default;
+  };
 
 /** @} ---------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
@@ -259,8 +267,67 @@ template< template< typename , typename , typename > class Algo ,
   UNBOUNDED,    ///< the problem is provably unbounded
   KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
   }; 
+
+  static constexpr int kErrorStatus = -1;
+
   
+  int compute(bool changedvars = true) override;
   void set_Block( Block * block) override;
+
+  /*--------------------------------------------------------------------------*/
+  //Return the lower bound solution(optimal) for the problem
+  OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+
+  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+  //Return the upper bound solution(optimal) for the problem
+  OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+
+  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+  ///Get elapsed time for run() method
+  double get_elapsed_time( void ) const override {
+    return( this->ticks );
+  }
+
+  
+  ///Return the status of the run() in compute method
+  int get_status(void) const 
+  {
+    return (this->status);
+  }
+
+
+  /*--------------------------------------------------------------------------*/
+  bool has_var_solution(void) override
+  {
+     switch (this->get_status()) {
+      case( ThisAlgo::ProblemType::OPTIMAL ):
+      case( ThisAlgo::ProblemType::UNBOUNDED ):  
+       return( true );
+      default:
+       return( false );
+      }
+  }
+
+  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+  bool has_dual_solution(void) override
+  {
+   switch( this->get_status() ) {
+     case( ThisAlgo::ProblemType::OPTIMAL ):
+     case( ThisAlgo::ProblemType::INFEASIBLE ):
+       return( true );
+     default:
+       return( false );
+   }
+  }
+
+  /*--------------------------------------------------------------------------*/
+
+  bool has_var_direction(void) override { return (true); }
+
+  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+  bool has_dual_direction(void) override { return (true); }
+
 
 
   protected:
@@ -274,12 +341,30 @@ template< template< typename , typename , typename > class Algo ,
    delete dgp;
    }
 
-  ThisAlgo * f_algo;
-  ///< the actual LEMON algorithm for solving the MCFBlock
+  virtual void guts_of_compute() = 0;
 
-  GR * dgp;
+  std::string f_dmx_file; 
+  ///< string for DMX file output
+
+  ThisAlgo * f_algo;
+  int status = UNSOLVED;
+
+   GR * dgp;
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
+
+
+  private:
+  // Variable used in compute function for getting status
+
+  typename ThisAlgo::ProblemType status_2_pType;
+  // Status of compute() method
+
+  double ticks;  //Elaped time in ticks for compute() method
+  
+  ///< the actual LEMON algorithm for solving the MCFBlock
+
+ 
 
  };// End of MCFLemonSolver
           
@@ -343,8 +428,8 @@ class MCFLemonSolverNetworkSimplex :
  using SMSpp_di_unipi_it::Solver::f_Block;
  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
  using SMSpp_di_unipi_it::Solver::f_id;
- using BaseClass::dgp;
  using BaseClass::f_algo;
+ using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
  using BaseClass::LEMON_sol_type::UNSOLVED;
@@ -363,9 +448,9 @@ class MCFLemonSolverNetworkSimplex :
   * parameters used by NetworkSimplex.
   */
 
- MCFLemonSolverNetworkSimplex( void ) {
-  BaseClass::guts_of_constructor();
-  f_pivot_rule = NSPivotRule::BLOCK_SEARCH;
+  MCFLemonSolverNetworkSimplex( void ) {
+   BaseClass::guts_of_constructor();
+   f_pivot_rule = NSPivotRule::BLOCK_SEARCH;
   }
  
   /// destructor: delete algorithm parameter
@@ -373,46 +458,9 @@ class MCFLemonSolverNetworkSimplex :
    * parameter of  NetworkSimplex */
 
   ~MCFLemonSolverNetworkSimplex() {
-   BaseClass::guts_of_destructor();
+    BaseClass::guts_of_destructor();
    }
 
-/*--------------------------------------------------------------------------*/
- /* intMaxIter = 0     maximum iterations for the next call to solve()
-
-    intMaxSol          maximum number of different solutions to report
-
-    intLogVerb         "verbosity" of the log
-
-    intMaxDSol         maximum number of different dual solutions
-
-    intLastParCDAS     first allowed parameter value for derived classes
-    */
-
-/*--------------------------------------------------------------------------*/
- /* dblMaxTime = 0    maximum time for the next call to solve()
-
-    dblRelAcc         relative accuracy for declaring a solution optimal
-
-    dblAbsAcc          absolute accuracy for declaring a solution optimal
-
-    dblUpCutOff        upper cutoff for stopping the algorithm
-
-    dblLwCutOff        lower cutoff for stopping the algorithm
-
-    dblRAccSol          maximum relative error in any reported solution
-
-    dblAAccSol          maximum absolute error in any reported solution
-
-    dblFAccSol          maximum constraint violation in any reported solution
-
-    dblRAccDSol         maximum relative error in any dual solution
-
-    dblAAccDSol         maximum absolute error in any dual solution
-
-    dblFAccDSol         maximum absolute error in any dual solution
-
-    dblLastParCDAS      first allowed parameter value for derived classes
-    */
 
 /*--------------------------------------------------------------------------*/
  enum LEMON_NS_dbl_par_type{
@@ -428,56 +476,22 @@ class MCFLemonSolverNetworkSimplex :
    * to further extend the set of types of return codes */
   };
  
-/** @} ---------------------------------------------------------------------*/
-/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Other initializations
- *
- * Parameter-wise, MCFSolver maps the parameters of [CDA]Solver
- *
- *  intMaxIter = 0    maximum iterations for the next call to solve()
- *  intMaxSol         maximum number of different solutions to report
- *  intLogVerb        "verbosity" of the log
- *  intMaxDSol        maximum number of different dual solutions
- *
- *  dblMaxTime = 0    maximum time for the next call to solve()
- *  dblRelAcc         relative accuracy for declaring a solution optimal
- *  dblAbsAcc         absolute accuracy for declaring a solution optimal
- *  dblUpCutOff       upper cutoff for stopping the algorithm
- *  dblLwCutOff       lower cutoff for stopping the algorithm
- *  dblRAccSol        maximum relative error in any reported solution
- *  dblAAccSol        maximum absolute error in any reported solution
- *  dblFAccSol        maximum constraint violation in any reported solution
- *  dblRAccDSol       maximum relative error in any dual solution
- *  dblAAccDSol       maximum absolute error in any dual solution
- *  dblFAccDSol       maximum absolute error in any dual solution
- *
- * into the parameter of MCFClass
- *
- * kMaxTime = 0       max time
- * kMaxIter           max number of iteration
- * kEpsFlw            tolerance for flows
- * kEpsDfct           tolerance for deficits
- * kEpsCst            tolerance for costs
- *
- * It then "extends" them, using
- *
- *  intLastParCDAS    first allowed parameter value for derived classes
- *  dblLastParCDAS    first allowed parameter value for derived classes
- *
- * In particular, one now has
- *
- * intLastParCDAS ==> kReopt             whether or not to reoptimize
- *
- *  @{ */
+ void get_var_solution(Configuration *solc = nullptr) override
+    {/*
+      if (!f_Block) // no [MCF]Block to write to
+        return;     // cowardly and silently return
 
- static constexpr int kErrorStatus = -1;
+      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
+      if (tsolc && (tsolc->f_value == 2))
+        return;
 
-/*--------------------------------------------------------------------------*/
- // set the ostream for the Solver log
- // not really, MCFClass objects are remarkably silent
- //
- // virtual void set_log( std::ostream *log_stream = nullptr ) override;
+      auto MCFB = static_cast<MCFBlock *>(f_Block);
+      MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
+      this->MCFGetX(X.data());
+      MCFB->set_x(X.begin());
+   */}
+
+ void get_dual_solution( Configuration * solc = nullptr) override{}
 
 /*--------------------------------------------------------------------------*/
  /// @brief set the parameter par with value
@@ -509,203 +523,7 @@ class MCFLemonSolverNetworkSimplex :
 
  /// (try to) solve the MCF encoded in the MCFBlock 
 
- int compute(bool changedvars = true) override;
-/** @} ---------------------------------------------------------------------*/
-/*---------------------- METHODS FOR READING RESULTS -----------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Accessing the found solutions (if any)
- *  @{ */
-    
- int get_status( void ) const { return( this->status ); }
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- ///Get elapsed time for run() method
-
- double get_elapsed_time( void ) const override {
-  return( this->ticks );
-  }
-
-/*--------------------------------------------------------------------------*/
- //Return the lower bound solution(optimal) for the problem
-
- OFValue get_lb( void ) override { return( OFValue( f_algo->totalCost() ) ); }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- //Return the upper bound solution(optimal) for the problem
-
- OFValue get_ub( void ) override { return( OFValue( f_algo->totalCost() ) ); }
-
-    /*--------------------------------------------------------------------------*/
-    bool has_var_solution(void) override
-    {
-     switch (this->get_status()) {
-      case( NetworkSimplex< GR , V , C >::ProblemType::OPTIMAL ):
-      case( NetworkSimplex< GR , V , C >::ProblemType::UNBOUNDED ):  
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    bool has_dual_solution(void) override
-    {
-     switch( this->get_status() ) {
-      case( NetworkSimplex< GR , V , C >::ProblemType::OPTIMAL ):
-      case( NetworkSimplex< GR , V , C >::ProblemType::INFEASIBLE ):
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool is_var_feasible( void ) override { return( true ); }
-
-     virtual bool is_dual_feasible( void ) override { return( true ); }
-    */
-    /*--------------------------------------------------------------------------*/
-    /// write the "current" flow in the x ColVariable of the MCFBlock
-    /** Write the "current" flow in the x ColVariable of the MCFBlock. To keep
-     * the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the dual
-     * solution". In all other cases, the flow solution is saved. */
-
-    void get_var_solution(Configuration *solc = nullptr) override
-    {/*
-      if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
-      this->MCFGetX(X.data());
-      MCFB->set_x(X.begin());
-   */}
-  
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the "current" dual solution in the Constraint of the MCFBlock
-    /** Write the "current" dual solution, i.e., node potentials and flow
-     * reduced costs, in the dual variables of the Constraint (respectively,
-     * the flow conservation constraints and bound ones) of the MCFBlock. To
-     * keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 1, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the primal
-     * solution". In all other cases, the flow solution is saved. */
-    
-    void get_dual_solution(Configuration *solc = nullptr) override
-    {
-    /*  if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_CNumber Pi(MCFB->get_NNodes());
-      this->MCFGetPi(Pi.data());
-      MCFB->set_pi(Pi.begin());
-
-      MCFBlock::Vec_FNumber RC(MCFB->get_NArcs());
-      this->MCFGetRC(RC.data());
-      MCFB->set_rc(RC.begin());
-    */}
-    
-    /*--------------------------------------------------------------------------*/
-
-   // bool new_var_solution(void) override { return (this->HaveNewX()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-   // bool new_dual_solution(void) override { return (this->HaveNewPi()); }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual void set_unbounded_threshold( const OFValue thr ) override { }
-    */
-
-/*--------------------------------------------------------------------------*/
-
- bool has_var_direction(void) override { return (true); }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
- bool has_dual_direction(void) override { return (true); }
-
-/*--------------------------------------------------------------------------*/
- /// write the current direction in the x ColVariable of the MCFBlock
- /** Write the unbounded primal direction, i.e., augmenting cycle with
-  * negative cost and unbounded capacity, in the x ColVariable of the
-  * MCFBlock. To keep the same format as MCFBlock::get_Solution() and
-  * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-  * be used to "partly" save it. In particular, if solc != nullptr, it is
-  * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is done*,
-  * since the Configuration is meant to say "only save/map the dual
-  * information". In all other cases, the direction (cycle) is saved.
-  *
-  * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
- void get_var_direction(Configuration *dirc = nullptr) override
- {
-  auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-  if (tsolc && (tsolc->f_value == 2))
-   return;
-
-  throw(std::logic_error(
-		   "MCFSolver::get_var_direction() not implemented yet"));
-
-  // TODO: implement using MCFC::MCFGetUnbCycl()
-  // anyway, unsure if any current :MCFClass properly implemente the latter
-  }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// write the current dual direction in the Constraint of the MCFBlock
- /** Write the current unbounded dual direction, i.e., a cut separating two
-  * shores to that the residual demand in one is greater than the capacity
-  * across them, in the Constraint of the Block, in particular in the dual
-  * variables of the flow conservation ones. To keep the same format as
-  * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
-  * the Configuration *solc can be used to "partly" save it. In particular, if
-  * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
-  * then *nothing is done*, since the Configuration is meant to say "only
-  * save/map the primal information". In all other cases, the direction (cut)
-  * is saved.
-  *
-  * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
- void get_dual_direction(Configuration *dirc = nullptr) override
- {
-  auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-  if (tsolc && (tsolc->f_value == 1))
-   return;
-
-  throw(std::logic_error(
-          "MCFSolver::get_dual_direction() not implemented yet"));
-
-  // TODO: implement using MCFC::MCFGetUnfCut()
-  // anyway, unsure if any current :MCFClass properly implemente the latter
-  }
-
-/*--------------------------------------------------------------------------*/
- /*
-   virtual bool new_var_direction( void ) override { return( false ); }
-   
-   virtual bool new_dual_direction( void ) override{ return( false ); }
- */
-
-/** @} ---------------------------------------------------------------------*/
-/*-------------- METHODS FOR READING THE DATA OF THE Solver ----------------*/
-/*--------------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -868,7 +686,7 @@ class MCFLemonSolverNetworkSimplex :
  /// @param idx 
  /// @return a string that denotes index idx parameter
 
- /*
+ 
  [[nodiscard]] const std::string &dbl_par_idx2str(idx_type idx)
         const override
     {
@@ -882,85 +700,12 @@ class MCFLemonSolverNetworkSimplex :
 
       return (CDASolver::dbl_par_idx2str(idx));
     }
- */
-
-/** @} ---------------------------------------------------------------------*/
-/*-------- METHODS FOR HANDLING THE State OF THE MCFLemonSolver -----------*/
-/*--------------------------------------------------------------------------*//** @name Handling the State of the MCFSolver
- *  @{ */
-
- //[[nodiscard]] State *get_State(void) const override;
-
-/*--------------------------------------------------------------------------*/
-
- //void put_State(const State &state) override;
-
-/*--------------------------------------------------------------------------*/
-
- //void put_State(State &&state) override;
-
-/** @} ---------------------------------------------------------------------*/
-/*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
-/*--------------------------------------------------------------------------*/
- /** @name Changing the data of the model
-  *  @{ */
-
-/** The only reason why MCFSolver::add_Modification() needs be defined is to
- * properly react to NBModification. Indeed, the correct reaction is to
- * *immediately* reload the MCFBlock, besides clearing the list of
- * Modification as Solver::add_Modification() already does. The issue is
- * that if arcs/nodes are added/deleted after the NBModification is issued
- * but before it is processed, then the number of nodes/arcs at the moment
- * in which the NBModification is processed is different from that at the
- * moment in which is issued, which may break the "naming convention"
- * (because the name of, say, a newly created arc depends on the current
- * state and/or number of the arcs).
- *
- * Important note: THIS VERSION ONLY WORKS PROPERLY IF THE MCFBlock IS
- * "FRESHLY MINTED", I.E., THERE ARE NO CLOSED OR DELETED ARCS.
- *
- * This should ordinarily always happen, as whenever the MCFBlock is changed
- * the NBModification is immediately issued. The problem may come if the
- * MCFBlock is a R3Block of another MCFBlock which is loaded and then
- * further modified, and the NBModification to this MCFBlock is generated by
- * a map_forward_Modification() of the NBModification to the original
- * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
- * closed or deleted arcs and this method would not work. */
  
- /*void add_Modification(sp_Mod &mod) override
-   {
-   if (std::dynamic_pointer_cast<const NBModification>(mod))
-   {
-   // this is the "nuclear option": the MCFBlock has been re-loaded, so
-   // the MCFClass solver also has to (immediately)
-   //TODO: change MCFC function to Algo function.
-   auto MCFB = static_cast<MCFBlock *>(f_Block);
-   MCFC::LoadNet(MCFB->get_MaxNNodes(), MCFB->get_MaxNArcs(),
-   MCFB->get_NNodes(), MCFB->get_NArcs(),
-   MCFB->get_U().empty() ? nullptr : MCFB->get_U().data(),
-   MCFB->get_C().empty() ? nullptr : MCFB->get_C().data(),
-   MCFB->get_B().empty() ? nullptr : MCFB->get_B().data(),
-   MCFB->get_SN().data(), MCFB->get_EN().data());
-   // TODO: PreProcess() changes the internal data of the MCFSolver using
-   //       information about how the data of the MCF is *now*. If the
-   //       data changes, some of the deductions (say, reducing the capacity
-   //       of some arcs) may no longer be correct and they should be undone,
-   //       but there isn't any proper way to handle this. Thus, PreProcess()
-   //       has to be disabled for now; maybe later on someone will take
-   //       care to make this work (or maybe not).
-   // MCFC::PreProcess();
-   // besides, any outstanding modification makes no sense any longer
-   mod_clear();
-   }
-   else
-   push_back(mod);
-   }*/
 
-/*--------------------------------------------------------------------------*/
-/*-------------------------------- FRIENDS ---------------------------------*/
-/*--------------------------------------------------------------------------*/
-
- // friend class MCFLemonState; // make MCFSolverState friend
+ 
+  void guts_of_compute(void) override{
+  status = f_algo->run( NSPivotRule( f_pivot_rule )  ); 
+ }
 
 /** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -972,6 +717,7 @@ class MCFLemonSolverNetworkSimplex :
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
+
  void process_outstanding_Modification(void);
 
  void guts_of_poM(c_p_Mod mod);
@@ -980,10 +726,9 @@ class MCFLemonSolverNetworkSimplex :
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
 /*--------------------------------------------------------------------------*/
 
- std::string f_dmx_file; 
- ///< string for DMX file output
 
- NSPivotRule f_pivot_rule;
+
+  NSPivotRule f_pivot_rule;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -997,17 +742,6 @@ class MCFLemonSolverNetworkSimplex :
 
  SMSpp_insert_in_factory_h;
 
-/*--------------------------------------------------------------------------*/
-/*-------------------------- PRIVATE FIELDS -------------------------------*/
-/*--------------------------------------------------------------------------*/
-
- int status = UNSOLVED;
- // Variable used in compute function for getting status
-
- typename NetworkSimplex< GR , V , C >::ProblemType status_2_pType;
- // Status of compute() method
-
- double ticks;  //Elaped time in ticks for compute() method
 
 /*--------------------------------------------------------------------------*/
 
@@ -1015,16 +749,14 @@ class MCFLemonSolverNetworkSimplex :
 
 
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- SPECIALIZED CLASSES ---------------------*/
-/*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CYCLECANCELING --------------------------*/
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 
-/** Specialized MCFLemonSolver<CycleCanceling, GR, V, C> that contains specialized
- *  compute() method, enums for indexing algorithimc parameters and function
+/** Specialized MCFLemonSolverCycleCanceling< GR, V, C> that contains
+ *  guts_of_compute() method, enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
  * 
  *  Template parameters are:
@@ -1049,210 +781,121 @@ class MCFLemonSolverNetworkSimplex :
 class MCFLemonSolverCycleCanceling:  
 public MCFLemonSolver<CycleCanceling, GR, V, C>
 {
-/*--------------------------------------------------------------------------*/
-/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
-/*--------------------------------------------------------------------------*/
+  /*--------------------------------------------------------------------------*/
+  /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+  /*--------------------------------------------------------------------------*/
 
- using BaseClass = MCFLemonSolver< CycleCanceling , GR , V , C >;
- 
- using BaseClass::intLastParCDAS;
- //using BaseClass::idx_type;
+  using BaseClass = MCFLemonSolver< CycleCanceling , GR , V , C >;
+  
+  using BaseClass::intLastParCDAS;
+  //using BaseClass::idx_type;
 
- using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
- using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
- using SMSpp_di_unipi_it::CDASolver::kStopTime;
- using SMSpp_di_unipi_it::CDASolver::kInfeasible;
- using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
- using SMSpp_di_unipi_it::Solver::lock;
- using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::Solver::f_Block;
- using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
- using SMSpp_di_unipi_it::Solver::f_id;
- using BaseClass::dgp;
- using BaseClass::f_algo;
- using BaseClass::strLastParLEMON;
- using BaseClass::str_par_type_LEMON::strDMXFile;
- using BaseClass::LEMON_sol_type::UNSOLVED;
- using typename BaseClass::ThisAlgo;
- using CCMethod = typename ThisAlgo::Method;
- 
+  using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
+  using SMSpp_di_unipi_it::Solver::OFValue;
+  using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
+  using SMSpp_di_unipi_it::CDASolver::kStopTime;
+  using SMSpp_di_unipi_it::CDASolver::kInfeasible;
+  using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
+  using SMSpp_di_unipi_it::Solver::lock;
+  using SMSpp_di_unipi_it::Solver::unlock;
+  using SMSpp_di_unipi_it::Solver::f_Block;
+  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
+  using SMSpp_di_unipi_it::Solver::f_id;
+  using BaseClass::dgp;
+  using BaseClass::f_algo;
+  using BaseClass::strLastParLEMON;
+  using BaseClass::str_par_type_LEMON::strDMXFile;
+  using BaseClass::LEMON_sol_type::UNSOLVED;
+  using typename BaseClass::ThisAlgo;
+  using CCMethod = typename ThisAlgo::Method;
+  
 
 
- public:
+  public:
 
    
 
-/*--------------------------------------------------------------------------*/
-/*---------------------------- PUBLIC TYPES --------------------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Public Types
-   kUnEval = 0     compute() has not been called yet
-
-   kUnbounded = kUnEval + 1     the model is provably unbounded
- *  @{ */
-  const int kErrorStatus = -1;
-/*
-    
-    kUnEval = 0     compute() has not been called yet
+  /*--------------------------------------------------------------------------*/
+  /*---------------------------- PUBLIC TYPES --------------------------------*/
+  /*--------------------------------------------------------------------------*/
+  /** @name Public Types
+     kUnEval = 0     compute() has not been called yet
 
     kUnbounded = kUnEval + 1     the model is provably unbounded
+  *  @{ */
+    const int kErrorStatus = -1;
+  /*
+      
+      kUnEval = 0     compute() has not been called yet
 
-    kInfeasible                  the model is provably infeasible
+      kUnbounded = kUnEval + 1     the model is provably unbounded
 
-    kBothInfeasible = kInfeasible + 1     both primal and dual infeasible
+      kInfeasible                  the model is provably infeasible
 
-    kOK = 7         successful compute()
-                    Any return value between kUnEval (excluded) and kOK
-        (included) means that the object ran smoothly
+      kBothInfeasible = kInfeasible + 1     both primal and dual infeasible
 
-    kStopTime = kOK + 1          stopped because of time limit
+      kOK = 7         successful compute()
+                      Any return value between kUnEval (excluded) and kOK
+          (included) means that the object ran smoothly
 
-    kStopIter                    stopped because of iteration limit
+      kStopTime = kOK + 1          stopped because of time limit
 
-    kError = 15     compute() stopped because of unrecoverable error
-                    Any return value >= kError means that the object was
-         forced to stop due to some error, e.g. of numerical nature
+      kStopIter                    stopped because of iteration limit
 
-    kLowPrecision = kError + 1   a solution found but not provably optimal
-    */
+      kError = 15     compute() stopped because of unrecoverable error
+                      Any return value >= kError means that the object was
+          forced to stop due to some error, e.g. of numerical nature
+
+      kLowPrecision = kError + 1   a solution found but not provably optimal
+      */
 
 
 
-/** @} ---------------------------------------------------------------------*/
-/*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Constructing and destructing MCFLemonSolver
- *  @{ */
+  /** @} ---------------------------------------------------------------------*/
+  /*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
+  /*--------------------------------------------------------------------------*/
+  /** @name Constructing and destructing MCFLemonSolver
+   *  @{ */
 
- /// constructor: assign the default parameter
- /** Void constructor: Build f_method with default parameter */
+  /// constructor: assign the default parameter
+  /** Void constructor: Build f_method with default parameter */
 
- MCFLemonSolverCycleCanceling( void ) : MCFLemonSolver<CycleCanceling, GR, V, C>() {
-  BaseClass::guts_of_constructor();
-  f_method = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
-  }
- 
- ///destructor:
- /**Void destructor: Delete f_method from memory */
-  ~MCFLemonSolverCycleCanceling( void ) {
-    BaseClass::guts_of_destructor();
-  }
- 
- 
-
-/*--------------------------------------------------------------------------*/
- /* intMaxIter = 0     maximum iterations for the next call to solve()
-
-    intMaxSol          maximum number of different solutions to report
-
-    intLogVerb         "verbosity" of the log
-
-    intMaxDSol         maximum number of different dual solutions
-
-    intLastParCDAS     first allowed parameter value for derived classes
-    */
-
- enum LEMON_CC_int_par_type{
-        kMethod = intLastParCDAS,
-        intLastParLEMON_CC ///< first allowed parameter value for derived classes
-                           /**< convenience value for easily allow derived classes
-                            * to further extend the set of types of return codes */
- };
-
-/*--------------------------------------------------------------------------*/
- /* dblMaxTime = 0    maximum time for the next call to solve()
-
-    dblRelAcc         relative accuracy for declaring a solution optimal
-
-    dblAbsAcc          absolute accuracy for declaring a solution optimal
-
-    dblUpCutOff        upper cutoff for stopping the algorithm
-
-    dblLwCutOff        lower cutoff for stopping the algorithm
-
-    dblRAccSol          maximum relative error in any reported solution
-
-    dblAAccSol          maximum absolute error in any reported solution
-
-    dblFAccSol          maximum constraint violation in any reported solution
-
-    dblRAccDSol         maximum relative error in any dual solution
-
-    dblAAccDSol         maximum absolute error in any dual solution
-
-    dblFAccDSol         maximum absolute error in any dual solution
-
-    dblLastParCDAS      first allowed parameter value for derived classes
-    */
-
-/*--------------------------------------------------------------------------*/
-
-/// public enum for the type of the solution
-/// to MCFLemonSolver< CycleCanceling , C , V >
-
-enum dbl_par_type_LEMON_CC{
-  dblCycleCancelingFactor = dblLastParCDAS ,
-  dblLastParLEMON_CC ///< first allowed parameter value for derived classes
-                           /**< convenience value for easily allow derived classes
-                            * to further extend the set of types of return codes */
-};
-
-/** @} ---------------------------------------------------------------------*/
-/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Other initializations
- *
- * Parameter-wise, MCFSolver maps the parameters of [CDA]Solver
- *
- *  intMaxIter = 0    maximum iterations for the next call to solve()
- *  intMaxSol         maximum number of different solutions to report
- *  intLogVerb        "verbosity" of the log
- *  intMaxDSol        maximum number of different dual solutions
- *
- *  dblMaxTime = 0    maximum time for the next call to solve()
- *  dblRelAcc         relative accuracy for declaring a solution optimal
- *  dblAbsAcc         absolute accuracy for declaring a solution optimal
- *  dblUpCutOff       upper cutoff for stopping the algorithm
- *  dblLwCutOff       lower cutoff for stopping the algorithm
- *  dblRAccSol        maximum relative error in any reported solution
- *  dblAAccSol        maximum absolute error in any reported solution
- *  dblFAccSol        maximum constraint violation in any reported solution
- *  dblRAccDSol       maximum relative error in any dual solution
- *  dblAAccDSol       maximum absolute error in any dual solution
- *  dblFAccDSol       maximum absolute error in any dual solution
- *
- * into the parameter of MCFClass
- *
- * kMaxTime = 0       max time
- * kMaxIter           max number of iteration
- * kEpsFlw            tolerance for flows
- * kEpsDfct           tolerance for deficits
- * kEpsCst            tolerance for costs
- *
- * It then "extends" them, using
- *
- *  intLastParCDAS    first allowed parameter value for derived classes
- *  dblLastParCDAS    first allowed parameter value for derived classes
- *
- * In particular, one now has
- *
- * intLastParCDAS ==> kReopt             whether or not to reoptimize
- *
- * and any other parameter of specific :MCFClass following. This is done
- * via the two const static arrays Solver_2_MCFClass_int and
- * Solver_2_MCFClass_dbl, with a negative entry meaning "there is no such
- * parameter in MCFSolver".
- *
- *  @{ */
-
+  MCFLemonSolverCycleCanceling( void ) : MCFLemonSolver<CycleCanceling, GR, V, C>() {
+    BaseClass::guts_of_constructor();
+    f_method = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
+    }
+  
+  ///destructor:
+  /**Void destructor: Delete f_method from memory */
+    ~MCFLemonSolverCycleCanceling( void ) {
+      BaseClass::guts_of_destructor();
+    }
+  
  
 
     /*--------------------------------------------------------------------------*/
-    // set the ostream for the Solver log
-    // not really, MCFClass objects are remarkably silent
-    //
-    // virtual void set_log( std::ostream *log_stream = nullptr ) override;
+
+    enum LEMON_CC_int_par_type{
+            kMethod = intLastParCDAS,
+            intLastParLEMON_CC ///< first allowed parameter value for derived classes
+                              /**< convenience value for easily allow derived classes
+                                * to further extend the set of types of return codes */
+    };
+
+    /*--------------------------------------------------------------------------*/
+
+    /*--------------------------------------------------------------------------*/
+
+   /// public enum for the type of the solution
+   /// to MCFLemonSolver< CycleCanceling , C , V >
+
+    enum dbl_par_type_LEMON_CC{
+      dblCycleCancelingFactor = dblLastParCDAS ,
+      dblLastParLEMON_CC ///< first allowed parameter value for derived classes
+                           /**< convenience value for easily allow derived classes
+                            * to further extend the set of types of return codes */
+    };
+
 
     /*--------------------------------------------------------------------------*/
     /// @brief set the parameter par with value
@@ -1307,70 +950,6 @@ enum dbl_par_type_LEMON_CC{
     /** @name Accessing the found solutions (if any)
      *  @{ */
     
-    
-
-    ///Return the status of the run() in compute method
-    int get_status(void) const 
-    {
-      return (this->status);
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    //Return the elapsed time for the run() in compute method   
-    double get_elapsed_time(void) const override
-    {
-      return (this->ticks);
-    }
-
-
-
-    /*--------------------------------------------------------------------------*/
-    //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
-
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief Analyze the return status of run() 
-    /// @param  
-    /// @return if the solution found is OPTIMAL or UNBOUNDED returns true else false
-    bool has_var_solution(void) override
-    {
-     switch (this->get_status()) {
-      case( CycleCanceling< GR , int , int >::ProblemType::OPTIMAL ):
-      case( CycleCanceling< GR , int , int >::ProblemType::UNBOUNDED ):  
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief Analyze the return status of run()
-    /// @param  
-    /// @return if the solution found is OPTIMAL or INFEASIBLE returns true else false
-    bool has_dual_solution(void) override
-    {
-     switch( this->get_status() ) {
-      case( CycleCanceling< GR , int , int >::ProblemType::OPTIMAL ):
-      case( CycleCanceling< GR , int , int >::ProblemType::INFEASIBLE ):
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool is_var_feasible( void ) override { return( true ); }
-
-     virtual bool is_dual_feasible( void ) override { return( true ); }
-    */
     /*--------------------------------------------------------------------------*/
     /// write the "current" flow in the x ColVariable of the MCFBlock
     /** Write the "current" flow in the x ColVariable of the MCFBlock. To keep
@@ -1427,26 +1006,6 @@ enum dbl_par_type_LEMON_CC{
       MCFB->set_rc(RC.begin());
     */}
     
-    /*--------------------------------------------------------------------------*/
-
-   // bool new_var_solution(void) override { return (this->HaveNewX()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-   // bool new_dual_solution(void) override { return (this->HaveNewPi()); }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual void set_unbounded_threshold( const OFValue thr ) override { }
-    */
-
-    /*--------------------------------------------------------------------------*/
-
-    bool has_var_direction(void) override { return (true); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-    bool has_dual_direction(void) override { return (true); }
 
     /*--------------------------------------------------------------------------*/
     /// write the current direction in the x ColVariable of the MCFBlock
@@ -1502,29 +1061,6 @@ enum dbl_par_type_LEMON_CC{
       // anyway, unsure if any current :MCFClass properly implemente the latter
     }
 
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool new_var_direction( void ) override { return( false ); }
-
-     virtual bool new_dual_direction( void ) override{ return( false ); }
-    */
-    /** @} ---------------------------------------------------------------------*/
-    /*-------------- METHODS FOR READING THE DATA OF THE Solver ----------------*/
-    /*--------------------------------------------------------------------------*/
-
-    /*
-     virtual bool is_dual_exact( void ) const override { return( true ); }
-    */
-
-    /*--------------------------------------------------------------------------*/
-    /// "publicize" MCFClass::WriteMCF
-    /** Make the method
-     *
-     *      void WriteMCF( ostream &oStrm , int frmt = 0 )
-     *
-     * of the base (private) MCFClass public, so that it can be freely used. */
-    //TODO: change MCFC function to Algo function.
-    //using MCFC::WriteMCF;
 
     /*--------------------------------------------------------------------------*/
     /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -1722,21 +1258,6 @@ enum dbl_par_type_LEMON_CC{
       return (CDASolver::dbl_par_idx2str(idx));
     }
     
-    /** @} ---------------------------------------------------------------------*/
-    /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Handling the State of the MCFSolver
-     *  @{ */
-
-    //[[nodiscard]] State *get_State(void) const override;
-
-    /*--------------------------------------------------------------------------*/
-
-    //void put_State(const State &state) override;
-
-    /*--------------------------------------------------------------------------*/
-
-    //void put_State(State &&state) override;
 
     /** @} ---------------------------------------------------------------------*/
     /*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
@@ -1810,6 +1331,10 @@ enum dbl_par_type_LEMON_CC{
     /*-------------------------- PROTECTED METHODS -----------------------------*/
     /*--------------------------------------------------------------------------*/
 
+    void guts_of_compute() override{
+      status = f_algo->run(CCMethod(f_method));
+    }
+
     void process_outstanding_Modification(void);
 
     void guts_of_poM(c_p_Mod mod);
@@ -1846,8 +1371,6 @@ enum dbl_par_type_LEMON_CC{
 
   }; // end( class MCFLemonSolver<CycleCanceling> specialization )
 
-  /*--------------------------------------------------------------------------*/
-/*-------------------------------- SPECIALIZED CLASSES ---------------------*/
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- CAPACITYSCALING -------------------------*/
@@ -1855,8 +1378,7 @@ enum dbl_par_type_LEMON_CC{
 /*--------------------------------------------------------------------------*/
 
 
-/** Specialized MCFLemonSolver<CapacityScaling, GR, V, C> that contains specialized
- *  compute() method, enums for indexing algorithimc parameters and function
+/** Specialized MCFLemonSolverCapacityScaling that contains guts_of_compute() enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
  * 
  *  Template parameters are:
@@ -1966,16 +1488,6 @@ public MCFLemonSolver<SMSppCapacityScaling, GR, V, C>
  
 
 /*--------------------------------------------------------------------------*/
- /* intMaxIter = 0     maximum iterations for the next call to solve()
-
-    intMaxSol          maximum number of different solutions to report
-
-    intLogVerb         "verbosity" of the log
-
-    intMaxDSol         maximum number of different dual solutions
-
-    intLastParCDAS     first allowed parameter value for derived classes
-    */
 
   enum LEMON_CS_int_par_type{
     intLastParLEMON_CS //< first allowed parameter value for derived classes
@@ -1983,32 +1495,6 @@ public MCFLemonSolver<SMSppCapacityScaling, GR, V, C>
                             * to further extend the set of types of return codes */
   };
 
-
-/*--------------------------------------------------------------------------*/
- /* dblMaxTime = 0    maximum time for the next call to solve()
-
-    dblRelAcc         relative accuracy for declaring a solution optimal
-
-    dblAbsAcc          absolute accuracy for declaring a solution optimal
-
-    dblUpCutOff        upper cutoff for stopping the algorithm
-
-    dblLwCutOff        lower cutoff for stopping the algorithm
-
-    dblRAccSol          maximum relative error in any reported solution
-
-    dblAAccSol          maximum absolute error in any reported solution
-
-    dblFAccSol          maximum constraint violation in any reported solution
-
-    dblRAccDSol         maximum relative error in any dual solution
-
-    dblAAccDSol         maximum absolute error in any dual solution
-
-    dblFAccDSol         maximum absolute error in any dual solution
-
-    dblLastParCDAS      first allowed parameter value for derived classes
-    */
 
 /*--------------------------------------------------------------------------*/
 
@@ -2020,61 +1506,6 @@ enum LEMON_CS_dbl_par_type{
 
 
 
-/** @} ---------------------------------------------------------------------*/
-/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Other initializations
- *
- * Parameter-wise, MCFSolver maps the parameters of [CDA]Solver
- *
- *  intMaxIter = 0    maximum iterations for the next call to solve()
- *  intMaxSol         maximum number of different solutions to report
- *  intLogVerb        "verbosity" of the log
- *  intMaxDSol        maximum number of different dual solutions
- *
- *  dblMaxTime = 0    maximum time for the next call to solve()
- *  dblRelAcc         relative accuracy for declaring a solution optimal
- *  dblAbsAcc         absolute accuracy for declaring a solution optimal
- *  dblUpCutOff       upper cutoff for stopping the algorithm
- *  dblLwCutOff       lower cutoff for stopping the algorithm
- *  dblRAccSol        maximum relative error in any reported solution
- *  dblAAccSol        maximum absolute error in any reported solution
- *  dblFAccSol        maximum constraint violation in any reported solution
- *  dblRAccDSol       maximum relative error in any dual solution
- *  dblAAccDSol       maximum absolute error in any dual solution
- *  dblFAccDSol       maximum absolute error in any dual solution
- *
- * into the parameter of MCFClass
- *
- * kMaxTime = 0       max time
- * kMaxIter           max number of iteration
- * kEpsFlw            tolerance for flows
- * kEpsDfct           tolerance for deficits
- * kEpsCst            tolerance for costs
- *
- * It then "extends" them, using
- *
- *  intLastParCDAS    first allowed parameter value for derived classes
- *  dblLastParCDAS    first allowed parameter value for derived classes
- *
- * In particular, one now has
- *
- * intLastParCDAS ==> kReopt             whether or not to reoptimize
- *
- * and any other parameter of specific :MCFClass following. This is done
- * via the two const static arrays Solver_2_MCFClass_int and
- * Solver_2_MCFClass_dbl, with a negative entry meaning "there is no such
- * parameter in MCFSolver".
- *
- *  @{ */
-
-
-
-    /*--------------------------------------------------------------------------*/
-    // set the ostream for the Solver log
-    // not really, MCFClass objects are remarkably silent
-    //
-    // virtual void set_log( std::ostream *log_stream = nullptr ) override;
 
     /*--------------------------------------------------------------------------*/
   
@@ -2094,85 +1525,8 @@ enum LEMON_CS_dbl_par_type{
       ;
       //  MCFC::SetPar(Solver_2_MCFClass_dbl[par], double(value));
     }*/
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-
-    /** @} ---------------------------------------------------------------------*/
-    /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Solving the MCF encoded by the current MCFBlock
-     *  @{ */
-    /// (try to) solve the MCF encoded in the MCFBlock 
-        int compute( bool changedvars = true) override;
         
     
-
-    /** @} ---------------------------------------------------------------------*/
-    /*---------------------- METHODS FOR READING RESULTS -----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Accessing the found solutions (if any)
-     *  @{ */
-    
-    
-
-    /// @brief getter for status field
-    /// @param  
-    /// @return value of this->status
-    int get_status(void) const 
-    {
-      return (this->status);
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    ///Get elapsed time in run() method
-    double get_elapsed_time(void) const override
-    {
-      return (this->ticks);
-    }
-
-
-
-    /*--------------------------------------------------------------------------*/
-    //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
-
-    /*--------------------------------------------------------------------------*/
-    //TODO: change MCFC function to Algo function. DONE
-    bool has_var_solution(void) override
-    {
-     switch (this->get_status()) {
-      case( SMSppCapacityScaling< GR , V , C >::ProblemType::OPTIMAL ):
-      case( SMSppCapacityScaling< GR , V , C >::ProblemType::UNBOUNDED ):  
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
-    bool has_dual_solution(void) override
-    {
-     switch( this->get_status() ) {
-      case( SMSppCapacityScaling< GR , V , C >::ProblemType::OPTIMAL ):
-      case( SMSppCapacityScaling< GR , V , C >::ProblemType::INFEASIBLE ):
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool is_var_feasible( void ) override { return( true ); }
-
-     virtual bool is_dual_feasible( void ) override { return( true ); }
-    */
     /*--------------------------------------------------------------------------*/
     /// write the "current" flow in the x ColVariable of the MCFBlock
     /** Write the "current" flow in the x ColVariable of the MCFBlock. To keep
@@ -2229,26 +1583,6 @@ enum LEMON_CS_dbl_par_type{
       MCFB->set_rc(RC.begin());
     */}
     
-    /*--------------------------------------------------------------------------*/
-
-   // bool new_var_solution(void) override { return (this->HaveNewX()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-   // bool new_dual_solution(void) override { return (this->HaveNewPi()); }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual void set_unbounded_threshold( const OFValue thr ) override { }
-    */
-
-    /*--------------------------------------------------------------------------*/
-
-    bool has_var_direction(void) override { return (true); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-    bool has_dual_direction(void) override { return (true); }
 
     /*--------------------------------------------------------------------------*/
     /// write the current direction in the x ColVariable of the MCFBlock
@@ -2305,28 +1639,6 @@ enum LEMON_CS_dbl_par_type{
     }
 
     /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool new_var_direction( void ) override { return( false ); }
-
-     virtual bool new_dual_direction( void ) override{ return( false ); }
-    */
-    /** @} ---------------------------------------------------------------------*/
-    /*-------------- METHODS FOR READING THE DATA OF THE Solver ----------------*/
-    /*--------------------------------------------------------------------------*/
-
-    /*
-     virtual bool is_dual_exact( void ) const override { return( true ); }
-    */
-
-    /*--------------------------------------------------------------------------*/
-    /// "publicize" MCFClass::WriteMCF
-    /** Make the method
-     *
-     *      void WriteMCF( ostream &oStrm , int frmt = 0 )
-     *
-     * of the base (private) MCFClass public, so that it can be freely used. */
-    //TODO: change MCFC function to Algo function.
-    //using MCFC::WriteMCF;
 
     /*--------------------------------------------------------------------------*/
     /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -2512,79 +1824,6 @@ enum LEMON_CS_dbl_par_type{
       return (CDASolver::dbl_par_idx2str(idx));
     }
 
-    
-    /** @} ---------------------------------------------------------------------*/
-    /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Handling the State of the MCFSolver
-     *  @{ */
-
-    //[[nodiscard]] State *get_State(void) const override;
-
-    /*--------------------------------------------------------------------------*/
-
-    //void put_State(const State &state) override;
-
-    /*--------------------------------------------------------------------------*/
-
-    //void put_State(State &&state) override;
-
-    /** @} ---------------------------------------------------------------------*/
-    /*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Changing the data of the model
-     *  @{ */
-
-    /** The only reason why MCFSolver::add_Modification() needs be defined is to
-     * properly react to NBModification. Indeed, the correct reaction is to
-     * *immediately* reload the MCFBlock, besides clearing the list of
-     * Modification as Solver::add_Modification() already does. The issue is
-     * that if arcs/nodes are added/deleted after the NBModification is issued
-     * but before it is processed, then the number of nodes/arcs at the moment
-     * in which the NBModification is processed is different from that at the
-     * moment in which is issued, which may break the "naming convention"
-     * (because the name of, say, a newly created arc depends on the current
-     * state and/or number of the arcs).
-     *
-     * Important note: THIS VERSION ONLY WORKS PROPERLY IF THE MCFBlock IS
-     * "FRESHLY MINTED", I.E., THERE ARE NO CLOSED OR DELETED ARCS.
-     *
-     * This should ordinarily always happen, as whenever the MCFBlock is changed
-     * the NBModification is immediately issued. The problem may come if the
-     * MCFBlock is a R3Block of another MCFBlock which is loaded and then
-     * further modified, and the NBModification to this MCFBlock is generated by
-     * a map_forward_Modification() of the NBModification to the original
-     * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
-     * closed or deleted arcs and this method would not work. */
-
-    /*void add_Modification(sp_Mod &mod) override
-    {
-      if (std::dynamic_pointer_cast<const NBModification>(mod))
-      {
-        // this is the "nuclear option": the MCFBlock has been re-loaded, so
-        // the MCFClass solver also has to (immediately)
-        //TODO: change MCFC function to Algo function.
-        auto MCFB = static_cast<MCFBlock *>(f_Block);
-        MCFC::LoadNet(MCFB->get_MaxNNodes(), MCFB->get_MaxNArcs(),
-                      MCFB->get_NNodes(), MCFB->get_NArcs(),
-                      MCFB->get_U().empty() ? nullptr : MCFB->get_U().data(),
-                      MCFB->get_C().empty() ? nullptr : MCFB->get_C().data(),
-                      MCFB->get_B().empty() ? nullptr : MCFB->get_B().data(),
-                      MCFB->get_SN().data(), MCFB->get_EN().data());
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the
-        //       data changes, some of the deductions (say, reducing the capacity
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       but there isn't any proper way to handle this. Thus, PreProcess()
-        //       has to be disabled for now; maybe later on someone will take
-        //       care to make this work (or maybe not).
-        // MCFC::PreProcess();
-        // besides, any outstanding modification makes no sense any longer
-        mod_clear();
-      }
-      else
-        push_back(mod);
-    }*/
 
     /*--------------------------------------------------------------------------*/
     /*-------------------------------- FRIENDS ---------------------------------*/
@@ -2600,6 +1839,10 @@ enum LEMON_CS_dbl_par_type{
     /*--------------------------------------------------------------------------*/
     /*-------------------------- PROTECTED METHODS -----------------------------*/
     /*--------------------------------------------------------------------------*/
+
+    void guts_of_compute() override{
+      status = f_algo->run();
+    }
 
     void process_outstanding_Modification(void);
 
@@ -2640,27 +1883,19 @@ enum LEMON_CS_dbl_par_type{
 
 
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- SPECIALIZED CLASSES ---------------------*/
-/*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- COSTSCALING -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 
-/** Specialized MCFLemonSolver<CostScaling, GR, V, C> that contains specialized
+/** Specialized MCFLemonSolverCostScaling< GR, V, C> that contains specialized
  *  compute() method, enums for indexing algorithimc parameters and function
  *  set/get_*_par for manage them.
  * 
  *  Template parameters are:
  * 
- *   - CostScaling implements a cost scaling algorithm that performs push/augment and
- *     relabel operations for finding a minimum cost flow. It is a highly efficient primal-dual
- *     solution method, which can be viewed as the generalization of the preflow push-relabel
- *     algorithm for the maximum flow problem. It is a polynomial algorithm.
- * 
- *  - GR that represents the directed graph, the possibilities are described in the
- *    file MCFLemonSolver.h at line 339
+ *  - GR that represents the directed graph
  *  
  *  - V, which is the type of flows / deficits; typically, double can be used
  *    for maximum compatibility, but int (or even smaller) would yeld better
@@ -2754,40 +1989,17 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
  MCFLemonSolverCostScaling( void ) {
   BaseClass::guts_of_constructor();
   f_method = SMSppCostScaling<GR, V, C>::Method::PARTIAL_AUGMENT;
-
-
- /* static_assert( std::is_same< Algo< GR , V , C > ,
-                               SMSppCapacityScaling< GR , V , C > >::value ||
-		 std::is_same< Algo< GR , V , C > ,
-                               SMSppCostScaling< GR , V , C >::value     ||
-		 std::is_same< Algo< GR , V , C > ,
-                               CycleCanceling< GR , V , C > >::value       ||
-		 std::is_same< Algo< GR , V , C > ,
-		               NetworkSimplex< GR , V , C > >::value ,
-		 "Algo must be one of the LEMON algorithms");
-  */
   }
   
   /// @brief delete f_method algorithmic parameter pointer
   /// @param  
   ~MCFLemonSolverCostScaling( void ) {
     BaseClass::guts_of_constructor();
-    delete Fields<SMSppCostScaling<GR, V, C>>::f_method;    
   }
  
  
 
 /*--------------------------------------------------------------------------*/
- /* intMaxIter = 0     maximum iterations for the next call to solve()
-
-    intMaxSol          maximum number of different solutions to report
-
-    intLogVerb         "verbosity" of the log
-
-    intMaxDSol         maximum number of different dual solutions
-
-    intLastParCDAS     first allowed parameter value for derived classes
-    */
 
    enum LEMON_CS_int_par_type{
         kMethod = intLastParCDAS,
@@ -2796,31 +2008,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
                             * to further extend the set of types of return codes */
    };
 
-/*--------------------------------------------------------------------------*/
- /* dblMaxTime = 0    maximum time for the next call to solve()
-
-    dblRelAcc         relative accuracy for declaring a solution optimal
-
-    dblAbsAcc          absolute accuracy for declaring a solution optimal
-
-    dblUpCutOff        upper cutoff for stopping the algorithm
-
-    dblLwCutOff        lower cutoff for stopping the algorithm
-
-    dblRAccSol          maximum relative error in any reported solution
-
-    dblAAccSol          maximum absolute error in any reported solution
-
-    dblFAccSol          maximum constraint violation in any reported solution
-
-    dblRAccDSol         maximum relative error in any dual solution
-
-    dblAAccDSol         maximum absolute error in any dual solution
-
-    dblFAccDSol         maximum absolute error in any dual solution
-
-    dblLastParCDAS      first allowed parameter value for derived classes
-    */
 
 /*--------------------------------------------------------------------------*/
  enum LEMON_CS_dbl_par_type{
@@ -2829,63 +2016,7 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
                             * to further extend the set of types of return codes */
  };
 
-/** @} ---------------------------------------------------------------------*/
-/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Other initializations
- *
- * Parameter-wise, MCFSolver maps the parameters of [CDA]Solver
- *
- *  intMaxIter = 0    maximum iterations for the next call to solve()
- *  intMaxSol         maximum number of different solutions to report
- *  intLogVerb        "verbosity" of the log
- *  intMaxDSol        maximum number of different dual solutions
- *
- *  dblMaxTime = 0    maximum time for the next call to solve()
- *  dblRelAcc         relative accuracy for declaring a solution optimal
- *  dblAbsAcc         absolute accuracy for declaring a solution optimal
- *  dblUpCutOff       upper cutoff for stopping the algorithm
- *  dblLwCutOff       lower cutoff for stopping the algorithm
- *  dblRAccSol        maximum relative error in any reported solution
- *  dblAAccSol        maximum absolute error in any reported solution
- *  dblFAccSol        maximum constraint violation in any reported solution
- *  dblRAccDSol       maximum relative error in any dual solution
- *  dblAAccDSol       maximum absolute error in any dual solution
- *  dblFAccDSol       maximum absolute error in any dual solution
- *
- * into the parameter of MCFClass
- *
- * kMaxTime = 0       max time
- * kMaxIter           max number of iteration
- * kEpsFlw            tolerance for flows
- * kEpsDfct           tolerance for deficits
- * kEpsCst            tolerance for costs
- *
- * It then "extends" them, using
- *
- *  intLastParCDAS    first allowed parameter value for derived classes
- *  dblLastParCDAS    first allowed parameter value for derived classes
- *
- * In particular, one now has
- *
- * intLastParCDAS ==> kReopt             whether or not to reoptimize
- *
- * and any other parameter of specific :MCFClass following. This is done
- * via the two const static arrays Solver_2_MCFClass_int and
- * Solver_2_MCFClass_dbl, with a negative entry meaning "there is no such
- * parameter in MCFSolver".
- *
- *  @{ */
 
-
-
-    /*--------------------------------------------------------------------------*/
-    // set the ostream for the Solver log
-    // not really, MCFClass objects are remarkably silent
-    //
-    // virtual void set_log( std::ostream *log_stream = nullptr ) override;
-
-    /*--------------------------------------------------------------------------*/
     
     /// @brief set the parameter par with value
     /// @param par 
@@ -2920,77 +2051,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-
-    /** @} ---------------------------------------------------------------------*/
-    /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Solving the MCF encoded by the current MCFBlock
-     *  @{ */
-    /// (try to) solve the MCF encoded in the MCFBlock 
-    int compute( bool changedvars = true ) override;
-        
-    
-
-    /** @} ---------------------------------------------------------------------*/
-    /*---------------------- METHODS FOR READING RESULTS -----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Accessing the found solutions (if any)
-     *  @{ */
-    
-    
-
-    /// @brief getter of the status
-    /// @param  
-    /// @return this->status
-    int get_status(void) const 
-    {
-      return (this->status);
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief getter of ticks (elapsed time of run())
-    ///@return this->ticks
-    double get_elapsed_time(void) const override
-    {
-      return (this->ticks);
-    }
-
-
-
-    /*--------------------------------------------------------------------------*/
-    //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
-
-    /*--------------------------------------------------------------------------*/
-    //TODO: change MCFC function to Algo function. DONE
-    bool has_var_solution(void) override
-    {
-     switch (this->get_status()) {
-      case( SMSppCostScaling< GR , V , C >::ProblemType::OPTIMAL ):
-      case( SMSppCostScaling< GR , V , C >::ProblemType::UNBOUNDED ):  
-       return( true );
-      default:
-       return( false );
-      }
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    //TODO: change MCFC function to Algo function.
-    bool has_dual_solution(void) override
-    {
-     switch( this->get_status() ) {
-      case( SMSppCostScaling< GR , V , C >::ProblemType::OPTIMAL ):
-      case( SMSppCostScaling< GR , V , C >::ProblemType::INFEASIBLE ):
-       return( true );
-      default:
-       return( false );
-      }
-    }
 
     /*--------------------------------------------------------------------------*/
     /*
@@ -3056,24 +2116,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
     
     /*--------------------------------------------------------------------------*/
 
-   // bool new_var_solution(void) override { return (this->HaveNewX()); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-   // bool new_dual_solution(void) override { return (this->HaveNewPi()); }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual void set_unbounded_threshold( const OFValue thr ) override { }
-    */
-
-    /*--------------------------------------------------------------------------*/
-
-    bool has_var_direction(void) override { return (true); }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-    bool has_dual_direction(void) override { return (true); }
 
     /*--------------------------------------------------------------------------*/
     /// write the current direction in the x ColVariable of the MCFBlock
@@ -3128,30 +2170,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
       // TODO: implement using MCFC::MCFGetUnfCut()
       // anyway, unsure if any current :MCFClass properly implemente the latter
     }
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool new_var_direction( void ) override { return( false ); }
-
-     virtual bool new_dual_direction( void ) override{ return( false ); }
-    */
-    /** @} ---------------------------------------------------------------------*/
-    /*-------------- METHODS FOR READING THE DATA OF THE Solver ----------------*/
-    /*--------------------------------------------------------------------------*/
-
-    /*
-     virtual bool is_dual_exact( void ) const override { return( true ); }
-    */
-
-    /*--------------------------------------------------------------------------*/
-    /// "publicize" MCFClass::WriteMCF
-    /** Make the method
-     *
-     *      void WriteMCF( ostream &oStrm , int frmt = 0 )
-     *
-     * of the base (private) MCFClass public, so that it can be freely used. */
-    //TODO: change MCFC function to Algo function.
-    //using MCFC::WriteMCF;
 
     /*--------------------------------------------------------------------------*/
     /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -3344,79 +2362,7 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
 
       return (CDASolver::dbl_par_idx2str(idx));
     }
-    
-    /** @} ---------------------------------------------------------------------*/
-    /*------------ METHODS FOR HANDLING THE State OF THE MCFLemonSolver -------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Handling the State of the MCFSolver
-     *  @{ */
 
-    //[[nodiscard]] State *get_State(void) const override;
-
-    /*--------------------------------------------------------------------------*/
-
-    //void put_State(const State &state) override;
-
-    /*--------------------------------------------------------------------------*/
-
-    //void put_State(State &&state) override;
-
-    /** @} ---------------------------------------------------------------------*/
-    /*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Changing the data of the model
-     *  @{ */
-
-    /** The only reason why MCFSolver::add_Modification() needs be defined is to
-     * properly react to NBModification. Indeed, the correct reaction is to
-     * *immediately* reload the MCFBlock, besides clearing the list of
-     * Modification as Solver::add_Modification() already does. The issue is
-     * that if arcs/nodes are added/deleted after the NBModification is issued
-     * but before it is processed, then the number of nodes/arcs at the moment
-     * in which the NBModification is processed is different from that at the
-     * moment in which is issued, which may break the "naming convention"
-     * (because the name of, say, a newly created arc depends on the current
-     * state and/or number of the arcs).
-     *
-     * Important note: THIS VERSION ONLY WORKS PROPERLY IF THE MCFBlock IS
-     * "FRESHLY MINTED", I.E., THERE ARE NO CLOSED OR DELETED ARCS.
-     *
-     * This should ordinarily always happen, as whenever the MCFBlock is changed
-     * the NBModification is immediately issued. The problem may come if the
-     * MCFBlock is a R3Block of another MCFBlock which is loaded and then
-     * further modified, and the NBModification to this MCFBlock is generated by
-     * a map_forward_Modification() of the NBModification to the original
-     * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
-     * closed or deleted arcs and this method would not work. */
-
-    /*void add_Modification(sp_Mod &mod) override
-    {
-      if (std::dynamic_pointer_cast<const NBModification>(mod))
-      {
-        // this is the "nuclear option": the MCFBlock has been re-loaded, so
-        // the MCFClass solver also has to (immediately)
-        //TODO: change MCFC function to Algo function.
-        auto MCFB = static_cast<MCFBlock *>(f_Block);
-        MCFC::LoadNet(MCFB->get_MaxNNodes(), MCFB->get_MaxNArcs(),
-                      MCFB->get_NNodes(), MCFB->get_NArcs(),
-                      MCFB->get_U().empty() ? nullptr : MCFB->get_U().data(),
-                      MCFB->get_C().empty() ? nullptr : MCFB->get_C().data(),
-                      MCFB->get_B().empty() ? nullptr : MCFB->get_B().data(),
-                      MCFB->get_SN().data(), MCFB->get_EN().data());
-        // TODO: PreProcess() changes the internal data of the MCFSolver using
-        //       information about how the data of the MCF is *now*. If the
-        //       data changes, some of the deductions (say, reducing the capacity
-        //       of some arcs) may no longer be correct and they should be undone,
-        //       but there isn't any proper way to handle this. Thus, PreProcess()
-        //       has to be disabled for now; maybe later on someone will take
-        //       care to make this work (or maybe not).
-        // MCFC::PreProcess();
-        // besides, any outstanding modification makes no sense any longer
-        mod_clear();
-      }
-      else
-        push_back(mod);
-    }*/
 
     /*--------------------------------------------------------------------------*/
     /*-------------------------------- FRIENDS ---------------------------------*/
@@ -3433,6 +2379,9 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
     /*-------------------------- PROTECTED METHODS -----------------------------*/
     /*--------------------------------------------------------------------------*/
 
+    void guts_of_compute() override{
+      status = f_algo->run( CSMethod(f_method) );
+    }
     void process_outstanding_Modification(void);
 
     void guts_of_poM(c_p_Mod mod);
