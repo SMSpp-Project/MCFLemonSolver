@@ -32,7 +32,7 @@
 /*--------------------------------------------------------------------------*/
 using namespace SMSpp_di_unipi_it;
 
-/*!!
+
 template<typename GR, typename V, typename C>
 struct Fields< SMSppCapacityScaling< GR, V, C> > {
   int f_factor;
@@ -55,7 +55,7 @@ struct Fields< CycleCanceling<GR, V, C> > {
   CCMethod *f_method;
 };
 
-!!*/
+
 
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -101,7 +101,7 @@ struct Fields< CycleCanceling<GR, V, C> > {
 
 template < typename GR , typename V , typename C >
 class MCFLemonSolverNetworkSimplex :
-  public MCFLemonSolver< NetworkSimplex , GR , V , C >
+   MCFLemonSolver< NetworkSimplex , GR , V , C >,  Fields<NetworkSimplex<GR, V, C>>
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -120,7 +120,19 @@ class MCFLemonSolverNetworkSimplex :
 
  using SMSpp_di_unipi_it::BoxConstraint::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
-
+ using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::CDASolver::kStopTime;
+ using SMSpp_di_unipi_it::CDASolver::kInfeasible;
+ using SMSpp_di_unipi_it::Solver::lock;
+ using SMSpp_di_unipi_it::Solver::unlock;
+ using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
+ using SMSpp_di_unipi_it::Solver::f_id;
+ using BaseClass::dgp;
+ using BaseClass::f_algo;
+ using BaseClass::strLastParLEMON;
+ using BaseClass::str_par_type_LEMON::strDMXFile;
+ using BaseClass::LEMON_sol_type::UNSOLVED;
 /** @} ---------------------------------------------------------------------*/
 /*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
 /*--------------------------------------------------------------------------*/
@@ -133,8 +145,8 @@ class MCFLemonSolverNetworkSimplex :
   */
 
  MCFLemonSolverNetworkSimplex( void ) {
-  guts_of_constructor();
-  f_pivot_rule_type = ThisAlgo::PivotRule::BLOCK_SEARCH;
+  MCFLemonSolver<NetworkSimplex, GR, V, C>::guts_of_constructor();
+  f_pivot_rule_type = NetworkSimplex<GR, V, C>::PivotRule::BLOCK_SEARCH;
   }
  
   /// destructor: delete algorithm parameter
@@ -142,8 +154,8 @@ class MCFLemonSolverNetworkSimplex :
    * parameter of  NetworkSimplex */
 
   ~MCFLemonSolverNetworkSimplex() {
-   delete ThisAlgo::f_pivot_rule;
-   guts_of_destructor();
+   delete Fields<NetworkSimplex<GR, V, C>>::f_pivot_rule;
+   MCFLemonSolver<NetworkSimplex, GR, V, C>::guts_of_destructor();
    }
 
 /*--------------------------------------------------------------------------*/
@@ -246,6 +258,8 @@ class MCFLemonSolverNetworkSimplex :
  *
  *  @{ */
 
+  const int kErrorStatus = -1;
+
 
 /*--------------------------------------------------------------------------*/
     // set the ostream for the Solver log
@@ -299,11 +313,11 @@ class MCFLemonSolverNetworkSimplex :
     /** @name Solving the MCF encoded by the current MCFBlock
      *  @{ */
     /// (try to) solve the MCF encoded in the MCFBlock 
-        int compute( bool changedvars = true ) override {
+        int compute( bool changedvars = true ) override{
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL, kErrorStatus , 
-                SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
-                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
+                kErrorStatus, BaseClass::LEMON_sol_type::OPTIMAL, kErrorStatus , 
+                BaseClass::LEMON_sol_type::INFEASIBLE,
+                BaseClass::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -386,11 +400,11 @@ class MCFLemonSolverNetworkSimplex :
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     bool has_var_solution(void) override
@@ -610,7 +624,7 @@ class MCFLemonSolverNetworkSimplex :
     /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (MCFLemonSolver::strLastParLEMON);
+      return (strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -893,7 +907,7 @@ class MCFLemonSolverNetworkSimplex :
      /*--------------------------------------------------------------------------*/
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
-    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
+    int status = UNSOLVED;  //Variable used in compute function for getting status
     typename NetworkSimplex< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     
@@ -936,12 +950,36 @@ class MCFLemonSolverNetworkSimplex :
  *    maximum compatibility, but int (or even smaller) would yeld better
  *    performances;
 */
-  template< typename GR, typename V, typename C>
-class MCFLemonSolver<CycleCanceling, GR, V, C> :  public CDASolver, Fields< CycleCanceling<GR, V, C> >
+  template< typename GR,  int, int>
+class MCFLemonSolverCycleCanceling:  public MCFLemonSolver<CycleCanceling, GR, int, int>, Fields< CycleCanceling<GR, int, int> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
+
+ using BaseClass = MCFLemonSolver< CycleCanceling , GR , int , int >;
+ 
+ using BaseClass::intLastParCDAS;
+ //using BaseClass::idx_type;
+
+ using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::Solver::OFValue;
+ using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::CDASolver::kStopTime;
+ using SMSpp_di_unipi_it::CDASolver::kInfeasible;
+ using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
+ using SMSpp_di_unipi_it::Solver::lock;
+ using SMSpp_di_unipi_it::Solver::unlock;
+ using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
+ using SMSpp_di_unipi_it::Solver::f_id;
+ using BaseClass::dgp;
+ using BaseClass::f_algo;
+ using BaseClass::strLastParLEMON;
+ using BaseClass::str_par_type_LEMON::strDMXFile;
+ using BaseClass::LEMON_sol_type::UNSOLVED;
+ 
+
 
  public:
 
@@ -992,14 +1030,16 @@ class MCFLemonSolver<CycleCanceling, GR, V, C> :  public CDASolver, Fields< Cycl
  /// constructor: assign the default parameter
  /** Void constructor: Build f_method_type with default parameter */
 
- MCFLemonSolver( void ) : CDASolver(), Fields<CycleCanceling<GR, V, C > >() {
-  f_method_type = CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
+ MCFLemonSolverCycleCanceling( void ) : MCFLemonSolver<CycleCanceling, GR, int, int>() , Fields<CycleCanceling<GR, int, int_least64_t > >() {
+  BaseClass::guts_of_constructor();
+  f_method_type = CycleCanceling<GR, int, int>::Method::CANCEL_AND_TIGHTEN;
   }
  
  ///destructor:
  /**Void destructor: Delete f_method from memory */
-  ~MCFLemonSolver( void ) {
-    delete Fields<CycleCanceling< GR, V, C > >::f_method;   
+  ~MCFLemonSolverCycleCanceling( void ) {
+    BaseClass::guts_of_destructor();
+    delete Fields<CycleCanceling< GR, int, int > >::f_method;   
   }
  
  
@@ -1136,8 +1176,8 @@ enum dbl_par_type_LEMON_CC{
         }
 
         f_method_type = value;
-        delete Fields<CycleCanceling<GR, V, C>>::f_method;
-        Fields<CycleCanceling<GR, V, C>>::f_method = NULL;
+        delete Fields<CycleCanceling<GR, int, int>>::f_method;
+        Fields<CycleCanceling<GR, int, int>>::f_method = NULL;
         return;
     } 
  
@@ -1162,9 +1202,9 @@ enum dbl_par_type_LEMON_CC{
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL,
-                 kErrorStatus , SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
-                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
+                kErrorStatus, BaseClass::LEMON_sol_type::OPTIMAL,
+                 kErrorStatus , BaseClass::LEMON_sol_type::INFEASIBLE,
+                BaseClass::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -1191,7 +1231,7 @@ enum dbl_par_type_LEMON_CC{
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
+                writeDimacsMat(ProbFile, *dgp);
                 ProbFile.close();
         }
 
@@ -1200,12 +1240,12 @@ enum dbl_par_type_LEMON_CC{
 
         auto start = chrono::system_clock::now();
         
-        if(Fields<CycleCanceling< GR, V, C > >::f_method != NULL){
-        this->status = MCFLemonSolver::f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
+        if(Fields<CycleCanceling< GR, int, int > >::f_method != NULL){
+        this->status = f_algo->run(*Fields<CycleCanceling< GR, int, int > >::f_method);
         }else{
                 //Build f_method and execute run() method
-                Fields<CycleCanceling<GR, V, C> >::f_method = new typename   CycleCanceling<GR, V, C>::Method(f_method_type);
-                this->status = MCFLemonSolver::f_algo->run(*Fields<CycleCanceling< GR, V, C > >::f_method);
+                Fields<CycleCanceling<GR, int, int> >::f_method = new typename  CycleCanceling<GR, int, int>::Method(f_method_type);
+                this->status = f_algo->run(*Fields<CycleCanceling< GR, int, int > >::f_method);
                
         }
         
@@ -1253,11 +1293,11 @@ enum dbl_par_type_LEMON_CC{
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     
@@ -1267,8 +1307,8 @@ enum dbl_par_type_LEMON_CC{
     bool has_var_solution(void) override
     {
      switch (this->get_status()) {
-      case( CycleCanceling< GR , V , C >::ProblemType::OPTIMAL ):
-      case( CycleCanceling< GR , V , C >::ProblemType::UNBOUNDED ):  
+      case( CycleCanceling< GR , int , int >::ProblemType::OPTIMAL ):
+      case( CycleCanceling< GR , int , int >::ProblemType::UNBOUNDED ):  
        return( true );
       default:
        return( false );
@@ -1283,8 +1323,8 @@ enum dbl_par_type_LEMON_CC{
     bool has_dual_solution(void) override
     {
      switch( this->get_status() ) {
-      case( CycleCanceling< GR , V , C >::ProblemType::OPTIMAL ):
-      case( CycleCanceling< GR , V , C >::ProblemType::INFEASIBLE ):
+      case( CycleCanceling< GR , int , int >::ProblemType::OPTIMAL ):
+      case( CycleCanceling< GR , int , int >::ProblemType::INFEASIBLE ):
        return( true );
       default:
        return( false );
@@ -1485,7 +1525,7 @@ enum dbl_par_type_LEMON_CC{
     /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (MCFLemonSolver::strLastParLEMON);
+      return (strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -1500,7 +1540,7 @@ enum dbl_par_type_LEMON_CC{
       }
 
       switch(par){
-        case kMethod: return CycleCanceling<GR, V, C>::Method::CANCEL_AND_TIGHTEN;
+        case kMethod: return CycleCanceling<GR, int, int>::Method::CANCEL_AND_TIGHTEN;
         default: return (CDASolver::get_dflt_int_par(par));
       }
     }
@@ -1769,8 +1809,8 @@ enum dbl_par_type_LEMON_CC{
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
-    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
-    typename CycleCanceling< GR , V , C >::ProblemType status_2_pType;
+    int status = UNSOLVED;  //Variable used in compute function for getting status
+    typename CycleCanceling< GR , int , int >::ProblemType status_2_pType;
     //Status of compute() method
     int f_method_type; //Variable used in set_par for switching value with f_method
     double ticks;  //Elaped time in ticks for compute() method
@@ -1810,11 +1850,34 @@ enum dbl_par_type_LEMON_CC{
  *    performances;
 */
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields< SMSppCapacityScaling<GR, V, C> >
+class MCFLemonSolverCapacityScaling: public MCFLemonSolver<SMSppCapacityScaling, GR, V, C>, Fields< SMSppCapacityScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
+
+
+ using BaseClass = MCFLemonSolver< SMSppCapacityScaling , GR , V , C >;
+ 
+ using BaseClass::intLastParCDAS;
+ //using BaseClass::idx_type;
+
+ using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::Solver::OFValue;
+ using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::CDASolver::kStopTime;
+ using SMSpp_di_unipi_it::CDASolver::kInfeasible;
+ using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
+ using SMSpp_di_unipi_it::Solver::lock;
+ using SMSpp_di_unipi_it::Solver::unlock;
+ using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
+ using SMSpp_di_unipi_it::Solver::f_id;
+ using BaseClass::dgp;
+ using BaseClass::f_algo;
+ using BaseClass::strLastParLEMON;
+ using BaseClass::str_par_type_LEMON::strDMXFile;
+ using BaseClass::LEMON_sol_type::UNSOLVED;
 
  public:
 
@@ -1863,12 +1926,13 @@ class MCFLemonSolver<SMSppCapacityScaling, GR, V, C> : public CDASolver, Fields<
  *  @{ */
 
  /// constructor: does nothing
- MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCapacityScaling<GR, V, C > >() {
-
+ MCFLemonSolverCapacityScaling( void ) : BaseClass(), Fields<SMSppCapacityScaling<GR, V, C > >() {
+ BaseClass::guts_of_constructor();
  }
  
   /// destructor: doesnothing  
-  ~MCFLemonSolver( void ) {   
+  ~MCFLemonSolverCapacityScaling( void ) {   
+    BaseClass::guts_of_destructor();
   }
  
  
@@ -2014,9 +2078,9 @@ enum LEMON_CS_dbl_par_type{
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL,
-                 kErrorStatus , SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
-                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
+                kErrorStatus, BaseClass::OPTIMAL,
+                 kErrorStatus , BaseClass::INFEASIBLE,
+                BaseClass::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -2043,7 +2107,7 @@ enum LEMON_CS_dbl_par_type{
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
+                writeDimacsMat(ProbFile, *dgp);
                 ProbFile.close();
         }
 
@@ -2053,7 +2117,7 @@ enum LEMON_CS_dbl_par_type{
         auto start = chrono::system_clock::now();
         
       
-        this->status = MCFLemonSolver::f_algo->run();
+        this->status = f_algo->run();
 
         
         auto end = chrono::system_clock::now();
@@ -2100,11 +2164,11 @@ enum LEMON_CS_dbl_par_type{
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -2325,7 +2389,7 @@ enum LEMON_CS_dbl_par_type{
     /// @return number of str algorithimc parameters 
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (MCFLemonSolver::strLastParLEMON);
+      return (strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -2598,7 +2662,7 @@ enum LEMON_CS_dbl_par_type{
      /*--------------------------------------------------------------------------*/
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
-    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
+    int status = UNSOLVED;  //Variable used in compute function for getting status
     typename SMSppCapacityScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     
@@ -2641,7 +2705,7 @@ enum LEMON_CS_dbl_par_type{
 */
 
 template< typename GR, typename V, typename C>
-class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMSppCostScaling<GR, V, C> >
+class MCFLemonSolverCostScaling: public MCFLemonSolver<SMSppCostScaling, GR, V, C> , Fields< SMSppCostScaling<GR, V, C> >
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -2649,6 +2713,26 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
 
  public:
 
+ using BaseClass = MCFLemonSolver< SMSppCostScaling , GR , V , C >;
+ 
+ using BaseClass::intLastParCDAS;
+ //using BaseClass::idx_type;
+
+ using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::Solver::OFValue;
+ using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::CDASolver::kStopTime;
+ using SMSpp_di_unipi_it::CDASolver::kInfeasible;
+ using SMSpp_di_unipi_it::Solver::lock;
+ using SMSpp_di_unipi_it::Solver::unlock;
+ using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
+ using SMSpp_di_unipi_it::Solver::f_id;
+ using BaseClass::dgp;
+ using BaseClass::f_algo;
+ using BaseClass::strLastParLEMON;
+ using BaseClass::str_par_type_LEMON::strDMXFile;
+ using BaseClass::LEMON_sol_type::UNSOLVED;
    
 
 /*--------------------------------------------------------------------------*/
@@ -2696,7 +2780,8 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
  /// constructor: Build f_method_type
  /** Void constructor: Initialize f_method_type to default algorithmic parameter */
 
- MCFLemonSolver( void ) : CDASolver(), Fields<SMSppCostScaling<GR, V, C > >() {
+ MCFLemonSolverCostScaling( void ) : CDASolver(), Fields<SMSppCostScaling<GR, V, C > >() {
+  BaseClass::guts_of_constructor();
   f_method_type = SMSppCostScaling<GR, V, C>::Method::PARTIAL_AUGMENT;
 
 
@@ -2714,7 +2799,8 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
   
   /// @brief delete f_method algorithmic parameter pointer
   /// @param  
-  ~MCFLemonSolver( void ) {
+  ~MCFLemonSolverCostScaling( void ) {
+    BaseClass::guts_of_constructor();
     delete Fields<SMSppCostScaling<GR, V, C>>::f_method;    
   }
  
@@ -2872,9 +2958,9 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     /// (try to) solve the MCF encoded in the MCFBlock 
         int compute( bool changedvars = true ) override {
         const static std::array<int, 6> LemonStatus_2_MCFstatus = {
-                kErrorStatus, SMSpp_di_unipi_it::LEMON_sol_type::OPTIMAL,
-                 kErrorStatus , SMSpp_di_unipi_it::LEMON_sol_type::INFEASIBLE,
-                SMSpp_di_unipi_it::LEMON_sol_type::UNBOUNDED, kErrorStatus};
+                kErrorStatus, BaseClass::LEMON_sol_type::OPTIMAL,
+                 kErrorStatus , BaseClass::LEMON_sol_type::INFEASIBLE,
+                BaseClass::LEMON_sol_type::UNBOUNDED, kErrorStatus};
         
         const static std::array<int, 6> MCFstatus_2_sol_type = {
                 kUnEval, Solver::kOK, kStopTime, kInfeasible, Solver::kUnbounded,
@@ -2901,7 +2987,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
                 throw(std::logic_error("cannot open DMX file " + f_dmx_file));
 
                 //WriteMCF(ProbFile);
-                writeDimacsMat(ProbFile, *MCFLemonSolver::dgp);
+                writeDimacsMat(ProbFile, *dgp);
                 ProbFile.close();
         }
 
@@ -2911,11 +2997,11 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
         auto start = chrono::system_clock::now();
         
         if(*Fields<SMSppCostScaling< GR, V, C > >::f_method != NULL){
-        this->status = MCFLemonSolver::f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
+        this->status = f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
         }else{
                 //Build f_method and execute run() method
                 Fields<SMSppCostScaling<GR, V, C> >::f_method = new typename SMSppCostScaling<GR, V, C>::Method(f_method_type);
-                this->status = MCFLemonSolver::f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
+                this->status = f_algo->run(*Fields<SMSppCostScaling< GR, V, C > >::f_method);
                 
         }
         
@@ -2965,11 +3051,11 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
 
     /*--------------------------------------------------------------------------*/
     //Return the lower bound solution(optimal) for the problem
-    OFValue get_lb(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     //Return the upper bound solution(optimal) for the problem
-    OFValue get_ub(void) override { return OFValue(MCFLemonSolver::f_algo->totalCost()); }
+    OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
 
     /*--------------------------------------------------------------------------*/
     //TODO: change MCFC function to Algo function. DONE
@@ -3190,7 +3276,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
     ///@return number of str algorithmic parameters
     [[nodiscard]] idx_type get_num_str_par(void) const override
     {
-      return (MCFLemonSolver::strLastParLEMON);
+      return (strLastParLEMON);
     }
     
     /*--------------------------------------------------------------------------*/
@@ -3470,7 +3556,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
      /*--------------------------------------------------------------------------*/
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
-    int status = SMSpp_di_unipi_it::LEMON_sol_type::UNSOLVED;  //Variable used in compute function for getting status
+    int status = UNSOLVED;  //Variable used in compute function for getting status
     typename SMSppCostScaling< GR , V , C >::ProblemType status_2_pType;
     //Status of compute() method
     int f_method_type; //Variable used in set_par for switching value with f_method
@@ -3489,7 +3575,7 @@ class MCFLemonSolver<SMSppCostScaling, GR, V, C> : public CDASolver, Fields< SMS
 // register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
 
   SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolver< NetworkSimplex , SmartDigraph , double , double >);
+ MCFLemonSolverNetworkSimplex< SmartDigraph , double , double >);
 
 
 

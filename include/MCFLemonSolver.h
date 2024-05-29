@@ -123,6 +123,10 @@ namespace SMSpp_di_unipi_it
  *
  *  @{ */
 
+  template< typename Algo >
+  struct Fields {};
+   
+
  /// concept for "one of the LEMON graphs"
  template< typename Type >
   concept LEMONGraph =
@@ -239,7 +243,7 @@ template< template< typename , typename , typename > class Algo ,
 
   using ThisAlgo = Algo< GR , V , C >;
  
-  enum str_par_type_LEMON_NS {
+  enum str_par_type_LEMON {
   strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
   strLastParLEMON    ///< first allowed parameter value for derived classes
                    /**< convenience value for easily allow derived classes
@@ -254,120 +258,111 @@ template< template< typename , typename , typename > class Algo ,
   INFEASIBLE,   ///< the problem is provably infeasible
   UNBOUNDED,    ///< the problem is provably unbounded
   KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
-  };// end( sol_type )
+  }; 
+  void set_Block( Block *block ) override
+  {
+    if( block == f_Block )  // actually doing nothing
+    return;                // cowardly and silently return
 
+    delete f_algo;
+    f_algo = nullptr;
 
-  /// constructor
-  // MCFLemonSolver() : CDASolver() { f_algo = nullptr; }
+    Solver::set_Block( block );  // attach to the new Block
 
-  /// destructor: delete heap memory
-  // ~MCFLemonSolver( void ) { delete f_algo; delete dgp; }
+    if( ! block )  // this is just: go sit down in a corner and wait
+    return;       // all done
+  
+    auto MCFB = dynamic_cast< MCFBlock * >( block );
+    if( ! MCFB )
+    throw( std::invalid_argument(
+                "MCFSolver:set_Block: block must be a MCFBlock"));
 
-  ///set_block function. Initialize dgp and f_algo
-  /**
-   * Prepare the block to be solved, initialize structure useful for LEMON algorithm
-  */
+          bool owned = MCFB->is_owned_by(f_id);
+          if ((!owned) && (!MCFB->read_lock()))
+            throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
 
- void set_Block( Block *block ) override
- {
-  if( block == f_Block )  // actually doing nothing
-   return;                // cowardly and silently return
+          // create and clear new Graph (ListDigraph or SmartDigraph)
+          dgp = new GR;
+          dgp->clear();
 
-  delete f_algo;
-  f_algo = nullptr;
+          //Actually reserve get_MaxNNodes() node space in dgp
+          dgp->reserveNode( MCFB->get_MaxNNodes() );
+          MCFBlock::Index n = MCFB->get_NNodes();
 
-  Solver::set_Block( block );  // attach to the new Block
+          for( MCFBlock::Index i = 0; i < n; ++i)
+            dgp->addNode();
+          
+          //Reserve gete_MaxNArcs() arcs space
+          dgp->reserveArc( MCFB->get_MaxNArcs() );
+          MCFBlock::Index m = MCFB->get_NArcs();
 
-  if( ! block )  // this is just: go sit down in a corner and wait
-   return;       // all done
- 
-  auto MCFB = dynamic_cast< MCFBlock * >( block );
-  if( ! MCFB )
-   throw( std::invalid_argument(
-              "MCFSolver:set_Block: block must be a MCFBlock"));
+          //Get starting node subset and ending node subset
+          MCFBlock::c_Subset & sn = MCFB->get_SN();
+          MCFBlock::c_Subset & en = MCFB->get_EN();
 
-        bool owned = MCFB->is_owned_by(f_id);
-        if ((!owned) && (!MCFB->read_lock()))
-          throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-        // create and clear new Graph (ListDigraph or SmartDigraph)
-        dgp = new GR;
-        dgp->clear();
-
-        //Actually reserve get_MaxNNodes() node space in dgp
-        dgp->reserveNode( MCFB->get_MaxNNodes() );
-        MCFBlock::Index n = MCFB->get_NNodes();
-
-        for( MCFBlock::Index i = 0; i < n; ++i)
-          dgp->addNode();
-        
-        //Reserve gete_MaxNArcs() arcs space
-        dgp->reserveArc( MCFB->get_MaxNArcs() );
-        MCFBlock::Index m = MCFB->get_NArcs();
-
-        //Get starting node subset and ending node subset
-        MCFBlock::c_Subset & sn = MCFB->get_SN();
-        MCFBlock::c_Subset & en = MCFB->get_EN();
-
-        //Add arc in dgp
-        /// sn[i] - 1 and en[i] - 1 are used because sn,en nodes start from 1
-        for( MCFBlock::Index i = 0; i < m; ++i){
-          dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
-        }
-
-
-        //New instance of Lemon Algorithm
-        f_algo = new Algo< GR , V, C >(*dgp);
-
-        //Defining names for types for readability
-        using MCFArcMapV = typename GR::template ArcMap< V >;
-        using MCFNodeMapV = typename GR::template NodeMap< V >;
-
-
-        //Now we are going to fill up ArcMap
-        //This is the case of upperMap 
-        if(!MCFB->get_U().empty())
-        {
-          MCFArcMapV um(*dgp);
-          MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
+          //Add arc in dgp
+          /// sn[i] - 1 and en[i] - 1 are used because sn,en nodes start from 1
           for( MCFBlock::Index i = 0; i < m; ++i){
-          um.set( dgp->arcFromId(i), u[i]);
+            dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
           }
-          f_algo->upperMap(um);
-        }
 
-        //This is the case of CostMap
-        if(!MCFB->get_C().empty())
-        {
-          MCFArcMapV cm(*dgp);
-          MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
-          for( MCFBlock::Index i = 0; i < m; ++i){
-            cm.set( dgp->arcFromId(i), c[i]);
+
+          //New instance of Lemon Algorithm
+          f_algo = new Algo< GR , V, C >(*dgp);
+
+          //Defining names for types for readability
+          using MCFArcMapV = typename GR::template ArcMap< V >;
+          using MCFNodeMapV = typename GR::template NodeMap< V >;
+
+
+          //Now we are going to fill up ArcMap
+          //This is the case of upperMap 
+          if(!MCFB->get_U().empty())
+          {
+            MCFArcMapV um(*dgp);
+            MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
+            for( MCFBlock::Index i = 0; i < m; ++i){
+            um.set( dgp->arcFromId(i), u[i]);
+            }
+            f_algo->upperMap(um);
           }
-          f_algo->costMap(cm);
 
-        }
+          //This is the case of CostMap
+          if(!MCFB->get_C().empty())
+          {
+            MCFArcMapV cm(*dgp);
+            MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
+            for( MCFBlock::Index i = 0; i < m; ++i){
+              cm.set( dgp->arcFromId(i), c[i]);
+            }
+            f_algo->costMap(cm);
 
-        //This is the case of supplyMap
-        if(!MCFB->get_B().empty())
-        {
-
-          MCFNodeMapV bm(*dgp);
-          MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-          for( MCFBlock::Index i = 0; i < n; i++){
-            bm.set( dgp->nodeFromId(i), -b[i]);
           }
-          f_algo->supplyMap(bm);
 
-        }
+          //This is the case of supplyMap
+          if(!MCFB->get_B().empty())
+          {
 
-        if (!owned)
-          MCFB->read_unlock();
+            MCFNodeMapV bm(*dgp);
+            MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
+            for( MCFBlock::Index i = 0; i < n; i++){
+              bm.set( dgp->nodeFromId(i), -b[i]);
+            }
+            f_algo->supplyMap(bm);
+
+          }
+
+          if (!owned)
+            MCFB->read_unlock();
+
+          
 
         
+  }  // end( set_Block )/ end( sol_type )
 
-      
-  }  // end( set_Block )
+
+
+
 
   int compute( bool changedvars = true ) override;
 
@@ -391,7 +386,7 @@ template< template< typename , typename , typename > class Algo ,
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
 
- };
+ };// End of MCFLemonSolver
           
 
 /*--------------------------------------------------------------------------*/
