@@ -30,33 +30,8 @@
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
 /*--------------------------------------------------------------------------*/
+
 using namespace SMSpp_di_unipi_it;
-
-/*!!
-template<typename GR, typename V, typename C>
-struct Fields< SMSppCapacityScaling< GR, V, C> > {
-  int f_factor;
-};
-
-template<typename GR, typename V, typename C>  
-struct Fields< SMSppCostScaling< GR, V, C> > {
-  using CSMethod = typename SMSppCostScaling< GR, V, C >::Method;
-  int f_factor;
-  CSMethod f_method;
-};
-template<typename GR, typename V, typename C>
-struct Fields< NetworkSimplex<GR, V, C> > {
-  using NSPivotRule = typename NetworkSimplex<GR, V, C>::PivotRule;
-  NSPivotRule *f_pivot_rule;
-};
-template<typename GR, typename V, typename C>
-struct Fields< CycleCanceling<GR, V, C> > {
-  using CCMethod = typename CycleCanceling<GR, V, C>::Method;
-  CCMethod *f_method;
-};
-*/
-
-
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -66,8 +41,6 @@ struct Fields< CycleCanceling<GR, V, C> > {
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 // the various static maps
-
-
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------------- SPECIALIZED CLASSES --------------------*/
@@ -120,7 +93,7 @@ class MCFLemonSolverNetworkSimplex :
 
  using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
  using SMSpp_di_unipi_it::CDASolver::kStopTime;
  using SMSpp_di_unipi_it::CDASolver::kInfeasible;
  using SMSpp_di_unipi_it::Solver::lock;
