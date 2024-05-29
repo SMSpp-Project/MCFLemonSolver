@@ -1060,13 +1060,13 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
 
  using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
  using SMSpp_di_unipi_it::CDASolver::kStopTime;
  using SMSpp_di_unipi_it::CDASolver::kInfeasible;
  using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
  using SMSpp_di_unipi_it::Solver::lock;
  using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::Solver::f_Block;
  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
  using SMSpp_di_unipi_it::Solver::f_id;
  using BaseClass::dgp;
@@ -1074,7 +1074,6 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
  using BaseClass::LEMON_sol_type::UNSOLVED;
-
  using typename BaseClass::ThisAlgo;
  using CCMethod = typename ThisAlgo::Method;
  
@@ -1259,7 +1258,7 @@ enum dbl_par_type_LEMON_CC{
     /// @brief set the parameter par with value
     /// @param par 
     /// @param value 
-    void set_par(idx_type par, int value){
+    void set_par(idx_type par, int value) override {
 
         if( par == kMethod ) {      
         if( ( value < 0 ) || ( value > 4 ) )
@@ -1892,15 +1891,14 @@ public MCFLemonSolver<SMSppCapacityScaling, GR, V, C>
  using BaseClass::intLastParCDAS;
  //using BaseClass::idx_type;
 
- using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
  using SMSpp_di_unipi_it::CDASolver::kStopTime;
  using SMSpp_di_unipi_it::CDASolver::kInfeasible;
- using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
  using SMSpp_di_unipi_it::Solver::lock;
  using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::Solver::f_Block;
  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
  using SMSpp_di_unipi_it::Solver::f_id;
  using BaseClass::dgp;
@@ -2080,7 +2078,7 @@ enum LEMON_CS_dbl_par_type{
 
     /*--------------------------------------------------------------------------*/
   
-    void set_par(idx_type par, int value){
+    void set_par(idx_type par, int value) override {
 
         CDASolver::set_par(par,value);
         return;
@@ -2688,14 +2686,14 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
  using BaseClass::intLastParCDAS;
  //using BaseClass::idx_type;
 
- using SMSpp_di_unipi_it::BoxConstraint::idx_type;
+ using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::BoxConstraint::kUnEval;
+ using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
  using SMSpp_di_unipi_it::CDASolver::kStopTime;
  using SMSpp_di_unipi_it::CDASolver::kInfeasible;
  using SMSpp_di_unipi_it::Solver::lock;
  using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::Constraint::f_Block;
+ using SMSpp_di_unipi_it::Solver::f_Block;
  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
  using SMSpp_di_unipi_it::Solver::f_id;
  using BaseClass::dgp;
@@ -2892,7 +2890,7 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
     /// @brief set the parameter par with value
     /// @param par 
     /// @param value 
-    void set_par(idx_type par, int value){
+    void set_par(idx_type par, int value) override {
 
         if( par == kMethod ) {      
         if( ( value < 0 ) || ( value > 4 ) )
