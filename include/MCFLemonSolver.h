@@ -336,15 +336,77 @@ class MCFLemonSolver : public CDASolver
    }
   }
 
+ void get_dual_solution( Configuration * solc = nullptr) override{
+
+  for(typename GR::NodeIt n(*dgp); n!=INVALID; ++n){
+    potentialVector.push_back(f_algo->potential(n));
+  }
+
+ }
+
+ /*--------------------------------------------------------------------------*/
+ 
+ void get_var_solution(Configuration *solc = nullptr) override
+ {
+    for(typename GR::ArcIt a(*dgp); a!=INVALID; ++a){
+      flowVector.push_back(f_algo->flow(a));
+    }
+
+ }
+
+
+void get_var_direction(Configuration *dirc = nullptr) override
+{
+      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
+      if (tsolc && (tsolc->f_value == 2))
+        return;
+
+      throw(std::logic_error(
+          "MCFSolver::get_var_direction() not implemented yet"));
+
+      // TODO: implement using MCFC::MCFGetUnbCycl()
+      // anyway, unsure if any current :MCFClass properly implemente the latter
+}
+
 /*--------------------------------------------------------------------------*/
  /// returns false until we understand if and how LEMON does is
 
- bool has_var_direction( void ) override { return ( false ); }
+    bool has_var_direction( void ) override { return ( false ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns false until we understand if and how LEMON does is
 
-  bool has_dual_direction( void ) override { return( false ); }
+    bool has_dual_direction( void ) override { return( false ); }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    /// write the current dual direction in the Constraint of the MCFBlock
+    /** Write the current unbounded dual direction, i.e., a cut separating two
+     * shores to that the residual demand in one is greater than the capacity
+     * across them, in the Constraint of the Block, in particular in the dual
+     * variables of the flow conservation ones. To keep the same format as
+     * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
+     * the Configuration *solc can be used to "partly" save it. In particular, if
+     * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
+     * then *nothing is done*, since the Configuration is meant to say "only
+     * save/map the primal information". In all other cases, the direction (cut)
+     * is saved.
+     *
+     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
+
+    void get_dual_direction(Configuration *dirc = nullptr) override
+    {
+      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
+      if (tsolc && (tsolc->f_value == 1))
+        return;
+
+      throw(std::logic_error(
+          "MCFSolver::get_dual_direction() not implemented yet"));
+
+      // TODO: implement using MCFC::MCFGetUnfCut()
+      // anyway, unsure if any current :MCFClass properly implemente the latter
+    }
+
+  
 
 /*--------------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -393,6 +455,11 @@ class MCFLemonSolver : public CDASolver
    GR * dgp;
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
+
+  std::vector<C> potentialVector;
+  ///< Vector of potential used in get_dual_solution
+  std::vector<V> flowVector;
+  ///< Vector of flow used in get_var_solution
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -522,24 +589,6 @@ class MCFLemonSolverNetworkSimplex :
   BaseClass::guts_of_destructor();
   }
 
-/*--------------------------------------------------------------------------*/
- 
- void get_var_solution(Configuration *solc = nullptr) override
- {/*
-      if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
-      this->MCFGetX(X.data());
-      MCFB->set_x(X.begin());
-   */}
-
- void get_dual_solution( Configuration * solc = nullptr) override{}
 
 /*--------------------------------------------------------------------------*/
  /// @brief set the parameter par with value
@@ -990,124 +1039,6 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
         int compute( bool changedvars = true) override;
         
 
-    
-
-    /** @} ---------------------------------------------------------------------*/
-    /*---------------------- METHODS FOR READING RESULTS -----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Accessing the found solutions (if any)
-     *  @{ */
-    
-    /*--------------------------------------------------------------------------*/
-    /// write the "current" flow in the x ColVariable of the MCFBlock
-    /** Write the "current" flow in the x ColVariable of the MCFBlock. To keep
-     * the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the dual
-     * solution". In all other cases, the flow solution is saved. */
-
-    void get_var_solution(Configuration *solc = nullptr) override
-    {/*
-      if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
-      this->MCFGetX(X.data());
-      MCFB->set_x(X.begin());
-   */}
-  
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the "current" dual solution in the Constraint of the MCFBlock
-    /** Write the "current" dual solution, i.e., node potentials and flow
-     * reduced costs, in the dual variables of the Constraint (respectively,
-     * the flow conservation constraints and bound ones) of the MCFBlock. To
-     * keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 1, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the primal
-     * solution". In all other cases, the flow solution is saved. */
-    
-    void get_dual_solution(Configuration *solc = nullptr) override
-    {
-    /*  if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_CNumber Pi(MCFB->get_NNodes());
-      this->MCFGetPi(Pi.data());
-      MCFB->set_pi(Pi.begin());
-
-      MCFBlock::Vec_FNumber RC(MCFB->get_NArcs());
-      this->MCFGetRC(RC.data());
-      MCFB->set_rc(RC.begin());
-    */}
-    
-
-    /*--------------------------------------------------------------------------*/
-    /// write the current direction in the x ColVariable of the MCFBlock
-    /** Write the unbounded primal direction, i.e., augmenting cycle with
-     * negative cost and unbounded capacity, in the x ColVariable of the
-     * MCFBlock. To keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is done*,
-     * since the Configuration is meant to say "only save/map the dual
-     * information". In all other cases, the direction (cycle) is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
-    void get_var_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      throw(std::logic_error(
-          "MCFSolver::get_var_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnbCycl()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the current dual direction in the Constraint of the MCFBlock
-    /** Write the current unbounded dual direction, i.e., a cut separating two
-     * shores to that the residual demand in one is greater than the capacity
-     * across them, in the Constraint of the Block, in particular in the dual
-     * variables of the flow conservation ones. To keep the same format as
-     * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
-     * the Configuration *solc can be used to "partly" save it. In particular, if
-     * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
-     * then *nothing is done*, since the Configuration is meant to say "only
-     * save/map the primal information". In all other cases, the direction (cut)
-     * is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
-    void get_dual_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      throw(std::logic_error(
-          "MCFSolver::get_dual_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnfCut()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
 
 
     /*--------------------------------------------------------------------------*/
@@ -1575,116 +1506,6 @@ enum LEMON_CS_dbl_par_type{
     }*/
         
     
-    /*--------------------------------------------------------------------------*/
-    /// write the "current" flow in the x ColVariable of the MCFBlock
-    /** Write the "current" flow in the x ColVariable of the MCFBlock. To keep
-     * the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the dual
-     * solution". In all other cases, the flow solution is saved. */
-
-    void get_var_solution(Configuration *solc = nullptr) override
-    {/*
-      if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
-      this->MCFGetX(X.data());
-      MCFB->set_x(X.begin());
-   */}
-  
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the "current" dual solution in the Constraint of the MCFBlock
-    /** Write the "current" dual solution, i.e., node potentials and flow
-     * reduced costs, in the dual variables of the Constraint (respectively,
-     * the flow conservation constraints and bound ones) of the MCFBlock. To
-     * keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 1, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the primal
-     * solution". In all other cases, the flow solution is saved. */
-    
-    void get_dual_solution(Configuration *solc = nullptr) override
-    {
-    /*  if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_CNumber Pi(MCFB->get_NNodes());
-      this->MCFGetPi(Pi.data());
-      MCFB->set_pi(Pi.begin());
-
-      MCFBlock::Vec_FNumber RC(MCFB->get_NArcs());
-      this->MCFGetRC(RC.data());
-      MCFB->set_rc(RC.begin());
-    */}
-    
-
-    /*--------------------------------------------------------------------------*/
-    /// write the current direction in the x ColVariable of the MCFBlock
-    /** Write the unbounded primal direction, i.e., augmenting cycle with
-     * negative cost and unbounded capacity, in the x ColVariable of the
-     * MCFBlock. To keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is done*,
-     * since the Configuration is meant to say "only save/map the dual
-     * information". In all other cases, the direction (cycle) is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
-    void get_var_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      throw(std::logic_error(
-          "MCFSolver::get_var_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnbCycl()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the current dual direction in the Constraint of the MCFBlock
-    /** Write the current unbounded dual direction, i.e., a cut separating two
-     * shores to that the residual demand in one is greater than the capacity
-     * across them, in the Constraint of the Block, in particular in the dual
-     * variables of the flow conservation ones. To keep the same format as
-     * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
-     * the Configuration *solc can be used to "partly" save it. In particular, if
-     * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
-     * then *nothing is done*, since the Configuration is meant to say "only
-     * save/map the primal information". In all other cases, the direction (cut)
-     * is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
-    void get_dual_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      throw(std::logic_error(
-          "MCFSolver::get_dual_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnfCut()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
 
     /*--------------------------------------------------------------------------*/
 
@@ -2097,127 +1918,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
       //  MCFC::SetPar(Solver_2_MCFClass_dbl[par], double(value));
     }*/
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-
-    /*--------------------------------------------------------------------------*/
-    /*
-     virtual bool is_var_feasible( void ) override { return( true ); }
-
-     virtual bool is_dual_feasible( void ) override { return( true ); }
-    */
-    /*--------------------------------------------------------------------------*/
-    /// write the "current" flow in the x ColVariable of the MCFBlock
-    /** Write the "current" flow in the x ColVariable of the MCFBlock. To keep
-     * the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the dual
-     * solution". In all other cases, the flow solution is saved. */
-
-    void get_var_solution(Configuration *solc = nullptr) override
-    {/*
-      if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_FNumber X(MCFB->get_NArcs());
-      this->MCFGetX(X.data());
-      MCFB->set_x(X.begin());
-   */}
-  
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the "current" dual solution in the Constraint of the MCFBlock
-    /** Write the "current" dual solution, i.e., node potentials and flow
-     * reduced costs, in the dual variables of the Constraint (respectively,
-     * the flow conservation constraints and bound ones) of the MCFBlock. To
-     * keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 1, then *nothing is
-     * done*, since the Configuration is meant to say "only save/map the primal
-     * solution". In all other cases, the flow solution is saved. */
-    
-    void get_dual_solution(Configuration *solc = nullptr) override
-    {
-    /*  if (!f_Block) // no [MCF]Block to write to
-        return;     // cowardly and silently return
-
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(solc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBlock::Vec_CNumber Pi(MCFB->get_NNodes());
-      this->MCFGetPi(Pi.data());
-      MCFB->set_pi(Pi.begin());
-
-      MCFBlock::Vec_FNumber RC(MCFB->get_NArcs());
-      this->MCFGetRC(RC.data());
-      MCFB->set_rc(RC.begin());
-    */}
-    
-    /*--------------------------------------------------------------------------*/
-
-
-    /*--------------------------------------------------------------------------*/
-    /// write the current direction in the x ColVariable of the MCFBlock
-    /** Write the unbounded primal direction, i.e., augmenting cycle with
-     * negative cost and unbounded capacity, in the x ColVariable of the
-     * MCFBlock. To keep the same format as MCFBlock::get_Solution() and
-     * MCFBlock::map[forward/back]_Modification(), the Configuration *solc can
-     * be used to "partly" save it. In particular, if solc != nullptr, it is
-     * a SimpleConfiguration< int >, and solc->f_value == 2, then *nothing is done*,
-     * since the Configuration is meant to say "only save/map the dual
-     * information". In all other cases, the direction (cycle) is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
-    void get_var_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
-      throw(std::logic_error(
-          "MCFSolver::get_var_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnbCycl()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
-
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    /// write the current dual direction in the Constraint of the MCFBlock
-    /** Write the current unbounded dual direction, i.e., a cut separating two
-     * shores to that the residual demand in one is greater than the capacity
-     * across them, in the Constraint of the Block, in particular in the dual
-     * variables of the flow conservation ones. To keep the same format as
-     * MCFBlock::get_Solution() and MCFBlock::map[forward/back]_Modification(),
-     * the Configuration *solc can be used to "partly" save it. In particular, if
-     * solc != nullptr, it is a SimpleConfiguration< int >, and solc->f_value == 1,
-     * then *nothing is done*, since the Configuration is meant to say "only
-     * save/map the primal information". In all other cases, the direction (cut)
-     * is saved.
-     *
-     * Or, rather, THIS SHOULD BE DONE, BUT THE METHOD IS NOT IMPLEMENTED yet. */
-
-    void get_dual_direction(Configuration *dirc = nullptr) override
-    {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
-      throw(std::logic_error(
-          "MCFSolver::get_dual_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnfCut()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
-    }
 
     /*--------------------------------------------------------------------------*/
     /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/

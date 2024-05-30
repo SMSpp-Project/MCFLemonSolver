@@ -40,15 +40,15 @@ using namespace SMSpp_di_unipi_it;
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
 
-/*!!
+/*
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph, int, int> );
-	    !!*/
+	*/    
 
-/*!!
+/*
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCostScaling< SmartDigraph , double , double > );
-	    !!*/
+	  */  
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCapacityScaling< SmartDigraph , double , double > );
