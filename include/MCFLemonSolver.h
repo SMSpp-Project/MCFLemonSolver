@@ -337,10 +337,17 @@ class MCFLemonSolver : public CDASolver
   }
 
  void get_dual_solution( Configuration * solc = nullptr) override{
-
+  auto MCFB = static_cast<MCFBlock *>(f_Block);
+  std::vector<C> p(MCFB->get_NNodes());
+  unsigned int i = 0;
   for(typename GR::NodeIt n(*dgp); n!=INVALID; ++n){
-    potentialVector.push_back(f_algo->potential(n));
+    p[i++] = f_algo->potential( n );
   }
+
+  MCFB->set_pi( p.begin() );
+
+
+
 
  }
 
@@ -348,9 +355,16 @@ class MCFLemonSolver : public CDASolver
  
  void get_var_solution(Configuration *solc = nullptr) override
  {
+    auto MCFB = static_cast<MCFBlock *>(f_Block);
+    std::vector<V> f(MCFB->get_NArcs());
+    unsigned int i = 0;
     for(typename GR::ArcIt a(*dgp); a!=INVALID; ++a){
-      flowVector.push_back(f_algo->flow(a));
+      f[i++] = f_algo->flow(a);
     }
+
+
+    MCFB->set_x( f.begin() );
+
 
  }
 
@@ -456,10 +470,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
 
-  std::vector<C> potentialVector;
-  ///< Vector of potential used in get_dual_solution
-  std::vector<V> flowVector;
-  ///< Vector of flow used in get_var_solution
+  
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
