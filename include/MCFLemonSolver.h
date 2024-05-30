@@ -145,20 +145,26 @@ namespace SMSpp_di_unipi_it
  template< LEMONGraph GR , typename V , typename C >
  class SMSppCapacityScaling : public
   CapacityScaling< GR , V , C , CapacityScalingDefaultTraits< GR , V , C > >
-  {
-    public:
-    SMSppCapacityScaling(const GR& dgp) : CostScaling<GR, V, C, CostScalingDefaultTraits<GR, V, C> >(dgp){}
-    ~SMSppCapacityScaling() = default;
+ {
+  public:
+  SMSppCapacityScaling( const GR & dgp ) :
+   CapacityScaling< GR , V , C ,
+                    CapacityScalingDefaultTraits< GR , V, C > >( dgp ) {}
+
+  ~SMSppCapacityScaling() = default;
   };
 
  /// CostScaling algorithm using the default trait
- template < LEMONGraph GR , typename V , typename C>
+ template < LEMONGraph GR , typename V , typename C >
  class SMSppCostScaling : public
   CostScaling< GR , V , C , CostScalingDefaultTraits< GR , V , C > >
-  {
-    public:
-    SMSppCostScaling(const GR& dgp) : CostScaling<GR, V, C, CostScalingDefaultTraits<GR, V, C> >(dgp){}
-    ~SMSppCostScaling() = default;
+ {
+  public:
+  SMSppCostScaling(const GR & dgp ) :
+  CostScaling< GR , V , C ,
+               CostScalingDefaultTraits< GR , V , C > > ( dgp ) {}
+
+  ~SMSppCostScaling() = default;
   };
 
 /** @} ---------------------------------------------------------------------*/
@@ -203,31 +209,33 @@ namespace SMSpp_di_unipi_it
  *   performances;
  *
  * - Algo, which is the specific algorithm (itself, template over GR, V, and
- *   C) implemented in the LEMON class:
- *   The possibilities are:
+ *   C) implemented in the LEMON package. The possibilities are:
  * 
- *   - NetworkSimplex implements the primal Network Simplex algorithm for finding
- *     a minimum cost flow. This algorithm is a highly efficient specialized version
- *     of the linear programming simplex method directly for the minimum cost flow
- *     problem.
+ *   = NetworkSimplex implements the primal Network Simplex algorithm for
+ *     finding a minimum cost flow. This algorithm is a highly efficient
+ *     specialized version of the linear programming simplex method directly
+ *     for the minimum cost flow problem.
  *     
- *   - CycleCanceling implements three different cycle-canceling algorithms for finding 
- *     a minimum cost flow. The most efficent one is the Cancel-and-tighten algorithm,
- *     thus it is the default method. It runs in strongly polynomial time, but in practice, 
- *     it is typically orders of magnitude slower than the scaling algorithms and NetworkSimplex.
+ *   = CycleCanceling implements three different cycle-canceling algorithms
+ *     for finding a minimum cost flow. The most efficent one is the
+ *     Cancel-and-tighten algorithm, thus it is the default method. It runs
+ *     in strongly polynomial time, but in practice, it is typically orders of
+ *     magnitude slower than the scaling algorithms and NetworkSimplex.
  * 
- *   - CostScaling implements a cost scaling algorithm that performs push/augment and
- *     relabel operations for finding a minimum cost flow. It is a highly efficient primal-dual
- *     solution method, which can be viewed as the generalization of the preflow push-relabel
- *     algorithm for the maximum flow problem. It is a polynomial algorithm.
+ *   = CostScaling implements a cost scaling algorithm that performs
+ *     push/augment and relabel operations for finding a minimum cost flow.
+ *     It is a highly efficient primal-dual solution method, which can be
+ *     viewed as the generalization of the preflow push-relabel algorithm for
+ *     the maximum flow problem. It is a polynomial algorithm.
  * 
- *   - CapacityScaling implements the capacity scaling version of the successive shortest path
- *     algorithm for finding a minimum cost flow. It is an efficient dual solution method,
- *     which runs in polynomial time.
- *     In special case it can be more efficient than CostScaling and NetworkSimplex algorithms.
+ *   = CapacityScaling implements the capacity scaling version of the
+ *     successive shortest path algorithm for finding a minimum cost flow. It
+ *     is an efficient dual solution method, which runs in polynomial time.
+ *     In special cases it can be more efficient than CostScaling and
+ *     NetworkSimplex algorithms.
  * 
- *   In general, NetworkSimplex and CostScaling are the fastest implementations available in LEMON
- *   for solving this problem.
+ *   In general, NetworkSimplex and CostScaling are the fastest
+ *   implementations available in LEMON for solving this problem.
  *    
  *   Note that scaling-type algorithms may behave in different ways according
  *   to which combination of V and C is used, and there are different
@@ -240,8 +248,8 @@ namespace SMSpp_di_unipi_it
 
 template< template< typename , typename , typename > class Algo ,
           typename GR , typename V , typename C >
-  requires LEMONGraph< GR >
- class MCFLemonSolver : public CDASolver
+ requires LEMONGraph< GR >
+class MCFLemonSolver : public CDASolver
 {
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -249,99 +257,145 @@ template< template< typename , typename , typename > class Algo ,
 
  public:
 
-  using ThisAlgo = Algo< GR , V , C >;
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PUBLIC TYPES --------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ using ThisAlgo = Algo< GR , V , C >;
  
-  enum str_par_type_LEMON {
-  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
-  strLastParLEMON    ///< first allowed parameter value for derived classes
+ enum str_par_type_LEMON {
+ strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
+  strLastParLEMON  ///< first allowed parameter value for derived classes
                    /**< convenience value for easily allow derived classes
                     * to further extend the set of types of return codes */
   };
 
-  enum LEMON_sol_type
-  {
-  UNSOLVED, //= NULL, ///< the problem has not been solved yet
-  OPTIMAL,           ///< the problem has been solved
-  KSTOPTIME, //= NULL,     ///< the problem has been stopped because of time limit
-  INFEASIBLE,   ///< the problem is provably infeasible
-  UNBOUNDED,    ///< the problem is provably unbounded
-  KERROR //= NULL         ///< the problem has been stopped because of unrecoverable error
+ enum LEMON_sol_type {
+  UNSOLVED ,          ///< the problem has not been solved yet
+  OPTIMAL ,           ///< the problem has been solved
+  KSTOPTIME ,         ///< the problem has been stopped because of time limit
+  INFEASIBLE ,        ///< the problem is provably infeasible
+  UNBOUNDED ,          ///< the problem is provably unbounded
+  KERROR               ///< the algorithm stopped due to unrecoverable error
   }; 
 
-  static constexpr int kErrorStatus = -1;
+ static constexpr int kErrorStatus = -1;
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PUBLIC METHODS --------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+ /// register the Solver to a MCFBlock
+ /** Provides the [MCF]Block encoding the problem instance that the
+  * Solver will solve. It is entirely implemented in this class because this
+  * is done uniformly for all LEMON algorithms. */
+
+ void set_Block( Block * block ) override;
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
+/*--------------------------------------------------------------------------*/
+ /// (try to) solve the MCF encoded in the MCFBlock
+ /** Basically invokes the run() method of the underlying LEMON Algo. A lot
+  * of the preparatory steps (locking the Block and the Solver, printing the
+  * DMX file if required ...) are common to all the Algo and therefore are
+  * implemented in this class; a guts_of_compute() method is inkoked at the
+  * right time that eed be implemented in specialised classe. */
+
+ int compute( bool changedvars = true ) override;
+
+/*--------------------------------------------------------------------------*/
+/*---------------------- METHODS FOR READING RESULTS -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+ double get_elapsed_time( void ) const override { return( this->ticks ); }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
   
-  int compute(bool changedvars = true) override;
-  void set_Block( Block * block) override;
+ OFValue get_lb( void ) override { return OFValue( f_algo->totalCost() ); }
 
-  /*--------------------------------------------------------------------------*/
-  //Return the lower bound solution(optimal) for the problem
-  OFValue get_lb(void) override { return OFValue(f_algo->totalCost()); }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-  //Return the upper bound solution(optimal) for the problem
-  OFValue get_ub(void) override { return OFValue(f_algo->totalCost()); }
+ OFValue get_ub( void ) override { return OFValue( f_algo->totalCost() ); }
 
-  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-  ///Get elapsed time for run() method
-  double get_elapsed_time( void ) const override {
-    return( this->ticks );
-  }
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-  
-  ///Return the status of the run() in compute method
-  int get_status(void) const 
-  {
-    return (this->status);
-  }
+ int get_status( void ) const { return( this->status ); }
 
+/*--------------------------------------------------------------------------*/
 
-  /*--------------------------------------------------------------------------*/
-  bool has_var_solution(void) override
-  {
-     switch (this->get_status()) {
-      case( ThisAlgo::ProblemType::OPTIMAL ):
-      case( ThisAlgo::ProblemType::UNBOUNDED ):  
-       return( true );
-      default:
-       return( false );
-      }
-  }
-
-  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-  bool has_dual_solution(void) override
-  {
-   switch( this->get_status() ) {
-     case( ThisAlgo::ProblemType::OPTIMAL ):
-     case( ThisAlgo::ProblemType::INFEASIBLE ):
-       return( true );
-     default:
-       return( false );
+ bool has_var_solution( void ) override
+ {
+  switch( this->get_status() ) {
+   case( ThisAlgo::ProblemType::OPTIMAL ):
+   case( ThisAlgo::ProblemType::UNBOUNDED ):  
+    return( true );
+   default:
+    return( false );
    }
   }
 
-  /*--------------------------------------------------------------------------*/
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-  bool has_var_direction(void) override { return (true); }
-
-  /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-  bool has_dual_direction(void) override { return (true); }
-
-
-
-  protected:
-
-  void guts_of_constructor( void ) {
-   f_algo = nullptr;
+ bool has_dual_solution( void ) override
+ {
+  switch( this->get_status() ) {
+   case( ThisAlgo::ProblemType::OPTIMAL ):
+   case( ThisAlgo::ProblemType::INFEASIBLE ):
+    return( true );
+   default:
+    return( false );
    }
+  }
 
-  void guts_of_destructor( void ) {
-   delete f_algo;
-   delete dgp;
-   }
+/*--------------------------------------------------------------------------*/
+ /// returns false until we understand if and how LEMON does is
 
-  virtual void guts_of_compute() = 0;
+ bool has_var_direction( void ) override { return ( false ); }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// returns false until we understand if and how LEMON does is
+
+  bool has_dual_direction( void ) override { return( false ); }
+
+/*--------------------------------------------------------------------------*/
+/*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
+/*--------------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------------*/
+/*------------- METHODS FOR ADDING / REMOVING / CHANGING DATA --------------*/
+/*--------------------------------------------------------------------------*/
+
+//  void add_Modification( sp_Mod &mod ) override {}
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ protected:
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ void guts_of_constructor( void ) { f_algo = nullptr; }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ void guts_of_destructor( void ) { delete f_algo; delete dgp; }
+
+/*--------------------------------------------------------------------------*/
+
+ virtual void guts_of_compute( void ) = 0;
+
+/*--------------------------------------------------------------------------*/
+
+// void process_outstanding_Modification( void );
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PROTECTED FIELDS  ---------------------------*/
+/*--------------------------------------------------------------------------*/
 
   std::string f_dmx_file; 
   ///< string for DMX file output
@@ -353,30 +407,31 @@ template< template< typename , typename , typename > class Algo ,
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
 
+/*--------------------------------------------------------------------------*/
+/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
   private:
-  // Variable used in compute function for getting status
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------- PRIVATE FIELDS -------------------------------*/
+/*--------------------------------------------------------------------------*/
 
   typename ThisAlgo::ProblemType status_2_pType;
   // Status of compute() method
 
   double ticks;  //Elaped time in ticks for compute() method
-  
-  ///< the actual LEMON algorithm for solving the MCFBlock
-
  
+/*--------------------------------------------------------------------------*/
 
- };// End of MCFLemonSolver
-          
+ };  // end( class MCFLemonSolver< Algo , GR , C , V > )
 
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- SPECIALIZED CLASSES --------------------*/
+/*------------------------- SPECIALIZED CLASSES ----------------------------*/
 /*--------------------------------------------------------------------------*/
+/*-------------------- MCFLemonSolverNetworkSimplex ------------------------*/
 /*--------------------------------------------------------------------------*/
-/*-------------------------------- NETWORKSIMPLEX --------------------------*/
-/*--------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------*/
-/** Specialized MCFLemonSolver<NetworkSimplex, GR, V, C> that contains
+/** Specialized MCFLemonSolver< NetworkSimplex , GR , V , C > that contains
  * specialized  compute() method, enums for indexing algorithimc parameters
  * and function  set/get_*_par for manage them.
  * 
@@ -396,8 +451,7 @@ template< template< typename , typename , typename > class Algo ,
  *  
  * - C, which is the type of ar costs; typically, double can be used for
  *    maximum compatibility, but int (or even smaller) would yeld better
- *    performances;
- */
+ *    performances; */
 
 template < typename GR , typename V , typename C >
 class MCFLemonSolverNetworkSimplex :
@@ -412,12 +466,15 @@ class MCFLemonSolverNetworkSimplex :
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PUBLIC TYPES --------------------------------*/
 /*--------------------------------------------------------------------------*/
-
+ // large batch of "using", unfortunately needed due to the fact that on
+ // the first pass of compiling a template, where only non-dependent names
+ // are looked up, the compiler does not "see" the base class MCFLemonSolver
+ // and all its ancestors (CDASolver, Solver, ThinComputeInterface) and all
+ // their names
+ 
  using BaseClass = MCFLemonSolver< NetworkSimplex , GR , V , C >;
  
  using BaseClass::intLastParCDAS;
- //using BaseClass::idx_type;
-
  using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::Solver::OFValue;
  using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
@@ -437,32 +494,9 @@ class MCFLemonSolverNetworkSimplex :
  using typename BaseClass::ThisAlgo;
  using NSPivotRule = typename ThisAlgo::PivotRule;
 
-/** @} ---------------------------------------------------------------------*/
-/*-------------- CONSTRUCTING AND DESTRUCTING MCFLemonSolver ---------------*/
 /*--------------------------------------------------------------------------*/
-/** @name Constructing and destructing MCFLemonSolver
- *  @{ */
+// enums for handling the extra parameters
 
- /// constructor: Initializes algorithm parameters
- /** Void constructor. Define f_pivot_rule to the default algorithm
-  * parameters used by NetworkSimplex.
-  */
-
-  MCFLemonSolverNetworkSimplex( void ) {
-   BaseClass::guts_of_constructor();
-   f_pivot_rule = NSPivotRule::BLOCK_SEARCH;
-  }
- 
-  /// destructor: delete algorithm parameter
-  /** Does nothing special, delete Fields f_pivot_rule, an algorithmic
-   * parameter of  NetworkSimplex */
-
-  ~MCFLemonSolverNetworkSimplex() {
-    BaseClass::guts_of_destructor();
-   }
-
-
-/*--------------------------------------------------------------------------*/
  enum LEMON_NS_dbl_par_type{
   dblLastParLEMON_NS ///< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
@@ -475,9 +509,36 @@ class MCFLemonSolverNetworkSimplex :
   /**< convenience value for easily allow derived classes
    * to further extend the set of types of return codes */
   };
+
+/** @} ---------------------------------------------------------------------*/
+/*------- CONSTRUCTING AND DESTRUCTING MCFLemonSolverNetworkSimplex --------*/
+/*--------------------------------------------------------------------------*/
+/** @name Constructing and destructing MCFLemonSolverNetworkSimplex
+ *  @{ */
+
+ /// constructor: Initializes algorithm parameters
+ /** Void constructor. Define f_pivot_rule to the default algorithm
+  * parameters used by NetworkSimplex.
+  */
+
+ MCFLemonSolverNetworkSimplex( void ) {
+  BaseClass::guts_of_constructor();
+  f_pivot_rule = NSPivotRule::BLOCK_SEARCH;
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// destructor: delete algorithm parameter
+ /** Does nothing special, delete Fields f_pivot_rule, an algorithmic
+  * parameter of  NetworkSimplex */
+
+ ~MCFLemonSolverNetworkSimplex() {
+  BaseClass::guts_of_destructor();
+  }
+
+/*--------------------------------------------------------------------------*/
  
  void get_var_solution(Configuration *solc = nullptr) override
-    {/*
+ {/*
       if (!f_Block) // no [MCF]Block to write to
         return;     // cowardly and silently return
 

@@ -23,8 +23,6 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-//#include <math.h>
-
 #include "MCFLemonSolver.h"
 
 /*--------------------------------------------------------------------------*/
@@ -33,657 +31,188 @@
 
 using namespace SMSpp_di_unipi_it;
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-// register MCFSolverState to the State factory
-
-// SMSpp_insert_in_factory_cpp_0( MCFSolverState );
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-template< template<typename, typename, typename> class Algo, typename GR, typename V, typename C>
-requires LEMONGraph< GR >
-void MCFLemonSolver<Algo, GR, V ,C>::set_Block( Block *block )
-  {
-    if( block == f_Block )  // actually doing nothing
-    return;                // cowardly and silently return
-
-    delete f_algo;
-    f_algo = nullptr;
-
-    Solver::set_Block( block );  // attach to the new Block
-
-    if( ! block )  // this is just: go sit down in a corner and wait
-    return;       // all done
-  
-    auto MCFB = dynamic_cast< MCFBlock * >( block );
-    if( ! MCFB )
-    throw( std::invalid_argument(
-                "MCFSolver:set_Block: block must be a MCFBlock"));
-
-          bool owned = MCFB->is_owned_by(f_id);
-          if ((!owned) && (!MCFB->read_lock()))
-            throw(std::logic_error("cannot acquire read_lock on MCFBlock"));
-
-          // create and clear new Graph (ListDigraph or SmartDigraph)
-          dgp = new GR;
-          dgp->clear();
-
-          //Actually reserve get_MaxNNodes() node space in dgp
-          dgp->reserveNode( MCFB->get_MaxNNodes() );
-          MCFBlock::Index n = MCFB->get_NNodes();
-
-          for( MCFBlock::Index i = 0; i < n; ++i)
-            dgp->addNode();
-          
-          //Reserve gete_MaxNArcs() arcs space
-          dgp->reserveArc( MCFB->get_MaxNArcs() );
-          MCFBlock::Index m = MCFB->get_NArcs();
-
-          //Get starting node subset and ending node subset
-          MCFBlock::c_Subset & sn = MCFB->get_SN();
-          MCFBlock::c_Subset & en = MCFB->get_EN();
-
-          //Add arc in dgp
-          /// sn[i] - 1 and en[i] - 1 are used because sn,en nodes start from 1
-          for( MCFBlock::Index i = 0; i < m; ++i){
-            dgp->addArc( dgp->nodeFromId( sn[i] - 1) , dgp->nodeFromId( en[i] - 1 ) );
-          }
-
-
-          //New instance of Lemon Algorithm
-          f_algo = new Algo< GR , V, C >(*dgp);
-
-          //Defining names for types for readability
-          using MCFArcMapV = typename GR::template ArcMap< V >;
-          using MCFNodeMapV = typename GR::template NodeMap< V >;
-
-
-          //Now we are going to fill up ArcMap
-          //This is the case of upperMap 
-          if(!MCFB->get_U().empty())
-          {
-            MCFArcMapV um(*dgp);
-            MCFBlock::c_Vec_FNumber & u = MCFB->get_U();
-            for( MCFBlock::Index i = 0; i < m; ++i){
-            um.set( dgp->arcFromId(i), u[i]);
-            }
-            f_algo->upperMap(um);
-          }
-
-          //This is the case of CostMap
-          if(!MCFB->get_C().empty())
-          {
-            MCFArcMapV cm(*dgp);
-            MCFBlock::c_Vec_FNumber & c = MCFB->get_C();
-            for( MCFBlock::Index i = 0; i < m; ++i){
-              cm.set( dgp->arcFromId(i), c[i]);
-            }
-            f_algo->costMap(cm);
-
-          }
-
-          //This is the case of supplyMap
-          if(!MCFB->get_B().empty())
-          {
-
-            MCFNodeMapV bm(*dgp);
-            MCFBlock::c_Vec_FNumber & b = MCFB->get_B();
-            for( MCFBlock::Index i = 0; i < n; i++){
-              bm.set( dgp->nodeFromId(i), -b[i]);
-            }
-            f_algo->supplyMap(bm);
-
-          }
-
-          if (!owned)
-            MCFB->read_unlock();
-
-          
-
-        
-  }  // end( set_Block )/ end( sol_type )
-
- template< template<typename, typename, typename> class Algo, typename GR, typename V, typename C>
- requires LEMONGraph< GR >
- int MCFLemonSolver<Algo, GR, V, C>::compute(bool changedvars){
-  const static std::array< int , 6 > LemonStatus_2_MCFstatus = {
-   kErrorStatus, LEMON_sol_type::OPTIMAL, kErrorStatus , 
-   LEMON_sol_type::INFEASIBLE,
-   LEMON_sol_type::UNBOUNDED, kErrorStatus };
-
-  const static std::array< int , 6 > MCFstatus_2_sol_type = {
-   kUnEval , Solver::kOK , kStopTime , kInfeasible , Solver::kUnbounded ,
-   Solver::kError };
-
-  lock(); // first of all, acquire self-lock
-
-  if ( ! f_Block )          // there is no [MCFBlock] to solve
-   return( kBlockLocked );  // return error
-
-  bool owned = f_Block->is_owned_by( f_id );       // check if already locked
-  if( ( ! owned ) && ( ! f_Block->read_lock() ) )  // if not try to read_lock
-   return( kBlockLocked );                         // return error on failure
-
-  // while [read_]locked, process any outstanding Modification
-  //TODO: ensure that modification are actually processed for MCFLemonSolver.
-  //process_outstanding_Modification();
-        
-  if( ! f_dmx_file.empty() )  {  // if so required
-   // output the current instance (after the changes) to a DMX file
-   std::ofstream ProbFile( f_dmx_file , ios_base::out | ios_base::trunc );
-   if( ! ProbFile.is_open() )
-    throw( std::logic_error( "cannot open DMX file " + f_dmx_file ) );
-
-   writeDimacsMat( ProbFile , *dgp );
-   ProbFile.close();
-   }
-
-  if( ! owned )             // if the [MCF]Block was actually read_locked
-   f_Block->read_unlock();  // read_unlock it
-
-  auto start = chrono::system_clock::now();
-
-  guts_of_compute();
-  
-  
-        
-  auto end = chrono::system_clock::now();
-
-  chrono::duration< double > elapsed = end - start;
-  ticks = elapsed.count();
-        
-  unlock(); // release self-lock
-
-  // now give out the result: note that the vector MCFstatus_2_sol_type[]
-  // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
-  // hence the returned status has to be shifted by + 1
-  return( MCFstatus_2_sol_type[ this->get_status() ] );
- }
-
-
 /*--------------------------------------------------------------------------*/
 /*----------------------------- STATIC MEMBERS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
 // register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
 
-  SMSpp_insert_in_factory_cpp_0_t(
-    MCFLemonSolverNetworkSimplex< SmartDigraph , double , double >
-  );
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
 
-  SMSpp_insert_in_factory_cpp_0_t(
-    MCFLemonSolverCycleCanceling< SmartDigraph, int, int>  
-  );
+/*!!
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCycleCanceling< SmartDigraph, int, int> );
+	    !!*/
 
-  SMSpp_insert_in_factory_cpp_0_t(
-    MCFLemonSolverCostScaling< SmartDigraph, double, double>
-  );
+/*!!
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCostScaling< SmartDigraph , double , double > );
+	    !!*/
 
-  SMSpp_insert_in_factory_cpp_0_t(
-    MCFLemonSolverCapacityScaling< SmartDigraph, double, double>
-  );
-
-
-
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< SmartDigraph , double , double > );
 
 /*--------------------------------------------------------------------------*/
-/*--------------------------------- METHODS --------------------------------*/
+/*----------------------- METHODS of MCFLemonSolver ------------------------*/
 /*--------------------------------------------------------------------------*/
 
-
-
-/*--------------------------------------------------------------------------*/
-/* Managing parameters for MCFSimplex---------------------------------------*/
-/*
- * MCFSimplex has the following extra parameters:
- *
- * - kAlgPrimal     parameter to set algorithm (Primal/Dual):
- * - kAlgPricing    parameter to set algorithm of pricing
- * - kNumCandList   parameter to set the number of candidate list for
- *                  Candidate List Pivot method
- * - kHotListSize   parameter to set the size of Hot List
- *
- * (plus, actually, a few about Quadratic MCF that are not relevent here).
- * These are all "int" parameters, hence the "double" versions only issue the
- * method of the base CDASolver class, and therefore need not be defined. */
-
-#ifdef HAVE_MFSMX
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-const std::vector< int > MCFSolver< MCFSimplex >::Solver_2_MCFClass_int = {
- MCFClass::kMaxIter ,        // intMaxIter
- -1 ,                        // intMaxThread
- -1 ,                        // intEverykIt
- -1 ,                        // intMaxSol
- -1 ,                        // intLogVerb
- -1 ,                        // intMaxDSol
- MCFClass::kReopt ,          // intLastParCDAS
- MCFSimplex::kAlgPrimal ,
- MCFSimplex::kAlgPricing ,
- MCFSimplex::kNumCandList ,
- MCFSimplex::kHotListSize
- };
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-template<>
-const std::vector< int > MCFSolver< MCFSimplex >::Solver_2_MCFClass_dbl = {
- MCFClass::kMaxTime ,       // dblMaxTime
- -1 ,                       // dblEveryTTm
- -1 ,                       // dblRelAcc
- MCFClass::kEpsFlw ,        // dblAbsAcc
- -1 ,                       // dblUpCutOff
- -1 ,                       // dblLwCutOff
- -1 ,                       // dblRAccSol
- -1 ,                       // dblAAccSol
- -1 ,                       // dblFAccSol
- -1 ,                       // dblRAccDSol
- MCFClass::kEpsCst ,        // dblAAccDSol
- -1                         // dblFAccDSol
- };
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-Solver::idx_type MCFSolver< MCFSimplex >::get_num_int_par( void ) const
+template< template< typename , typename , typename > class Algo ,
+	  typename GR , typename V , typename C >
+ requires LEMONGraph< GR >
+void MCFLemonSolver< Algo , GR , V , C >::set_Block( Block * block )
 {
- //return( CDASolver::get_num_int_par() + 5 );
- }
+ if( block == f_Block )  // actually doing nothing
+  return;                // cowardly and silently return
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ delete f_algo;
+ f_algo = nullptr;
 
-template<>
-Solver::idx_type MCFSolver< MCFSimplex >::get_num_dbl_par( void ) const { }
+ Solver::set_Block( block );  // attach to the new Block
 
-----------------------------------------------------------------------------*/
+ if( ! block )  // this is just: go sit down in a corner and wait
+  return;       // all done
 
-template<>
-int MCFSolver< MCFSimplex >::get_dflt_int_par( idx_type par ) const
-{/*
- static const std::array< int , 5 > my_dflt_int_par = { MCFClass::kYes ,
-		  MCFClass::kYes , MCFSimplex::kCandidateListPivot , 0 , 0 };
+ auto MCFB = dynamic_cast< MCFBlock * >( block );
+ if( ! MCFB )
+  throw( std::invalid_argument(
+                          "MCFSolver:set_Block: block must be a MCFBlock") );
 
- return( par >= intLastParCDAS ? my_dflt_int_par[ par - intLastParCDAS ]
-	                       : CDASolver::get_dflt_int_par( par ) );
- */}
+ bool owned = MCFB->is_owned_by(f_id);
+ if( ( ! owned ) && ( ! MCFB->read_lock() ) )
+  throw( std::logic_error( "cannot acquire read_lock on MCFBlock" ) );
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ // create and clear new Graph (ListDigraph or SmartDigraph)
+ dgp = new GR;
+ dgp->clear();
 
-template<>
-double MCFSolver< MCFSimplex >::get_dflt_dbl_par( const idx_type par )
- const { }
+ // actually reserve get_MaxNNodes() node space in dgp
+ dgp->reserveNode( MCFB->get_MaxNNodes() );
+ MCFBlock::Index n = MCFB->get_NNodes();
 
-----------------------------------------------------------------------------*/
+ // add all the nodes, one by one (looks stupid you con't do all in one blow,
+ // but who are we to say ...)
+ for( MCFBlock::Index i = 0 ; i < n ; ++i )
+  dgp->addNode();
 
-template<>
-Solver::idx_type MCFSolver< MCFSimplex >::int_par_str2idx(
-					     const std::string & name ) const
-{/*
- if( name == "kReopt" )
-  return( intLastParCDAS );
- if( name == "kAlgPrimal" )
-  return( intLastParCDAS + 1 );
- if( name == "kAlgPricing" )
-  return( intLastParCDAS + 2 );
- if( name == "kNumCandList" )
-  return( intLastParCDAS + 3 );
- if( name == "kHotListSize" )
-  return( intLastParCDAS + 4 );
+ // reserve get_MaxNArcs() arcs space
+ dgp->reserveArc( MCFB->get_MaxNArcs() );
+ MCFBlock::Index m = MCFB->get_NArcs();
 
- return( CDASolver::dbl_par_str2idx( name ) );
- */}
+ // get starting node subset and ending node subset
+ MCFBlock::c_Subset & sn = MCFB->get_SN();
+ MCFBlock::c_Subset & en = MCFB->get_EN();
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ // add all arcs in dgp
+ // sn[ i ] - 1 and en[ i ] - 1 are used because sn , en nodes start from 1
+ for( MCFBlock::Index i = 0 ; i < m ; ++i )
+  dgp->addArc( dgp->nodeFromId( sn[ i ] - 1 ) ,
+	       dgp->nodeFromId( en[ i ] - 1 ) );
 
-template<>
-Solver::idx_type MCFSolver< MCFSimplex >::dbl_par_str2idx(
-					const std::string & name ) const { }
+ // new instance of Lemon Algorithm
+ f_algo = new Algo< GR , V, C >( * dgp );
 
-----------------------------------------------------------------------------*/
+ // defining names for types for readability
+ using MCFArcMapV = typename GR::template ArcMap< V >;
+ using MCFNodeMapV = typename GR::template NodeMap< V >;
 
-template<>
-const std::string & MCFSolver< MCFSimplex >::int_par_idx2str( idx_type idx )
- const {/*
- static const std::array< std::string , 5 > my_int_pars_str = {
-  "kReopt" , "kAlgPrimal" , "kAlgPricing" , "kNumCandList" , "kHotListSize"
-  };
+ // now we are going to fill up ArcMap and NodeMap
+ // nhis is the case of upperMap 
+ if( ! MCFB->get_U().empty() ) {
+  MCFArcMapV um( * dgp );  // create the upper map
+  auto & u = MCFB->get_U();
+  for( MCFBlock::Index i = 0 ; i < m ; ++i )
+   um.set( dgp->arcFromId( i ) , u[ i ] );
 
- return( idx >= intLastParCDAS ? my_int_pars_str[ idx - intLastParCDAS ]
-	                       : CDASolver::int_par_idx2str( idx ) );
- */}
+  f_algo->upperMap( um );  // pass it to the Algo
+  }
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ // this is the case of CostMap
+ if( ! MCFB->get_C().empty() ) {
+  MCFArcMapV cm( * dgp );  // create the cost map
+  auto & c = MCFB->get_C();
+  for( MCFBlock::Index i = 0 ; i < m ; ++i )
+   cm.set( dgp->arcFromId( i ) , c[ i ] );
 
-template<>
-const std::string & MCFSolver< MCFSimplex >::dbl_par_idx2str( idx_type idx )
- const { }
- */
+  f_algo->costMap( cm );  // pass it to the Algo
+  }
 
-#endif
+ // this is the case of supplyMap
+ if( ! MCFB->get_B().empty() ) {
+  MCFNodeMapV bm( * dgp );  // create the supply map
+  auto & b = MCFB->get_B();
+  for( MCFBlock::Index i = 0 ; i < n ; i++ )
+   bm.set( dgp->nodeFromId( i ) , -b[ i ] );  // note tat supply = - deficit
 
-/*--------------------------------------------------------------------------*/
-/* Managing parameters for RelaxIV -----------------------------------------*/
-/*
- * RelaxIV has the following extra parameters:
- *
- * - kAuction     the auction/shortest paths initialization is used
- *
- * These are all "int" parameters, hence the "double" versions only issue the
- * method of the base CDASolver class, and therefore need not be defined. */
+  f_algo->supplyMap( bm );  // pass it to the algo
+  }
 
-#ifdef HAVE_RELAX
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-const std::vector< int > MCFSolver< RelaxIV >::Solver_2_MCFClass_int = {
- MCFClass::kMaxIter ,        // intMaxIter
- -1 ,                        // intMaxThread
- -1 ,                        // intEverykIt
- -1 ,                        // intMaxSol
- -1 ,                        // intLogVerb
- -1 ,                        // intMaxDSol
- MCFClass::kReopt ,          // intLastParCDAS
- RelaxIV::kAuction
- };
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-template<>
-const std::vector< int > MCFSolver< RelaxIV >::Solver_2_MCFClass_dbl = {
- MCFClass::kMaxTime ,       // dblMaxTime
- -1 ,                       // dblEveryTTm
- -1 ,                       // dblRelAcc
- MCFClass::kEpsFlw ,        // dblAbsAcc
- -1 ,                       // dblUpCutOff
- -1 ,                       // dblLwCutOff
- -1 ,                       // dblRAccSol
- -1 ,                       // dblAAccSol
- -1 ,                       // dblFAccSol
- -1 ,                       // dblRAccDSol
- MCFClass::kEpsCst ,        // dblAAccDSol
- -1                         // dblFAccDSol
- };
+ if ( ! owned )
+  MCFB->read_unlock();
+      
+  }  // end( MCFLemonSolver< Algo , GR , V , C >set_Block )
 
 /*--------------------------------------------------------------------------*/
 
-template<>
-Solver::idx_type MCFSolver< RelaxIV >::get_num_int_par( void ) const
+template< template< typename , typename , typename > class Algo ,
+	  typename GR , typename V , typename C >
+ requires LEMONGraph< GR >
+int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 {
- //return( CDASolver::get_num_int_par() + 2 );
- }
+ const static std::array< int , 6 > LemonStatus_2_MCFstatus = {
+  kErrorStatus, LEMON_sol_type::OPTIMAL, kErrorStatus , 
+  LEMON_sol_type::INFEASIBLE,
+  LEMON_sol_type::UNBOUNDED, kErrorStatus };
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ const static std::array< int , 6 > MCFstatus_2_sol_type = {
+  kUnEval , Solver::kOK , kStopTime , kInfeasible , Solver::kUnbounded ,
+  Solver::kError };
 
-template<>
-Solver::idx_type MCFSolver< RelaxIV >::get_num_dbl_par( void ) const { }
+ lock(); // first of all, acquire self-lock
 
-----------------------------------------------------------------------------*/
+ if ( ! f_Block )          // there is no [MCFBlock] to solve
+  return( kBlockLocked );  // return error
 
-template<>
-int MCFSolver< RelaxIV >::get_dflt_int_par( const idx_type par ) const
-{/*
- static const std::array< int , 2 > my_dflt_int_par = { MCFClass::kYes ,
-						        MCFClass::kYes };
+ bool owned = f_Block->is_owned_by( f_id );       // check if already locked
+ if( ( ! owned ) && ( ! f_Block->read_lock() ) )  // if not try to read_lock
+  return( kBlockLocked );                         // return error on failure
 
- return( par >= intLastParCDAS ? my_dflt_int_par[ par - intLastParCDAS ]
-	                       : CDASolver::get_dflt_int_par( par ) );
- */}
+ // while [read_]locked, process any outstanding Modification
+ //TODO: ensure that modification are actually processed for MCFLemonSolver.
+ //process_outstanding_Modification();
+        
+ if( ! f_dmx_file.empty() )  {  // if so required
+  // output the current instance (after the changes) to a DMX file
+  std::ofstream ProbFile( f_dmx_file , ios_base::out | ios_base::trunc );
+  if( ! ProbFile.is_open() )
+   throw( std::logic_error( "cannot open DMX file " + f_dmx_file ) );
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  writeDimacsMat( ProbFile , *dgp );
+  ProbFile.close();
+  }
 
-template<>
-double MCFSolver< RelaxIV >::get_dflt_dbl_par( idx_type par ) const { }
+ if( ! owned )             // if the [MCF]Block was actually read_locked
+  f_Block->read_unlock();  // read_unlock it
 
-----------------------------------------------------------------------------*/
+ auto start = chrono::system_clock::now();
 
-template<>
-Solver::idx_type MCFSolver< RelaxIV >::int_par_str2idx(
-					     const std::string & name ) const
-{/*
- if( name == "kReopt" )
-  return( intLastParCDAS );
- if( name == "kAuction" )
-  return( intLastParCDAS + 1 );
+ guts_of_compute();  // here the actual magic is done by specialised classes
 
- return( CDASolver::dbl_par_str2idx( name ) );
- */}
+ auto end = chrono::system_clock::now();
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ chrono::duration< double > elapsed = end - start;
+ ticks = elapsed.count();
+        
+ unlock();  // release self-lock
 
-template<>
-Solver::idx_type MCFSolver< RelaxIV >::dbl_par_str2idx(
-					 const std::string & name ) const { }
+ // now give out the result: note that the vector MCFstatus_2_sol_type[]
+ // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
+ // hence the returned status has to be shifted by + 1
+ return( MCFstatus_2_sol_type[ this->get_status() ] );
 
-----------------------------------------------------------------------------*/
-
-template<>
-const std::string & MCFSolver< RelaxIV >::int_par_idx2str( idx_type idx )
- const {
- /*static const std::array< std::string , 2 > my_int_pars_str = { "kReopt" ,
-								"kAuction" };
-
- return( idx >= intLastParCDAS ? my_int_pars_str[ idx - intLastParCDAS ]
-	                       : CDASolver::int_par_idx2str( idx ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-const std::string & MCFSolver< RelaxIV >::dbl_par_idx2str( idx_type idx )
- const { }
- */
-
-#endif
+ }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )
 
 /*--------------------------------------------------------------------------*/
-/* Managing parameters for CPLEX -------------------------------------------*/
-
-#ifdef HAVE_CPLEX
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-const std::vector< int > MCFSolver< MCFCplex >::Solver_2_MCFClass_int = {
- MCFClass::kMaxIter ,        // intMaxIter
- -1 ,                        // intMaxThread
- -1 ,                        // intEverykIt
- -1 ,                        // intMaxSol
- -1 ,                        // intLogVerb
- -1 ,                        // intMaxDSol
- MCFClass::kReopt ,          // intLastParCDAS
- MCFCplex::kQPMethod
- };
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-template<>
-const std::vector< int > MCFSolver< MCFCplex >::Solver_2_MCFClass_dbl =
-{
- MCFClass::kMaxTime ,       // dblMaxTime
- -1 ,                       // dblEveryTTm
- -1 ,                       // dblRelAcc
- MCFClass::kEpsFlw ,        // dblAbsAcc
- -1 ,                       // dblUpCutOff
- -1 ,                       // dblLwCutOff
- -1 ,                       // dblRAccSol
- -1 ,                       // dblAAccSol
- -1 ,                       // dblFAccSol
- -1 ,                       // dblRAccDSol
- MCFClass::kEpsCst ,        // dblAAccDSol
- -1                         // dblFAccDSol
- };
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-Solver::idx_type MCFSolver< MCFCplex >::get_num_int_par( void ) const {
- //return( CDASolver::get_num_int_par() + 2 );
- }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-Solver::idx_type MCFSolver< MCFCplex >::get_num_dbl_par( void ) const { }
-
-----------------------------------------------------------------------------*/
-
-template<>
-int MCFSolver< MCFCplex >::get_dflt_int_par( idx_type par ) const {
- /*static const std::array< int , 2 > my_dflt_int_par = { MCFClass::kYes ,
-                                                        MCFClass::kYes };
- return( par >= intLastParCDAS ?
-         my_dflt_int_par[ par - intLastParCDAS ] :
-         CDASolver::get_dflt_int_par( par ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
- template<>
- double MCFSolver< MCFCplex >::get_dflt_dbl_par( idx_type par ) const { }
-
-----------------------------------------------------------------------------*/
-
-template<>
-Solver::idx_type MCFSolver< MCFCplex >::int_par_str2idx(
-					   const std::string & name ) const {
- /*if( name == "kReopt" )
-  return( intLastParCDAS );
- if( name == "kQPMethod" )
-  return( kQPMethod + 1 );
-
- return( CDASolver::dbl_par_str2idx( name ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-Solver::idx_type MCFSolver< MCFCplex >::dbl_par_str2idx(
-                                         const std::string & name ) const { }
-
-----------------------------------------------------------------------------*/
-
-template<>
-const std::string & MCFSolver< MCFCplex >::int_par_idx2str( idx_type idx )
- const {
- /*static const std::array< std::string , 2 > my_int_pars_str = { "kReopt" ,
-                                                                "kQPMethod" };
- return( idx >= intLastParCDAS ?
-         my_int_pars_str[ idx - intLastParCDAS ] :
-         CDASolver::int_par_idx2str( idx ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-const std::string & MCFSolver< MCFCplex >::dbl_par_idx2str( idx_type idx )
- const { }
-*/
-
-#endif
-
-/*--------------------------------------------------------------------------*/
-/* Managing parameters for SPTree ------------------------------------------*/
-
-#ifdef HAVE_SPTRE
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-const std::vector< int > MCFSolver< SPTree >::Solver_2_MCFClass_int = {
- MCFClass::kMaxIter,        // intMaxIter
- -1,                        // intMaxSol
- -1,                        // intLogVerb
- -1,                        // intMaxDSol
- MCFClass::kReopt,          // intLastParCDAS
- };
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-template<>
-const std::vector< int > MCFSolver< SPTree >::Solver_2_MCFClass_dbl = {
- MCFClass::kMaxTime,        // dblMaxTime
- -1,                        // dblRelAcc
- MCFClass::kEpsFlw,         // dblAbsAcc
- -1,                        // dblUpCutOff
- -1,                        // dblLwCutOff
- -1,                        // dblRAccSol
- -1,                        // dblAAccSol
- -1,                        // dblFAccSol
- -1,                        // dblRAccDSol
- MCFClass::kEpsCst,         // dblAAccDSol
- -1                         // dblFAccDSol
- };
-
-/*--------------------------------------------------------------------------*/
-
-template<>
-Solver::idx_type MCFSolver< SPTree >::get_num_int_par( void ) const {
- /*return( CDASolver::get_num_int_par() + 1 );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-Solver::idx_type MCFSolver< SPTree >::get_num_dbl_par( void ) const { }
-
-----------------------------------------------------------------------------*/
-
-template<>
-int MCFSolver< SPTree >::get_dflt_int_par( idx_type par ) const {
- /*static const std::array< int , 1 > my_dflt_int_par = { MCFClass::kYes };
-
- return( par >= intLastParCDAS ?
-         my_dflt_int_par[ par - intLastParCDAS ] :
-         CDASolver::get_dflt_int_par( par ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-double MCFSolver< SPTree >::get_dflt_dbl_par( idx_type par ) const { }
-
-----------------------------------------------------------------------------*/
-
-template<>
-Solver::idx_type MCFSolver< SPTree >::int_par_str2idx(
-					  const std::string & name ) const {
- /*if( name == "kReopt" )
-  return( intLastParCDAS );
-
- return( CDASolver::dbl_par_str2idx( name ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-template<>
-Solver::idx_type MCFSolver< SPTree >::dbl_par_str2idx(
-                                         const std::string & name ) const { }
-
-----------------------------------------------------------------------------*/
-
-template<>
-const std::string & MCFSolver< SPTree >::int_par_idx2str( idx_type idx )
- const {/*
- static const std::array< std::string , 1 > my_int_pars_str = { "kReopt" };
-
- return( idx >= intLastParCDAS ?
-         my_int_pars_str[ idx - intLastParCDAS ] :
-         CDASolver::int_par_idx2str( idx ) );
- */}
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
- template<>
- const std::string & MCFSolver< SPTree >::dbl_par_idx2str( idx_type idx )
- const { }
-*/
-
-#endif
-
-/*--------------------------------------------------------------------------*/
-/*----------------------- End File MCFSolver.cpp ---------------------------*/
+/*------------------- End File MCFLemonSolver.cpp --------------------------*/
 /*--------------------------------------------------------------------------*/
  
