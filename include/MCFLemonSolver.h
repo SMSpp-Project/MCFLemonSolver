@@ -123,23 +123,11 @@ namespace SMSpp_di_unipi_it
  *
  *  @{ */
 
-  template< typename Algo >
-  struct Fields {};
-   
-
  /// concept for "one of the LEMON graphs"
  template< typename Type >
   concept LEMONGraph =
    std::is_same< Type , SmartDigraph >::value   ||
    std::is_same< Type , StaticDigraph >::value;
-
- //!! std::is_base_of< Graph , Type >::value;
- /*!!
-   std::is_same< Type , CompactDigraph >::value ||
-   std::is_same< Type , FullDigraph >::value;
-   std::is_same< Type , GridGraph >::value      ||
-   std::is_same< Type , HypercubeGraph >::value ||
-   !!*/
 
  /// CapacityScaling algorithm using the default trait
  template< LEMONGraph GR , typename V , typename C >
@@ -247,8 +235,7 @@ namespace SMSpp_di_unipi_it
  *   CapacityScaling and CostScaling. */
 
 template< template< typename , typename , typename > class Algo ,
-          typename GR , typename V , typename C >
- requires LEMONGraph< GR >
+          LEMONGraph GR , typename V , typename C >
 class MCFLemonSolver : public CDASolver
 {
 /*--------------------------------------------------------------------------*/

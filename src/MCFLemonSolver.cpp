@@ -58,8 +58,7 @@ SMSpp_insert_in_factory_cpp_0_t(
 /*--------------------------------------------------------------------------*/
 
 template< template< typename , typename , typename > class Algo ,
-	  typename GR , typename V , typename C >
- requires LEMONGraph< GR >
+	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::set_Block( Block * block )
 {
  if( block == f_Block )  // actually doing nothing
@@ -155,8 +154,7 @@ void MCFLemonSolver< Algo , GR , V , C >::set_Block( Block * block )
 /*--------------------------------------------------------------------------*/
 
 template< template< typename , typename , typename > class Algo ,
-	  typename GR , typename V , typename C >
- requires LEMONGraph< GR >
+	  LEMONGraph GR , typename V , typename C >
 int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 {
  const static std::array< int , 6 > LemonStatus_2_MCFstatus = {
