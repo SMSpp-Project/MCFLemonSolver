@@ -35,20 +35,20 @@ using namespace SMSpp_di_unipi_it;
 /*----------------------------- STATIC MEMBERS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
-// register the various LEMONSolver< Alg , GR , V , C > to the Solver factory
+// register the various LEMONSolver GR , V , C > to the Solver factory
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
 
-/*
+
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph, int, int> );
-	*/    
 
-/*
+
+
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCostScaling< SmartDigraph , double , double > );
-	  */  
+	
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCapacityScaling< SmartDigraph , double , double > );
@@ -56,6 +56,10 @@ SMSpp_insert_in_factory_cpp_0_t(
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of MCFLemonSolver ------------------------*/
 /*--------------------------------------------------------------------------*/
+
+
+
+
 
 template< template< typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
@@ -109,8 +113,8 @@ void MCFLemonSolver< Algo , GR , V , C >::set_Block( Block * block )
 	       dgp->nodeFromId( en[ i ] - 1 ) );
 
  // new instance of Lemon Algorithm
- f_algo = new Algo< GR , V, C >( * dgp );
-
+ f_algo = new Algo< GR , V, C >(  *dgp );
+// Algo<GR, V, C> * algo = f_algo->reset();
  // defining names for types for readability
  using MCFArcMapV = typename GR::template ArcMap< V >;
  using MCFNodeMapV = typename GR::template NodeMap< V >;

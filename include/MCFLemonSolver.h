@@ -124,11 +124,10 @@ namespace SMSpp_di_unipi_it
  *  @{ */
 
  /// concept for "one of the LEMON graphs"
- template< typename Type >
-  concept LEMONGraph =
-   std::is_same< Type , SmartDigraph >::value   ||
-   std::is_same< Type , StaticDigraph >::value;
-
+   template< typename Type >
+   concept LEMONGraph =
+    std::is_same< Type , SmartDigraph >::value   ||
+    std::is_same< Type , StaticDigraph >::value;
  /// CapacityScaling algorithm using the default trait
  template< LEMONGraph GR , typename V , typename C >
  class SMSppCapacityScaling : public
@@ -154,6 +153,7 @@ namespace SMSpp_di_unipi_it
 
   ~SMSppCostScaling() = default;
   };
+
 
 /** @} ---------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
@@ -249,6 +249,7 @@ class MCFLemonSolver : public CDASolver
 /*--------------------------------------------------------------------------*/
 
  using ThisAlgo = Algo< GR , V , C >;
+ using Index = unsigned int;
  
  enum str_par_type_LEMON {
  strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
@@ -338,13 +339,11 @@ class MCFLemonSolver : public CDASolver
 
  void get_dual_solution( Configuration * solc = nullptr) override{
   auto MCFB = static_cast<MCFBlock *>(f_Block);
-  std::vector<C> p(MCFB->get_NNodes());
-  unsigned int i = 0;
+  Index i = 0;
   for(typename GR::NodeIt n(*dgp); n!=INVALID; ++n){
-    p[i++] = f_algo->potential( n );
-  }
+    MCFB->set_pi( i, f_algo->potential( n ) );
 
-  MCFB->set_pi( p.begin() );
+  }
 
 
 
@@ -356,14 +355,12 @@ class MCFLemonSolver : public CDASolver
  void get_var_solution(Configuration *solc = nullptr) override
  {
     auto MCFB = static_cast<MCFBlock *>(f_Block);
-    std::vector<V> f(MCFB->get_NArcs());
-    unsigned int i = 0;
+    Index i = 0;
     for(typename GR::ArcIt a(*dgp); a!=INVALID; ++a){
-      f[i++] = f_algo->flow(a);
+      MCFB->set_x( i, f_algo->flow( a ));
     }
 
 
-    MCFB->set_x( f.begin() );
 
 
  }
@@ -490,6 +487,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*--------------------------------------------------------------------------*/
 
  };  // end( class MCFLemonSolver< Algo , GR , C , V > )
+
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- SPECIALIZED CLASSES ----------------------------*/
@@ -885,7 +883,7 @@ class MCFLemonSolverNetworkSimplex :
  *    maximum compatibility, but int (or even smaller) would yeld better
  *    performances;
 */
-  template< typename GR,  typename V, typename C>
+  template< typename GR,  typename V = int,  typename C = int>
 class MCFLemonSolverCycleCanceling:  
 public MCFLemonSolver<CycleCanceling, GR, V, C>
 {
@@ -1039,17 +1037,6 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
     }*/
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-
-    /** @} ---------------------------------------------------------------------*/
-    /*--------------------- METHODS FOR SOLVING THE Block ----------------------*/
-    /*--------------------------------------------------------------------------*/
-    /** @name Solving the MCF encoded by the current MCFBlock
-     *  @{ */
-    /// (try to) solve the MCF encoded in the MCFBlock 
-        int compute( bool changedvars = true) override;
-        
-
 
 
     /*--------------------------------------------------------------------------*/
