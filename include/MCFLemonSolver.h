@@ -127,7 +127,7 @@ namespace SMSpp_di_unipi_it
    template< typename Type >
    concept LEMONGraph =
     std::is_same< Type , SmartDigraph >::value   ||
-    std::is_same< Type , StaticDigraph >::value;
+    std::is_same< Type , ListDigraph >::value;
  /// CapacityScaling algorithm using the default trait
  template< LEMONGraph GR , typename V , typename C >
  class SMSppCapacityScaling : public
@@ -817,7 +817,7 @@ class MCFLemonSolverNetworkSimplex :
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
-  protected:
+  protected:  
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PROTECTED METHODS -----------------------------*/

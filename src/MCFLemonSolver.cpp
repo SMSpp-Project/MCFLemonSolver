@@ -38,20 +38,35 @@ using namespace SMSpp_di_unipi_it;
 // register the various LEMONSolver GR , V , C > to the Solver factory
 
 SMSpp_insert_in_factory_cpp_0_t(
-            MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
+            MCFLemonSolverNetworkSimplex< SmartDigraph , int , int > );
+
+// SMSpp_insert_in_factory_cpp_0_t(
+//             MCFLemonSolverNetworkSimplex< ListDigraph , int , int > );
 
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph, int, int> );
-
-
-
-SMSpp_insert_in_factory_cpp_0_t(
-            MCFLemonSolverCostScaling< SmartDigraph , double , double > );
-	
+          
+// SMSpp_insert_in_factory_cpp_0_t(
+//             MCFLemonSolverCycleCanceling< ListDigraph, int, int> );
 
 SMSpp_insert_in_factory_cpp_0_t(
-            MCFLemonSolverCapacityScaling< SmartDigraph , double , double > );
+            MCFLemonSolverCostScaling< SmartDigraph , int , int > );    
+
+// SMSpp_insert_in_factory_cpp_0_t(
+//             MCFLemonSolverCostScaling< ListDigraph , int , int > );
+        
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< SmartDigraph , int , int > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< SmartDigraph , int , double > );
+
+// SMSpp_insert_in_factory_cpp_0_t(
+//             MCFLemonSolverCapacityScaling< ListDigraph , int , int > );
+
+// SMSpp_insert_in_factory_cpp_0_t(
+//             MCFLemonSolverCapacityScaling< ListDigraph , int , double > );
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of MCFLemonSolver ------------------------*/
@@ -161,14 +176,10 @@ template< template< typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
 int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 {
- const static std::array< int , 6 > LemonStatus_2_MCFstatus = {
-  kErrorStatus, LEMON_sol_type::OPTIMAL, kErrorStatus , 
-  LEMON_sol_type::INFEASIBLE,
-  LEMON_sol_type::UNBOUNDED, kErrorStatus };
-
- const static std::array< int , 6 > MCFstatus_2_sol_type = {
-  kUnEval , Solver::kOK , kStopTime , kInfeasible , Solver::kUnbounded ,
-  Solver::kError };
+ 
+ const static std::array<int, 3> LEMONstatus_2_sol_type = {
+  Solver::kInfeasible, Solver::kOK, Solver::kUnbounded };
+ 
 
  lock(); // first of all, acquire self-lock
 
@@ -210,7 +221,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  // now give out the result: note that the vector MCFstatus_2_sol_type[]
  // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
  // hence the returned status has to be shifted by + 1
- return( MCFstatus_2_sol_type[ this->get_status() ] );
+ return( LEMONstatus_2_sol_type[ this->get_status() + 1 ] );
 
  }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )
 
