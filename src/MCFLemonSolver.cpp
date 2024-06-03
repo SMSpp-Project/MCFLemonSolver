@@ -41,6 +41,9 @@ SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverNetworkSimplex< SmartDigraph , int , int > );
 
 SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
+
+SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverNetworkSimplex< SmartDigraph , long , long > );
 
 // SMSpp_insert_in_factory_cpp_0_t(
@@ -49,6 +52,9 @@ SMSpp_insert_in_factory_cpp_0_t(
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph, int, int> );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCycleCanceling< SmartDigraph, double, double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph , long , long > );
@@ -60,13 +66,19 @@ SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCostScaling< SmartDigraph , int , int > );  
 
 SMSpp_insert_in_factory_cpp_0_t(
-            MCFLemonSolverCostScaling< SmartDigraph , long , long > );  
+            MCFLemonSolverCostScaling< SmartDigraph , long , long > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCostScaling< SmartDigraph , double , double > );   
 
 // SMSpp_insert_in_factory_cpp_0_t(
 //             MCFLemonSolverCostScaling< ListDigraph , int , int > );
         
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCapacityScaling< SmartDigraph , int , int > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< SmartDigraph , double , double > );
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCapacityScaling< SmartDigraph , long , long > );
