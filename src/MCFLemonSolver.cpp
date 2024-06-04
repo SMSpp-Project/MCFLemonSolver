@@ -46,9 +46,14 @@ SMSpp_insert_in_factory_cpp_0_t(
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverNetworkSimplex< SmartDigraph , long , long > );
 
-// SMSpp_insert_in_factory_cpp_0_t(
-//             MCFLemonSolverNetworkSimplex< ListDigraph , int , int > );
+SMSpp_insert_in_factory_cpp_0_t(
+             MCFLemonSolverNetworkSimplex< ListDigraph , int , int > );
 
+SMSpp_insert_in_factory_cpp_0_t(
+             MCFLemonSolverNetworkSimplex< ListDigraph , double , double > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+             MCFLemonSolverNetworkSimplex< ListDigraph , long , long > );
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph, int, int> );
@@ -59,8 +64,14 @@ SMSpp_insert_in_factory_cpp_0_t(
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCycleCanceling< SmartDigraph , long , long > );
 
-// SMSpp_insert_in_factory_cpp_0_t(
-//             MCFLemonSolverCycleCanceling< ListDigraph, int, int> );
+SMSpp_insert_in_factory_cpp_0_t(
+             MCFLemonSolverCycleCanceling< ListDigraph, int, int> );
+
+SMSpp_insert_in_factory_cpp_0_t(
+             MCFLemonSolverCycleCanceling< ListDigraph, double, double> );
+
+SMSpp_insert_in_factory_cpp_0_t(
+             MCFLemonSolverCycleCanceling< ListDigraph, long, long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCostScaling< SmartDigraph , int , int > );  
@@ -71,8 +82,14 @@ SMSpp_insert_in_factory_cpp_0_t(
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCostScaling< SmartDigraph , double , double > );   
 
-// SMSpp_insert_in_factory_cpp_0_t(
-//             MCFLemonSolverCostScaling< ListDigraph , int , int > );
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCostScaling< ListDigraph , int , int > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCostScaling< ListDigraph , double , double > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCostScaling< ListDigraph , long , long > );
         
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCapacityScaling< SmartDigraph , int , int > );
@@ -89,11 +106,20 @@ SMSpp_insert_in_factory_cpp_0_t(
 SMSpp_insert_in_factory_cpp_0_t(
             MCFLemonSolverCapacityScaling< SmartDigraph , long , double > );
 
-// SMSpp_insert_in_factory_cpp_0_t(
-//             MCFLemonSolverCapacityScaling< ListDigraph , int , int > );
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< ListDigraph , int , int > );
 
-// SMSpp_insert_in_factory_cpp_0_t(
-//             MCFLemonSolverCapacityScaling< ListDigraph , int , double > );
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< ListDigraph , double , double > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< ListDigraph , long , long > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< ListDigraph , int , double > );
+
+SMSpp_insert_in_factory_cpp_0_t(
+            MCFLemonSolverCapacityScaling< ListDigraph , long , double > );
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of MCFLemonSolver ------------------------*/
@@ -227,7 +253,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   if( ! ProbFile.is_open() )
    throw( std::logic_error( "cannot open DMX file " + f_dmx_file ) );
 
-  writeDimacsMat( ProbFile , *dgp );
+ // writeDimacsMat( ProbFile , *dgp );
   ProbFile.close();
   }
 
