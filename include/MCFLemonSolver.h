@@ -269,6 +269,8 @@ class MCFLemonSolver : public CDASolver
 
  static constexpr int kErrorStatus = -1;
 
+
+
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PUBLIC METHODS --------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -292,6 +294,45 @@ class MCFLemonSolver : public CDASolver
   * right time that eed be implemented in specialised classe. */
 
  int compute( bool changedvars = true ) override;
+
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+      /// @brief used for obtain default value of a string parameter
+      /// @param par
+      /// @return default valule of parameter par, if exists
+    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
+        const override
+    {
+      if(par > strLastParLEMON){
+        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
+      }
+      static const std::string _empty;
+      if (par == strLastParLEMON)
+        return (_empty);
+
+      return (CDASolver::get_dflt_str_par(par));
+    }
+        
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+    /// @brief used for get the value of string parameters
+    /// @param par 
+    /// @return value of parameter indexed by par
+    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {       
+      if( par == strDMXFile )
+      return( this->f_dmx_file );
+
+      return( get_dflt_str_par( par ) );
+      }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+    /// @return number of str algorithimc parameters 
+    [[nodiscard]] idx_type get_num_str_par(void) const override
+    {
+      return (strLastParLEMON);
+    }
+    
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
@@ -448,6 +489,8 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*--------------------------------------------------------------------------*/
 
  virtual void guts_of_compute( void ) = 0;
+
+ 
 
 /*--------------------------------------------------------------------------*/
 
@@ -649,14 +692,7 @@ class MCFLemonSolverNetworkSimplex :
   return (dblLastParLEMON_NS);
  }
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// MOVE THIS INTO BASE CLASS
- /// @return number of str algorithimc parameters 
-    [[nodiscard]] idx_type get_num_str_par(void) const override
-    {
-      return (strLastParLEMON);
-    }
-    
+
 /*--------------------------------------------------------------------------*/
  /// @brief used for obtain default value of an int parameter
  /// @param par 
@@ -689,35 +725,6 @@ class MCFLemonSolverNetworkSimplex :
     }
  */
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// MOVE THIS TO BASE CLASS
- /// @brief used for obtain default value of a string parameter
- /// @param par
- /// @return default valule of parameter par, if exists
-    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
-        const override
-    {
-      if(par > strLastParLEMON){
-        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
-      }
-      static const std::string _empty;
-      if (par == strLastParLEMON)
-        return (_empty);
-
-      return (CDASolver::get_dflt_str_par(par));
-    }
-        
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-// MOVE THIS TO BASE CLASS
- /// @brief used for get the value of string parameters
- /// @param par 
- /// @return value of parameter indexed by par
- [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {       
-  if( par == strDMXFile )
-   return( this->f_dmx_file );
-
-  return( get_dflt_str_par( par ) );
-  }
 
 /*--------------------------------------------------------------------------*/
  /// @brief used for get the value of int parameters
@@ -1069,11 +1076,7 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
     
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
     
-    /// @return number of str algorithimc parameters 
-    [[nodiscard]] idx_type get_num_str_par(void) const override
-    {
-      return (strLastParLEMON);
-    }
+
     
     /*--------------------------------------------------------------------------*/
     
@@ -1108,25 +1111,6 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
       }
     }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for obtain default value of a string parameter
-    /// @param par
-    /// @return default valule of parameter par, if exists
-    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
-        const override
-    {
-
-       if(par > strLastParLEMON){
-        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
-      }
-
-      static const std::string _empty;
-      if (par == strLastParLEMON)
-        return (_empty);
-
-      return (CDASolver::get_dflt_str_par(par));
-    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -1152,21 +1136,7 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
     {
       //Da finire parametri algoritmici dbl
       return (get_dflt_dbl_par(par));
-    }
-    
-    
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-
-    /// @brief used for get the value of string parameters
-    /// @param par 
-    /// @return value of parameter indexed by par
-    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
-        
-      if( par == strDMXFile )
-        return( this->f_dmx_file );
-
-      return( get_dflt_str_par( par ) );
-    }
+    }    
    
 
     /*--------------------------------------------------------------------------*/
@@ -1534,13 +1504,6 @@ enum LEMON_CS_dbl_par_type{
         return(dblLastParLEMON_CS);
     }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @return number of str algorithimc parameters 
-    [[nodiscard]] idx_type get_num_str_par(void) const override
-    {
-      return (strLastParLEMON);
-    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -1574,25 +1537,6 @@ enum LEMON_CS_dbl_par_type{
        }
     }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for obtain default value of an string parameter
-    /// @param par 
-    /// @return default value of parameter par, if exists
-    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
-        const override
-    {
-
-      if(par > strLastParLEMON){
-        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
-      }
-
-      static const std::string _empty;
-      if (par == strLastParLEMON)
-        return (_empty);
-
-      return (CDASolver::get_dflt_str_par(par));
-    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -1615,21 +1559,7 @@ enum LEMON_CS_dbl_par_type{
       //No dbl parameters
       return (get_dflt_dbl_par(par));
     }
-        
-        
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief used for get the value of string parameters
-    /// @param par 
-    /// @return value of parameter indexed by par
-    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
-        
-        if( par == strDMXFile )
-        return( this->f_dmx_file );
-
-        return( get_dflt_str_par( par ) );
-        }
-   
+          
 
     /*--------------------------------------------------------------------------*/
 
@@ -1944,13 +1874,7 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
         return (dblLastParLEMON_CS);
     }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    ///@return number of str algorithmic parameters
-    [[nodiscard]] idx_type get_num_str_par(void) const override
-    {
-      return (strLastParLEMON);
-    }
+  
     
     /*--------------------------------------------------------------------------*/
     
@@ -1986,25 +1910,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
       }
     }
     
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
-    
-    /// @brief used for obtain default value of an string parameter
-    /// @param par 
-    /// @return default value of parameter par, if exists
-    [[nodiscard]] const std::string &get_dflt_str_par(idx_type par)
-        const override
-    {
-
-      if(par > strLastParLEMON){
-        throw std::invalid_argument("Invalid str parameter: out_of_range " + std::to_string(par));
-      }
-
-      static const std::string _empty;
-      if (par == strLastParLEMON)
-        return (_empty);
-
-      return (CDASolver::get_dflt_str_par(par));
-    }
     
     /*--------------------------------------------------------------------------*/
     
@@ -2029,19 +1934,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
     {
       return (get_dflt_dbl_par(par));
     }
-        
-    /*--------------------------------------------------------------------------*/
-    
-    /// @brief used for get the value of string parameters
-    /// @param par 
-    /// @return value of parameter indexed by par
-    [[nodiscard]] const std::string & get_str_par( idx_type par ) const override {
-        
-        if( par == strDMXFile )
-        return( this->f_dmx_file );
-
-        return( get_dflt_str_par( par ) );
-    }  
     
     
     /*--------------------------------------------------------------------------*/

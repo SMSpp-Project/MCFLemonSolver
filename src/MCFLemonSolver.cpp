@@ -127,8 +127,6 @@ SMSpp_insert_in_factory_cpp_0_t(
 
 
 
-
-
 template< template< typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::set_Block( Block * block )
@@ -252,8 +250,9 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   std::ofstream ProbFile( f_dmx_file , ios_base::out | ios_base::trunc );
   if( ! ProbFile.is_open() )
    throw( std::logic_error( "cannot open DMX file " + f_dmx_file ) );
-
- // writeDimacsMat( ProbFile , *dgp );
+  if constexpr (std::is_same<GR, SmartDigraph>::value){
+      writeDimacsMat(ProbFile, *dgp);
+  }
   ProbFile.close();
   }
 
