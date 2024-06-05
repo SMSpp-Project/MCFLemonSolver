@@ -254,6 +254,8 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
       writeDimacsMat(ProbFile, *dgp);
   }
   ProbFile.close();
+  }else{
+    throw(std::logic_error("ListDigraph doesn't support writeDimacsMat function"));
   }
 
  if( ! owned )             // if the [MCF]Block was actually read_locked
@@ -270,11 +272,9 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
         
  unlock();  // release self-lock
 
- // now give out the result: note that the vector MCFstatus_2_sol_type[]
- // starts from 0 whereas the first value of MCFStatus is -1 (= kUnSolved),
- // hence the returned status has to be shifted by + 1
- //return( LEMONstatus_2_sol_type[ this->get_status() ] );
- return Solver::kOK;
+ // now give out the result
+ return( LEMONstatus_2_sol_type[ this->get_status() ] );
+ //return Solver::kOK;
 
  }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )
 

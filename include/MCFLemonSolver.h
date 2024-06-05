@@ -409,15 +409,9 @@ class MCFLemonSolver : public CDASolver
 
 void get_var_direction(Configuration *dirc = nullptr) override
 {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 2))
-        return;
-
       throw(std::logic_error(
-          "MCFSolver::get_var_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnbCycl()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
+        "LEMONSolver:get_dual_direction() called"
+      ));
 }
 
 /*--------------------------------------------------------------------------*/
@@ -447,15 +441,9 @@ void get_var_direction(Configuration *dirc = nullptr) override
 
     void get_dual_direction(Configuration *dirc = nullptr) override
     {
-      auto tsolc = dynamic_cast<SimpleConfiguration<int> *>(dirc);
-      if (tsolc && (tsolc->f_value == 1))
-        return;
-
       throw(std::logic_error(
-          "MCFSolver::get_dual_direction() not implemented yet"));
-
-      // TODO: implement using MCFC::MCFGetUnfCut()
-      // anyway, unsure if any current :MCFClass properly implemente the latter
+        "LEMONSolver:get_dual_direction() called"
+      ));
     }
 
   
