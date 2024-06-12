@@ -539,6 +539,10 @@ void process_outstanding_Modification( void );
 
   GR * dgp;
 
+  bool cost_changed=false;
+  bool cap_changed=false;
+  bool supply_changed=false;
+
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
 
