@@ -8,18 +8,18 @@
 #   MCFLEMONSolver, excluding the SMS++ core ones whose symbols are assumed  #
 #   to have been defined already (typically by including SMS++/lib/makefile).#
 #   Accordingly, all necessary OBJ, H, -I directives, external libraries  +  #
-#   -L< libdirs > are added to the corresponding  MCFLE* macros              #
+#   -L< libdirs > are added to the corresponding MCFLE* macros               #
 #                                                                            #
 #   Input:  $(CC)       = compiler command                                   #
 #           $(SW)       = compiler options                                   #
 #           $(SMS++INC) = the -I$( core SMS++ directory )                    #
 #           $(SMS++OBJ) = the core SMS++ library                             #
-#           $(MCFLESDR) = the directory where MCFBlock / MCFSolver source is #
+#           $(MCFLESDR) = the directory where MCFLEMONSolver source is       #
 #                                                                            #
 #   Output: $(MCFLEOBJ) = the final object(s) / library                      #
 #           $(MCFLELIB) = external libraries + -L< libdirs >                 #
-#           $(MCFLEH)   = the .h files to include for MCFBlock / MCFSolver   #
-#           $(MCFLEINC) = the -I$( MCFBlock / MCFSolver directory )          #
+#           $(MCFLEH)   = the .h files to include for MCFLEMONSolver         #
+#           $(MCFLEINC) = the -I$( MCFLEMONSolver directory )                #
 #                                                                            #
 #                              Antonio Frangioni                             #
 #                         Dipartimento di Informatica                        #
@@ -43,14 +43,11 @@ include $(MCFBkSDR)/makefile-s
 include $(MCFLESDR)/makefile
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# append other *INC to MCFLEINC, *OBJ to MCFLEOBJ, and *H to MCFLEH as
+# defined by the makefile, thus the := assignment has to be used
 
-# append external -I directives to MCFLEINC, MCFLEOBJ and MCFLEH as defined
-# by the makefile, thus the := assignment has to be used (use GNU make)
 MCFLEOBJ := $(MCFLEOBJ) $(MCFBkOBJ) $(SMS++OBJ)
 MCFLEINC := $(MCFLEINC) $(SMS++INC) $(MCFBkINC)
-
-# external libraries for MCFLEMONSolver
-MCFLELIB = $(SMS++LIB) $(MCFBkLIB) \
-	 -L$(MCFLESDR)/lemon-development/lib/lemon/lib -llemon
+MCFLELIB := $(MCFLELIB) $(MCFBkLIB) $(SMS++LIB)
 
 ########################### End of makefile-s ################################

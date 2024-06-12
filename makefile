@@ -28,6 +28,7 @@
 #   Output: $(MCFLEOBJ)    = the final object(s) / library                   #
 #           $(MCFLEH)      = the .h files to include                         #
 #           $(MCFLEINC)    = the -I$( source directory )                     #
+#           $(MCFLELIB)    = external libraries + -L< libdirs >              #
 #                                                                            #
 #                              Antonio Frangioni                             #
 #                         Dipartimento di Informatica                        #
@@ -43,6 +44,8 @@ MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
+
+MCFLELIB = -L$(MCFLESDR)/lemon-development/lib/lib -llemon
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

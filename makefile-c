@@ -11,8 +11,7 @@
 #                                                                            #
 #   Input:  $(CC)       = compiler command                                   #
 #           $(SW)       = compiler options                                   #
-#           $(MCFLESDR) = the directory where the MCFBlock / MCFSolver       #
-#                         source is                                          #
+#           $(MCFLESDR) = the directory where the MCFLEMONSolver source is   #
 #                                                                            #
 #   Output: $(MCFLEOBJ) = the final object(s) / library                      #
 #           $(MCFLELIB) = external libraries + -L< libdirs >                 #
@@ -45,14 +44,11 @@ include $(MCFBkSDR)/makefile-s
 include $(MCFLESDR)/makefile
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# append other *INC to MCFLEINC, *OBJ to MCFLEOBJ, and *H to MCFLEH as
+# defined by the makefile, thus the := assignment has to be used
 
-# append external -I directives to MCFLEINC, MCFLEOBJ and MCFLEH as defined
-# by the makefile, thus the := assignment has to be used (use GNU make)
 MCFLEOBJ := $(SMS++OBJ) $(MCFLEOBJ) $(MCFBkOBJ)
 MCFLEINC := $(SMS++INC) $(MCFBkINC) $(MCFLEINC)
-
-# external libraries for MCFLEMONSolver
-MCFLELIB = $(SMS++LIB) $(MCFBkLIB) \
-	 -L$(MCFLESDR)/lemon-development/lib/lib -llemon
+MCFLELIB := $(MCFLELIB) $(MCFBkLIB) $(SMS++LIB)
 
 ############################ End of makefile #################################
