@@ -409,30 +409,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           }
           else
           {
-            // if (std::any_of(cm->begin(),
-            //                 cm->end(),
-            //                 [&](const auto& kv)
-            //                 { return ((kv.first >= rng.first && kv.first < rng.second) && dgp->valid(dgp->nodeFromId(kv.first))); }))
-            // {
-            //   //TODO: change MCFC function to Algo function.
-            //   //A way is iterate over ArcMap representing the cost and change values of key i : rng_first <= i <= rng.second
-            //   //MCFC::ChgCosts(NCost.data(), nullptr, rng.first, rng.second);
-            //   for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-            //     if(dgp->valid(dgp->nodeFromId(i))){
-            //       cm->set(dgp->arcFromId(i), MCFB->get_C(i));
-            //     }
-            //   }
-            // }
-            // else
-            //   //TODO: change MCFC function to Algo function.
-            //   //A way is iterate over ArcMap representing the cost and change values of key i : rng_first <= i <= rng.second
-            //   //MCFC::ChgCosts(MCFB->get_C().data() + rng.first, nullptr,
-            //   //              rng.first, rng.second);
-
-            //   for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-            //       cm->set(dgp->arcFromId(i), MCFB->get_C(i));
-            //   }
-
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
                   cm->set(dgp->arcFromId(i), MCFB->get_C(i));
             
