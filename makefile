@@ -19,6 +19,10 @@
 #                                                                            #
 #   Input:  $(CC)          = compiler command                                #
 #           $(SW)          = compiler options                                #
+#           $(SMS++INC)    = the -I$( core SMS++ directory )                 #
+#           $(SMS++OBJ)    = the core SMS++ library                          #
+#           $(MCFBkOBJ)    = the object(s) / library for MCFBlock            #
+#           $(MCFBkINC)    = the -I$( source directory ) for MCFBlock        #
 #           $(MCFLESDR)    = the directory where the source is               #
 #                                                                            #
 #   Output: $(MCFLEOBJ)    = the final object(s) / library                   #
@@ -48,8 +52,8 @@ clean::
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
 
 $(MCFLESDR)/obj/MCFLemonSolver.o: $(MCFLESDR)/src/MCFLemonSolver.cpp \
-	$(MCFLEH)
+	$(MCFLEH) $(SMS++OBJ) $(MCFBkOBJ) 
 	$(CC) -c $(MCFLESDR)/src/MCFLemonSolver.cpp -o $@ $(SW) \
-	$(MCFLEINC) 
+	$(SMS++INC) $(MCFBkINC) $(MCFLEINC) 
 
 ########################## End of makefile ###################################
