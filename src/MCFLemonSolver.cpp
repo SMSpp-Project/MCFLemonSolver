@@ -482,11 +482,12 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           //                         MCFB->get_EN(rng.first),
           //                         MCFB->get_U(rng.first),
           //                         std::isnan(ca) ? 0 : ca);
-          if(static_cast<MCFListDigraph*>(dgp)->first_free_arc == static_cast<int>(rng.first)){
-            while(!first_free_arcs->empty()) first_free_arcs->pop();
-          }else if(!first_free_arcs->empty()){
-            static_cast<MCFListDigraph*>(dgp)->first_free_arc = first_free_arcs->front();
-            first_free_arcs->pop();
+          if(static_cast<MCFListDigraph*>(dgp)->first_free_arc != static_cast<int>(rng.first)){
+            if(!first_free_arcs->empty()){
+            int ffa = *first_free_arcs->begin();
+            static_cast<MCFListDigraph*>(dgp)->first_free_arc = ffa;
+            first_free_arcs->erase(ffa);
+            }
           }
           auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());
           cm->set(arc , ca);
@@ -495,6 +496,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           cap_changed = true;
           if (arc != dgp->arcFromId(rng.first))
             throw(std::logic_error("name mismatch in AddArc()"));
+
+          first_free_arcs->erase(rng.first);
           return;
         }
 
@@ -502,7 +505,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           //TODO: change MCFC function to Algo function.
           // MCFC::DelArc(rng.second - 1);
           dgp->erase(dgp->arcFromId(rng.second - 1));
-          first_free_arcs->push(rng.second - 1);
+          first_free_arcs->insert(rng.second - 1);
           
           return;
 

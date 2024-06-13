@@ -58,7 +58,7 @@
 
 #include <type_traits>
 
-#include <queue>
+#include <set>
 
 
 /*--------------------------------------------------------------------------*/
@@ -534,7 +534,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::queue<int>(); }
+ void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -602,7 +602,7 @@ void process_outstanding_Modification( void );
   MCFNodeMapV *bm;
   //NodeMap that contains the supply values of each node;
 
-  std::queue<int> * first_free_arcs;
+  std::set<int> * first_free_arcs;
  
 /*--------------------------------------------------------------------------*/
 
