@@ -58,6 +58,8 @@
 
 #include <type_traits>
 
+#include <queue>
+
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -124,6 +126,30 @@ namespace SMSpp_di_unipi_it
  * [SMSpp]CostScaling, CycleCanceling, and NetworkSimplex.
  *
  *  @{ */
+
+class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
+  public:
+  MCFListDigraph() : lemon::ListDigraph() {}
+  ~MCFListDigraph() = default;
+
+  void setFirstFreeArc(int value){
+    first_free_arc = value;
+  }
+
+  int getFirstFreeArc(){
+    return first_free_arc;
+  }
+
+  using ListDigraphBase::first_free_arc;
+  using ListDigraphBase::Node;
+  using ListDigraphBase::Arc;
+  using concepts::Digraph::NodeIt;
+  using concepts::Digraph::ArcIt;
+  using concepts::Digraph::InArcIt;
+  using concepts::Digraph::OutArcIt;
+  using concepts::Digraph::NodeMap;
+  using concepts::Digraph::ArcMap;
+};
 
  /// concept for "one of the LEMON graphs"
    template< typename Type >
@@ -508,7 +534,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; }
+ void guts_of_constructor( void ) {  f_algo = nullptr;}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -517,6 +543,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*--------------------------------------------------------------------------*/
 
  virtual void guts_of_compute( void ) = 0;
+ 
  void guts_of_poM(c_p_Mod mod);
 
  void guts_of_set_Block(MCFBlock *MCFB);
@@ -534,14 +561,15 @@ void process_outstanding_Modification( void );
   std::string f_dmx_file; 
   ///< string for DMX file output
 
-  ThisAlgo * f_algo;
+  Algo<GR, V, C> * f_algo;
   int status = UNSOLVED;
 
   GR * dgp;
-
+  
   bool cost_changed=false;
   bool cap_changed=false;
   bool supply_changed=false;
+  
 
   /**< represents the directed graph implemented by two classes by Lemon
    * (ListDigraph and SmartDigraph) */
@@ -573,6 +601,8 @@ void process_outstanding_Modification( void );
 
   MCFNodeMapV *bm;
   //NodeMap that contains the supply values of each node;
+
+  std::queue<int> * first_free_arcs;
  
 /*--------------------------------------------------------------------------*/
 
@@ -645,7 +675,7 @@ class MCFLemonSolverNetworkSimplex :
  using BaseClass::LEMON_sol_type::UNSOLVED;
 
  using typename BaseClass::ThisAlgo;
- using NSPivotRule = typename ThisAlgo::PivotRule;
+ using NSPivotRule = typename NetworkSimplex<GR, V, C>::PivotRule;
 
 /*--------------------------------------------------------------------------*/
 // enums for handling the extra parameters
@@ -1291,7 +1321,7 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
     CCMethod f_method;
 
     int status = UNSOLVED;  //Variable used in compute function for getting status
-    typename CycleCanceling< GR , int , int >::ProblemType status_2_pType;
+    typename CycleCanceling< Digraph, int , int >::ProblemType status_2_pType;
     //Status of compute() method
     double ticks;  //Elaped time in ticks for compute() method
     /*--------------------------------------------------------------------------*/

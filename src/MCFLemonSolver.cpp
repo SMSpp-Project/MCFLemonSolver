@@ -134,8 +134,14 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB){
  delete f_algo;
  f_algo = nullptr;
  // create and clear new Graph (ListDigraph or SmartDigraph)
- dgp = new GR;
+if constexpr (std::is_same<GR, ListDigraph>::value){
+  dgp = new MCFListDigraph();
+  dgp = static_cast<MCFListDigraph*>(dgp);
+}else{
+  dgp = new GR;
+}
  dgp->clear();
+
 
 
 //  auto MCFB = static_cast<MCFBlock *>(f_block);
@@ -164,6 +170,7 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB){
 
  // new instance of Lemon Algorithm
  f_algo = new Algo< GR , V, C >(  *dgp );
+  
  // Algo<GR, V, C> * algo = f_algo->reset();
  // defining names for types for readability
  using MCFArcMapV = typename GR::template ArcMap< V >;
@@ -477,6 +484,10 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           //                         MCFB->get_U(rng.first),
           //                         std::isnan(ca) ? 0 : ca);
 
+          if(!first_free_arcs->empty()){
+            dgp->setFirstFreeArc(first_free_arcs->front());
+            first_free_arcs->pop();
+          }
           auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());
           cm->set(arc , ca);
           um->set(arc, MCFB->get_U(rng.first));
@@ -491,6 +502,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           //TODO: change MCFC function to Algo function.
           // MCFC::DelArc(rng.second - 1);
           dgp->erase(dgp->arcFromId(rng.second - 1));
+          first_free_arcs->push(rng.second - 1);
           
           return;
 
