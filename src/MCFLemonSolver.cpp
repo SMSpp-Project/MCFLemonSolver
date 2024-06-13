@@ -136,7 +136,6 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB){
  // create and clear new Graph (ListDigraph or SmartDigraph)
 if constexpr (std::is_same<GR, ListDigraph>::value){
   dgp = new MCFListDigraph();
-  dgp = static_cast<MCFListDigraph*>(dgp);
 }else{
   dgp = new GR;
 }
@@ -483,9 +482,10 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           //                         MCFB->get_EN(rng.first),
           //                         MCFB->get_U(rng.first),
           //                         std::isnan(ca) ? 0 : ca);
-
-          if(!first_free_arcs->empty()){
-            dgp->setFirstFreeArc(first_free_arcs->front());
+          if(static_cast<MCFListDigraph*>(dgp)->first_free_arc == static_cast<int>(rng.first)){
+            while(!first_free_arcs->empty()) first_free_arcs->pop();
+          }else if(!first_free_arcs->empty()){
+            static_cast<MCFListDigraph*>(dgp)->first_free_arc = first_free_arcs->front();
             first_free_arcs->pop();
           }
           auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());

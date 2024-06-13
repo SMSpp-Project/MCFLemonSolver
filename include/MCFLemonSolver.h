@@ -129,7 +129,7 @@ namespace SMSpp_di_unipi_it
 
 class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
   public:
-  MCFListDigraph() : lemon::ListDigraph() {}
+  MCFListDigraph() : lemon::ListDigraph() { }
   ~MCFListDigraph() = default;
 
   void setFirstFreeArc(int value){
@@ -534,11 +534,11 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr;}
+ void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::queue<int>(); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; delete dgp; }
+ void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs;}
 
 /*--------------------------------------------------------------------------*/
 
