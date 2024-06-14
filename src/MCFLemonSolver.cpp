@@ -402,25 +402,42 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           {
             
             //Questo controllo può essere sostituito dalla funzione valid di ListDigraph
-            if (dgp->valid(dgp->arcFromId(rng.first))){
+            if ( dgp->valid(dgp->arcFromId(rng.first)) ){
                //TODO: change MCFC function to Algo function.
               //If arc is not deleted, then change cost
               //Create reference to the ArcMap that represents the cost and change its value
               //MCFC::ChgCost(rng.first, MCFB->get_C(rng.first));
               cm->set( dgp->arcFromId(rng.first), MCFB->get_C(rng.first));
               cost_changed = true;
-            }
-             
-              
-          }
-          else
-          {
-            for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                  cm->set(dgp->arcFromId(i), MCFB->get_C(i));
+            }else {
+                for(MCFBlock::Index i = rng.first; i < rng.second; i++){
+                      if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first)))){
+                      cm->set(dgp->arcFromId(i), MCFB->get_C(i));
+                      cost_changed = true;                    
+                      }else if(std::isnan(MCFB->get_C(rng.first))){
+                        cm->set(dgp->arcFromId(i), 0);
+                        cost_changed = true;
+                       }
+          
+                }
             
               }
-            cost_changed = true;
+             
+              
+          }else{
+            for(MCFBlock::Index i = rng.first; i < rng.second; i++){
+              if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first)))){
+              cm->set(dgp->arcFromId(i), MCFB->get_C(i));
+              cost_changed = true;
+
+              }else if(std::isnan(MCFB->get_C(rng.first))){
+                cm->set(dgp->arcFromId(i), 0);
+                cost_changed = true;
+
+               }
+            }
           }
+          
 
           
           return;
@@ -428,36 +445,34 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         case (MCFBlockMod::eChgCaps):
           if (rng.second == rng.first + 1)
           {
-            if (dgp->valid(dgp->arcFromId(rng.first)))
+            if (dgp->valid(dgp->arcFromId(rng.first))){
               um->set(dgp->arcFromId(rng.first), MCFB->get_U(rng.first));
               cap_changed = true;
+            }
           }
           else{
-            //MCFC::ChgUCaps(MCFB->get_U().data() + rng.first, nullptr,
-            //              rng.first, rng.second);
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                  um->set(dgp->arcFromId(i), MCFB->get_U(i));
+                um->set(dgp->arcFromId(i), MCFB->get_U(i));
+                cap_changed = true;
               }
-            cap_changed = true;
+            
           }
 
           return;
 
         case (MCFBlockMod::eChgDfct):
-          if (rng.second == rng.first + 1){
-            //MCFC::ChgDfct(rng.first, MCFB->get_B(rng.first));
+          if (rng.second == rng.first + 1){           
             bm->set(dgp->nodeFromId(rng.first), -MCFB->get_B(rng.first));
             supply_changed = true;
+            
+           
           }
 
           else{
-            //MCFC::ChgDfcts(MCFB->get_B().data() + rng.first, nullptr,
-                          // rng.first, rng.second);
-
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                  bm->set(dgp->nodeFromId(i), -MCFB->get_B(i));
-              }
-            supply_changed = true;
+              bm->set(dgp->nodeFromId(i), -MCFB->get_B(i));
+               supply_changed = true;
+            }
           }
           return;
         //TODO: change MCFC function to Algo function.
@@ -478,6 +493,9 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         case (MCFBlockMod::eAddArc):
         {
           auto ca = MCFB->get_C(rng.first);
+          if(std::isnan(ca)){
+            break;
+          }
           // auto arc = MCFC::AddArc(MCFB->get_SN(rng.first),
           //                         MCFB->get_EN(rng.first),
           //                         MCFB->get_U(rng.first),
@@ -490,7 +508,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             }
           }
           auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());
-          cm->set(arc , ca);
+          cm->set(arc , std::isnan(ca) ? 0 : ca);
           um->set(arc, MCFB->get_U(rng.first));
           cost_changed = true;
           cap_changed = true;
@@ -551,15 +569,16 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           // MCFBlock::Vec_CNumber NCost;
           // NCost.reserve(tmod->nms().size());
           for (auto i : tmod->nms())
-            if (dgp->valid(dgp->arcFromId(i)))
+            if (!(std::isnan(MCFB->get_C(i)))) 
             {
               auto arc = dgp->arcFromId(i);
               // NCost.push_back(ci);
               // nmsI.push_back(i);
               cm->set(arc, MCFB->get_C(i));
+              cost_changed = true;
 
             }
-          cost_changed = true;
+          
 
             //f_algo->costMap(*cm);
           //nmsI.push_back(Inf<MCFBlock::Index>());
@@ -596,10 +615,12 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           *copy(tmod->nms().begin(), tmod->nms().end(), nmsI.begin()) =
               Inf<MCFBlock::Index>();
           auto B = MCFB->get_B();
-          for (MCFBlock::Index i = 0; i < NDfct.size(); i++)
+          for (MCFBlock::Index i = 0; i < NDfct.size(); i++){
+            bm->set(dgp->nodeFromId(i), -B[nmsI[i]]);
+            supply_changed = true;
+          }
             // NDfct[i] = B[nmsI[i]];
-            bm->set(dgp->nodeFromId(i), B[nmsI[i]]);
-          supply_changed = true;
+
           //MCFC::ChgDfcts(NDfct.data(), nmsI.data());
           return;
         }
