@@ -507,6 +507,10 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             first_free_arcs->erase(ffa);
             }
           }
+
+          static_cast<MCFListDigraph*>(dgp)->first_free_arc = static_cast<int>(rng.first);
+          
+          
           auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());
           cm->set(arc , std::isnan(ca) ? 0 : ca);
           um->set(arc, MCFB->get_U(rng.first));
@@ -522,6 +526,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         case (MCFBlockMod::eRmvArc):
           //TODO: change MCFC function to Algo function.
           // MCFC::DelArc(rng.second - 1);
+          if(!dgp->valid(dgp->arcFromId(rng.second - 1))) return;
           dgp->erase(dgp->arcFromId(rng.second - 1));
           first_free_arcs->insert(rng.second - 1);
           
