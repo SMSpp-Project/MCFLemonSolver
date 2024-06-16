@@ -1,0 +1,29 @@
+\hypertarget{group__matching}{}\doxysection{Matching Algorithms}
+\label{group__matching}\index{Matching Algorithms@{Matching Algorithms}}
+Algorithms for finding matchings in graphs and bipartite graphs. 
+
+This group contains the algorithms for calculating matchings in graphs and bipartite graphs. The general matching problem is finding a subset of the edges for which each node has at most one incident edge.
+
+There are several different algorithms for calculate matchings in graphs. The matching problems in bipartite graphs are generally easier than in general graphs. The goal of the matching optimization can be finding maximum cardinality, maximum weight or minimum cost matching. The search can be constrained to find perfect or maximum cardinality matching.
+
+The matching algorithms implemented in LEMON\+:
+\begin{DoxyItemize}
+\item Max\+Bipartite\+Matching Hopcroft-\/\+Karp augmenting path algorithm for calculating maximum cardinality matching in bipartite graphs.
+\item Pr\+Bipartite\+Matching Push-\/relabel algorithm for calculating maximum cardinality matching in bipartite graphs.
+\item Max\+Weighted\+Bipartite\+Matching Successive shortest path algorithm for calculating maximum weighted matching and maximum weighted bipartite matching in bipartite graphs.
+\item Min\+Cost\+Max\+Bipartite\+Matching Successive shortest path algorithm for calculating minimum cost maximum matching in bipartite graphs.
+\item Max\+Matching Edmond\textquotesingle{}s blossom shrinking algorithm for calculating maximum cardinality matching in general graphs.
+\item Max\+Weighted\+Matching Edmond\textquotesingle{}s blossom shrinking algorithm for calculating maximum weighted matching in general graphs.
+\item Max\+Weighted\+Perfect\+Matching Edmond\textquotesingle{}s blossom shrinking algorithm for calculating maximum weighted perfect matching in general graphs.
+\item Max\+Fractional\+Matching Push-\/relabel algorithm for calculating maximum cardinality fractional matching in general graphs.
+\item Max\+Weighted\+Fractional\+Matching Augmenting path algorithm for calculating maximum weighted fractional matching in general graphs.
+\item Max\+Weighted\+Perfect\+Fractional\+Matching Augmenting path algorithm for calculating maximum weighted perfect fractional matching in general graphs.
+\end{DoxyItemize}
+
+ 
+\begin{DoxyImage}
+\includegraphics[width=\textwidth]{matching}
+\doxyfigcaption{Min Cost Perfect Matching}
+\end{DoxyImage}
+ Collaboration diagram for Matching Algorithms\+:
+% FIG 0

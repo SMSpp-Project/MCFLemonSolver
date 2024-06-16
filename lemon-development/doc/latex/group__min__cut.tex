@@ -1,0 +1,21 @@
+\hypertarget{group__min__cut}{}\doxysection{Minimum Cut Algorithms}
+\label{group__min__cut}\index{Minimum Cut Algorithms@{Minimum Cut Algorithms}}
+Algorithms for finding minimum cut in graphs. 
+
+This group contains the algorithms for finding minimum cut in graphs.
+
+The {\itshape minimum} {\itshape cut} {\itshape problem} is to find a non-\/empty and non-\/complete $X$ subset of the nodes with minimum overall capacity on outgoing arcs. Formally, there is a $G=(V,A)$ digraph, a $cap: A\rightarrow\mathbf{R}^+_0$ capacity function. The minimum cut is the $X$ solution of the next optimization problem\+:
+
+\[ \min_{X \subset V, X\not\in \{\emptyset, V\}} \sum_{uv\in A: u\in X, v\not\in X}cap(uv) \]
+
+LEMON contains several algorithms related to minimum cut problems\+:
+
+
+\begin{DoxyItemize}
+\item Hao-\/\+Orlin algorithm for calculating minimum cut in directed graphs.
+\item Nagamochi-\/\+Ibaraki algorithm for calculating minimum cut in undirected graphs.
+\item Gomory-\/\+Hu tree computation for calculating all-\/pairs minimum cut in undirected graphs.
+\end{DoxyItemize}
+
+If you want to find minimum cut just between two distinict nodes, see the \mbox{\hyperlink{group__max__flow}{maximum flow problem}}. Collaboration diagram for Minimum Cut Algorithms\+:
+% FIG 0

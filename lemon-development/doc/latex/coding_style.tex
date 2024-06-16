@@ -1,0 +1,107 @@
+\hypertarget{coding_style_naming_conv}{}\doxysection{Naming Conventions}\label{coding_style_naming_conv}
+In order to make development easier we have made some conventions according to coding style. These include names of types, classes, functions, variables, constants and exceptions. If these conventions are met in one\textquotesingle{}s code then it is easier to read and maintain it. Please comply with these conventions if you want to contribute developing LEMON library.
+
+\begin{DoxyNote}{Note}
+When the coding style requires the capitalization of an abbreviation, only the first letter should be upper case.
+\end{DoxyNote}
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{XmlReader}
+
+\end{DoxyCode}
+
+
+\begin{DoxyWarning}{Warning}
+In some cases we diverge from these rules. This is primary done because STL uses different naming convention and in certain cases it is beneficial to provide STL compatible interface.
+\end{DoxyWarning}
+\hypertarget{coding_style_cs-files}{}\doxysubsection{File Names}\label{coding_style_cs-files}
+The header file names should look like the following.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{header\_file.h}
+
+\end{DoxyCode}
+
+
+Note that all standard LEMON headers are located in the {\ttfamily lemon} subdirectory, so you should include them from C++ source like this\+:
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{preprocessor}{\#include <lemon/header\_file.h>}}
+
+\end{DoxyCode}
+
+
+The source code files use the same style and they have \textquotesingle{}.cc\textquotesingle{} extension.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{source\_code.cc}
+
+\end{DoxyCode}
+\hypertarget{coding_style_cs-class}{}\doxysubsection{Classes and other types}\label{coding_style_cs-class}
+The name of a class or any type should look like the following.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{AllWordsCapitalizedWithoutUnderscores}
+
+\end{DoxyCode}
+\hypertarget{coding_style_cs-func}{}\doxysubsection{Methods and other functions}\label{coding_style_cs-func}
+The name of a function should look like the following.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{firstWordLowerCaseRestCapitalizedWithoutUnderscores}
+
+\end{DoxyCode}
+\hypertarget{coding_style_cs-funcs}{}\doxysubsection{Constants, Macros}\label{coding_style_cs-funcs}
+The names of constants and macros should look like the following.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{ALL\_UPPER\_CASE\_WITH\_UNDERSCORES}
+
+\end{DoxyCode}
+\hypertarget{coding_style_cs-loc-var}{}\doxysubsection{Class and instance member variables, auto variables}\label{coding_style_cs-loc-var}
+The names of class and instance member variables and auto variables (=variables used locally in methods) should look like the following.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{all\_lower\_case\_with\_underscores}
+
+\end{DoxyCode}
+\hypertarget{coding_style_pri-loc-var}{}\doxysubsection{Private member variables}\label{coding_style_pri-loc-var}
+Private member variables should start with underscore.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\_start\_with\_underscore}
+
+\end{DoxyCode}
+\hypertarget{coding_style_cs-excep}{}\doxysubsection{Exceptions}\label{coding_style_cs-excep}
+When writing exceptions please comply the following naming conventions.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{ClassNameEndsWithException}
+
+\end{DoxyCode}
+
+
+or
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{ClassNameEndsWithError}
+
+\end{DoxyCode}
+\hypertarget{coding_style_header-template}{}\doxysection{Template Header File}\label{coding_style_header-template}
+Each LEMON header file should look like this\+:
+
+
+\begin{DoxyCodeInclude}{0}
+
+\end{DoxyCodeInclude}
+ 

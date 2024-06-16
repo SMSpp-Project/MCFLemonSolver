@@ -1,0 +1,16 @@
+\hypertarget{group__graph__isomorphism}{}\doxysection{Graph Isomorphism}
+\label{group__graph__isomorphism}\index{Graph Isomorphism@{Graph Isomorphism}}
+Algorithms for testing (sub)graph isomorphism. 
+
+This group contains algorithms for finding isomorph copies of a given graph in another one, or simply check whether two graphs are isomorphic.
+
+The formal definition of subgraph isomorphism is as follows.
+
+We are given two graphs, $G_1=(V_1,E_1)$ and $G_2=(V_2,E_2)$. A function $f:V_1\longrightarrow V_2$ is called {\itshape mapping} or {\itshape embedding} if $f(u)\neq f(v)$ whenever $u\neq v$.
+
+The standard {\itshape Subgraph Isomorphism Problem (SIP)} looks for a mapping with the property that whenever $(u,v)\in E_1$, then $(f(u),f(v))\in E_2$.
+
+In case of {\itshape Induced Subgraph Isomorphism Problem (ISIP)} one also requires that if $(u,v)\not\in E_1$, then $(f(u),f(v))\not\in E_2$
+
+In addition, the graph nodes may be {\itshape labeled}, i.\+e. we are given two node labelings $l_1:V_1\longrightarrow L$ and $l_2:V_2\longrightarrow L$ and we require that $l_1(u)=l_2(f(u))$ holds for all nodes $u \in G_1$. Collaboration diagram for Graph Isomorphism\+:
+% FIG 0

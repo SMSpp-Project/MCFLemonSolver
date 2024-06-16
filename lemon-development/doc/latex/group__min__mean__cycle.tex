@@ -1,0 +1,19 @@
+\hypertarget{group__min__mean__cycle}{}\doxysection{Minimum Mean Cycle Algorithms}
+\label{group__min__mean__cycle}\index{Minimum Mean Cycle Algorithms@{Minimum Mean Cycle Algorithms}}
+Algorithms for finding minimum mean cycles. 
+
+This group contains the algorithms for finding minimum mean cycles {\bfseries [amo93networkflows]}, {\bfseries [karp78characterization]}.
+
+The {\itshape minimum} {\itshape mean} {\itshape cycle} {\itshape problem} is to find a directed cycle of minimum mean length (cost) in a digraph. The mean length of a cycle is the average length of its arcs, i.\+e. the ratio between the total length of the cycle and the number of arcs on it.
+
+This problem has an important connection to {\itshape conservative} {\itshape length} {\itshape functions}, too. A length function on the arcs of a digraph is called conservative if and only if there is no directed cycle of negative total length. For an arbitrary length function, the negative of the minimum cycle mean is the smallest $\epsilon$ value so that increasing the arc lengths uniformly by $\epsilon$ results in a conservative length function.
+
+LEMON contains three algorithms for solving the minimum mean cycle problem\+:
+\begin{DoxyItemize}
+\item Karp\+Mmc Karp\textquotesingle{}s original algorithm {\bfseries [karp78characterization]}.
+\item Hartmann\+Orlin\+Mmc Hartmann-\/\+Orlin\textquotesingle{}s algorithm, which is an improved version of Karp\textquotesingle{}s algorithm {\bfseries [hartmann93finding]}.
+\item Howard\+Mmc Howard\textquotesingle{}s policy iteration algorithm {\bfseries [dasdan98minmeancycle]}, {\bfseries [dasdan04experimental]}.
+\end{DoxyItemize}
+
+In practice, the Howard algorithm turned out to be by far the most efficient one, though the best known theoretical bound on its running time is exponential. Both Karp and Hartmann-\/\+Orlin algorithms run in time O(nm) and use space O(n\textsuperscript{2}+m). Collaboration diagram for Minimum Mean Cycle Algorithms\+:
+% FIG 0

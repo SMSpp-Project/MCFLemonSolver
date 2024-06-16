@@ -1,0 +1,35 @@
+digraph "Algorithms"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=box];
+  rankdir=LR;
+  Node12 [label="Planar Embedding and\l Drawing",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__planar.html",tooltip="Algorithms for planarity checking, embedding and drawing."];
+  Node7 [label="Minimum Cut Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__min__cut.html",tooltip="Algorithms for finding minimum cut in graphs."];
+  Node2 [label="Graph Search",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__search.html",tooltip="Common graph search algorithms."];
+  Node8 [label="Minimum Mean Cycle\l Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__min__mean__cycle.html",tooltip="Algorithms for finding minimum mean cycles."];
+  Node13 [label="Traveling Salesman\l Problem",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__tsp.html",tooltip="Algorithms for the symmetric traveling salesman problem."];
+  Node4 [label="Minimum Spanning Tree\l Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__spantree.html",tooltip="Algorithms for finding minimum cost spanning trees and arborescences."];
+  Node6 [label="Minimum Cost Flow Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__min__cost__flow__algs.html",tooltip="Algorithms for finding minimum cost flows and circulations."];
+  Node15 [label="Auxiliary Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__auxalg.html",tooltip="Auxiliary algorithms implemented in LEMON."];
+  Node9 [label="Matching Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__matching.html",tooltip="Algorithms for finding matchings in graphs and bipartite graphs."];
+  Node11 [label="Graph Isomorphism",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__graph__isomorphism.html",tooltip="Algorithms for testing (sub)graph isomorphism."];
+  Node3 [label="Shortest Path Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__shortest__path.html",tooltip="Algorithms for finding shortest paths."];
+  Node10 [label="Connectivity and Other\l Graph Properties",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__graph__properties.html",tooltip="Algorithms for discovering the graph properties."];
+  Node5 [label="Maximum Flow Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__max__flow.html",tooltip="Algorithms for finding maximum flows."];
+  Node14 [label="Approximation Algorithms",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__approx__algs.html",tooltip="Approximation algorithms."];
+  Node1 [label="Algorithms",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip="This group contains the several algorithms implemented in LEMON."];
+  Node1->Node2 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node3 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node4 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node5 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node6 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node7 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node8 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node9 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node10 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node11 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node12 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node13 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node14 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node15 [shape=plaintext, dir="back", style="solid"];
+}

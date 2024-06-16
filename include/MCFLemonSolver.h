@@ -60,6 +60,8 @@
 
 #include <set>
 
+#include <lemon/lgf_writer.h>
+
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -1301,6 +1303,7 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
     /*--------------------------------------------------------------------------*/
 
     std::string f_dmx_file; 
+    std::string f_LMN_file = "lmn.txt";
     // string for DMX file output
 
 

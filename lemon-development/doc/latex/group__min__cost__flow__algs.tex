@@ -1,0 +1,20 @@
+\hypertarget{group__min__cost__flow__algs}{}\doxysection{Minimum Cost Flow Algorithms}
+\label{group__min__cost__flow__algs}\index{Minimum Cost Flow Algorithms@{Minimum Cost Flow Algorithms}}
+Algorithms for finding minimum cost flows and circulations. 
+
+This group contains the algorithms for finding minimum cost flows and circulations {\bfseries [amo93networkflows]}. For more information about this problem and its dual solution, see\+: \mbox{\hyperlink{min_cost_flow}{Minimum Cost Flow Problem}}.
+
+LEMON contains several algorithms for this problem.
+\begin{DoxyItemize}
+\item Network\+Simplex Primal Network Simplex algorithm with various pivot strategies {\bfseries [dantzig63linearprog]}, {\bfseries [kellyoneill91netsimplex]}.
+\item Cost\+Scaling Cost Scaling algorithm based on push/augment and relabel operations {\bfseries [goldberg90approximation]}, {\bfseries [goldberg97efficient]}, {\bfseries [bunnagel98efficient]}.
+\item Capacity\+Scaling Capacity Scaling algorithm based on the successive shortest path method {\bfseries [edmondskarp72theoretical]}.
+\item Cycle\+Canceling Cycle-\/\+Canceling algorithms, two of which are strongly polynomial {\bfseries [klein67primal]}, {\bfseries [goldberg89cyclecanceling]}.
+\end{DoxyItemize}
+
+In general, Network\+Simplex and Cost\+Scaling are the most efficient implementations. Network\+Simplex is usually the fastest on relatively small graphs (up to several thousands of nodes) and on dense graphs, while Cost\+Scaling is typically more efficient on large graphs (e.\+g. hundreds of thousands of nodes or above), especially if they are sparse. However, other algorithms could be faster in special cases. For example, if the total supply and/or capacities are rather small, Capacity\+Scaling is usually the fastest algorithm (without effective scaling).
+
+These classes are intended to be used with integer-\/valued input data (capacities, supply values, and costs), except for Capacity\+Scaling, which is capable of handling real-\/valued arc costs (other numerical data are required to be integer).
+
+For more details about these implementations and for a comprehensive experimental study, see the paper {\bfseries [Kiraly\+Kovacs12\+MCF]}. It also compares these codes to other publicly available minimum cost flow solvers. Collaboration diagram for Minimum Cost Flow Algorithms\+:
+% FIG 0

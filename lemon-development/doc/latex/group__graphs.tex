@@ -1,0 +1,22 @@
+\hypertarget{group__graphs}{}\doxysection{Graph Structures}
+\label{group__graphs}\index{Graph Structures@{Graph Structures}}
+
+
+\doxysubsection{Detailed Description}
+Graph structures implemented in LEMON. 
+
+The implementation of combinatorial algorithms heavily relies on efficient graph implementations. LEMON offers data structures which are planned to be easily used in an experimental phase of implementation studies, and thereafter the program code can be made efficient by small modifications.
+
+The most efficient implementation of diverse applications require the usage of different physical graph implementations. These differences appear in the size of graph we require to handle, memory or time usage limitations or in the set of operations through which the graph can be accessed. LEMON provides several physical graph structures to meet the diverging requirements of the possible users. In order to save on running time or on memory usage, some structures may fail to provide some graph features like arc/edge or node deletion.
+
+Alteration of standard containers need a very limited number of operations, these together satisfy the everyday requirements. In the case of graph structures, different operations are needed which do not alter the physical graph, but gives another view. If some nodes or arcs have to be hidden or the reverse oriented graph have to be used, then this is the case. It also may happen that in a flow implementation the residual graph can be accessed by another algorithm, or a node-\/set is to be shrunk for another algorithm. LEMON also provides a variety of graphs for these requirements called \mbox{\hyperlink{group__graph__adaptors}{graph adaptors}}. Adaptors cannot be used alone but only in conjunction with other graph representations.
+
+You are free to use the graph structure that fit your requirements the best, most graph algorithms and auxiliary data structures can be used with any graph structure.
+
+{\bfseries{See also\+:}} \mbox{\hyperlink{group__graph__concepts}{Graph Structure Concepts}}. Collaboration diagram for Graph Structures\+:
+% FIG 0
+\doxysubsection*{Modules}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__graph__adaptors}{Adaptor Classes for Graphs}}
+\begin{DoxyCompactList}\small\item\em Adaptor classes for digraphs and graphs. \end{DoxyCompactList}\end{DoxyCompactItemize}

@@ -273,9 +273,22 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
       writeDimacsMat(ProbFile, *dgp);
   }
   ProbFile.close();
-  }else{
-   // throw(std::logic_error("ListDigraph doesn't support writeDimacsMat function"));
   }
+
+  // using Lemon Digraph Writer for debuggging
+  std::ofstream ProbFile( "lmn.txt", ios_base::out | ios_base::trunc );
+  if( ! ProbFile.is_open() ){
+    throw( std::logic_error("cannot open LMN file lmn.txt"));
+  }
+  DigraphWriter<GR>(*dgp, ProbFile).
+  nodeMap("supply", *bm).
+  arcMap("cost", *cm).
+  arcMap("upper", *um).
+  run();
+
+  ProbFile.close();
+   // throw(std::logic_error("ListDigraph doesn't support writeDimacsMat function"));
+  
 
  if( ! owned )             // if the [MCF]Block was actually read_locked
   f_Block->read_unlock();  // read_unlock it
@@ -309,7 +322,6 @@ if( supply_changed ){
 
  // now give out the result
  return( LEMONstatus_2_sol_type[ this->get_status() ] );
- //return Solver::kOK;
 
  }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )
 
@@ -524,14 +536,23 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         }
 
         case (MCFBlockMod::eRmvArc):
+        {
           //TODO: change MCFC function to Algo function.
           // MCFC::DelArc(rng.second - 1);
-          if(!dgp->valid(dgp->arcFromId(rng.second - 1))) return;
-          dgp->erase(dgp->arcFromId(rng.second - 1));
+          if(!dgp->valid(dgp->arcFromId(rng.second - 1))){
+            return;
+          } 
+          auto arc = dgp->arcFromId(rng.second - 1);
+
+          um->set(arc, -Inf<C>());
+          f_algo->upperMap(*um);
+          cap_changed = true;
+
+          dgp->erase(arc);
           first_free_arcs->insert(rng.second - 1);
           
           return;
-
+        }
         default:
           throw(std::invalid_argument("unknown MCFBlockRngdMod type"));
         }

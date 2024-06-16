@@ -1,0 +1,11 @@
+digraph "Concepts"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=box];
+  rankdir=LR;
+  Node2 [label="Graph Structure Concepts",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__graph__concepts.html",tooltip="Skeleton and concept checking classes for graph structures."];
+  Node3 [label="Map Concepts",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__map__concepts.html",tooltip="Skeleton and concept checking classes for maps."];
+  Node1 [label="Concepts",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip="Skeleton classes and concept checking classes."];
+  Node1->Node2 [shape=plaintext, dir="back", style="solid"];
+  Node1->Node3 [shape=plaintext, dir="back", style="solid"];
+}
