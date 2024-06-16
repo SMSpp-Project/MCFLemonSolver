@@ -131,6 +131,7 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB){
 
  //delete previous graph and f_algo (if present)
  //delete dgp;
+ MCFBs = MCFB;
  delete f_algo;
  f_algo = nullptr;
  // create and clear new Graph (ListDigraph or SmartDigraph)
@@ -143,20 +144,22 @@ if constexpr (std::is_same<GR, ListDigraph>::value){
 
 
 
-//  auto MCFB = static_cast<MCFBlock *>(f_block);
  // actually reserve get_MaxNNodes() node space in dgp
- dgp->reserveNode( MCFB->get_MaxNNodes() );
+ auto maxNNodes = MCFB->get_MaxNNodes();
+ dgp->reserveNode( maxNNodes );
  MCFBlock::Index n = MCFB->get_NNodes();
-
+ n_nodes = n;
  // add all the nodes, one by one (looks stupid you con't do all in one blow,
  // but who are we to say ...)
  for( MCFBlock::Index i = 0 ; i < n ; ++i )
   dgp->addNode();
 
  // reserve get_MaxNArcs() arcs space
- dgp->reserveArc( MCFB->get_MaxNArcs() );
+ auto maxNArcs = MCFB->get_MaxNArcs();
+ dgp->reserveArc( maxNArcs );
  MCFBlock::Index m = MCFB->get_NArcs();
-
+ n_arcs = m;
+ n_arcs_added = 0;
  // get starting node subset and ending node subset
  MCFBlock::c_Subset & sn = MCFB->get_SN();
  MCFBlock::c_Subset & en = MCFB->get_EN();
@@ -247,6 +250,11 @@ template< template< typename , typename , typename > class Algo ,
 int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 {
  
+ 
+ using MCFArcMapV = typename GR::template ArcMap< V >;
+ using MCFNodeMapV = typename GR::template NodeMap< V >;
+
+
  const static std::array<int, 3> LEMONstatus_2_sol_type = {
   Solver::kInfeasible, Solver::kOK, Solver::kUnbounded };
  
@@ -275,7 +283,58 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   ProbFile.close();
   }
 
-  // using Lemon Digraph Writer for debuggging
+
+
+
+   // throw(std::logic_error("ListDigraph doesn't support writeDimacsMat function"));
+  
+
+ if( ! owned )             // if the [MCF]Block was actually read_locked
+  f_Block->read_unlock();  // read_unlock it
+//if the graph was modified adding arcs over the size, then reset() f_algo must be used
+  if(n_arcs_added > 0){
+    delete cm; delete um; delete bm;
+    n_arcs += n_arcs_added;
+    n_arcs_added = 0;
+    f_algo->reset();
+    cm = new MCFArcMapV(*dgp);
+    um = new MCFArcMapV(*dgp);
+    bm = new MCFNodeMapV(*dgp);
+
+    auto &u = MCFBs->get_U();
+    auto &c = MCFBs->get_C();
+
+    for(int i = 0; i < n_arcs; ++i){
+      cm->set(dgp->arcFromId(i), c[i]);
+      um->set(dgp->arcFromId(i), u[i]);
+    }
+
+    auto &b = MCFBs->get_B();
+
+    for(int i = 0; i < n_nodes; ++i){
+      bm->set(dgp->nodeFromId(i), -b[i]);
+    }
+    cost_changed = true;
+    cap_changed = true;
+    supply_changed = true;
+  }
+
+  if( cost_changed ){
+    f_algo->costMap(*cm);
+    cost_changed = false;
+  }
+
+  if( cap_changed ){
+    f_algo->upperMap(*um);
+    cap_changed = false;
+  }
+
+  if( supply_changed ){
+    f_algo->supplyMap(*bm);
+    supply_changed = false;
+  }
+
+// using Lemon Digraph Writer for debuggging
   std::ofstream ProbFile( "lmn.txt", ios_base::out | ios_base::trunc );
   if( ! ProbFile.is_open() ){
     throw( std::logic_error("cannot open LMN file lmn.txt"));
@@ -284,30 +343,8 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   nodeMap("supply", *bm).
   arcMap("cost", *cm).
   arcMap("upper", *um).
-  run();
-
+ run();
   ProbFile.close();
-   // throw(std::logic_error("ListDigraph doesn't support writeDimacsMat function"));
-  
-
- if( ! owned )             // if the [MCF]Block was actually read_locked
-  f_Block->read_unlock();  // read_unlock it
-
-if( cost_changed ){
-  f_algo->costMap(*cm);
-  cost_changed = false;
-}
-
-if( cap_changed ){
-  f_algo->upperMap(*um);
-  cap_changed = false;
-}
-
-if( supply_changed ){
-  f_algo->supplyMap(*bm);
-  supply_changed = false;
-}
-
 
  auto start = chrono::system_clock::now();
 
@@ -381,6 +418,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
     
 
       auto MCFB = static_cast<MCFBlock *>(f_Block);
+      MCFBs = MCFB;
       
       // process Modification - - - - - - - - - - - - - - - - - - - - - - - - - - -
       //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -410,6 +448,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         switch (tmod->type())
         {
         case (MCFBlockMod::eChgCost):
+        {
           if (rng.second == rng.first + 1)
           {
             
@@ -453,8 +492,9 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 
           
           return;
-
+        }
         case (MCFBlockMod::eChgCaps):
+        {
           if (rng.second == rng.first + 1)
           {
             if (dgp->valid(dgp->arcFromId(rng.first))){
@@ -471,8 +511,9 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           }
 
           return;
-
+        }
         case (MCFBlockMod::eChgDfct):
+        {
           if (rng.second == rng.first + 1){           
             bm->set(dgp->nodeFromId(rng.first), -MCFB->get_B(rng.first));
             supply_changed = true;
@@ -487,6 +528,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             }
           }
           return;
+        }
         //TODO: change MCFC function to Algo function.
         /*case (MCFBlockMod::eOpenArc):
           for (; rng.first < rng.second; ++rng.first)
@@ -504,10 +546,14 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         */
         case (MCFBlockMod::eAddArc):
         {
+          if(static_cast<MCFListDigraph*>(dgp)->first_free_arc == -1) n_arcs_added++;
+          using MCFArcMapV = typename GR::template ArcMap< V >;
+
+          if(dgp->valid(dgp->arcFromId(rng.first))) return;
           auto ca = MCFB->get_C(rng.first);
-          if(std::isnan(ca)){
-            break;
-          }
+          auto startNode = dgp->nodeFromId(MCFB->get_SN(rng.first) - 1);
+          auto endNode = dgp->nodeFromId(MCFB->get_EN(rng.first) - 1);
+          auto capacity = MCFB->get_U(rng.first);
           // auto arc = MCFC::AddArc(MCFB->get_SN(rng.first),
           //                         MCFB->get_EN(rng.first),
           //                         MCFB->get_U(rng.first),
@@ -520,15 +566,20 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             }
           }
 
+         // static_cast<MCFListDigraph*>(dgp)->first_free_arc = static_cast<int>(rng.first);
           
           
-          auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());
-          cm->set(arc , std::isnan(ca) ? 0 : ca);
-          um->set(arc, MCFB->get_U(rng.first));
-          cost_changed = true;
-          cap_changed = true;
+          auto arc = dgp->addArc(startNode, endNode);
           if (arc != dgp->arcFromId(rng.first))
             throw(std::logic_error("name mismatch in AddArc()"));
+
+          cm->set(arc , std::isnan(ca) ? 0 : ca);
+          um->set(arc, capacity);
+          //  f_algo->costMap(*cm);
+          //  f_algo->upperMap(*um);
+          cost_changed = true;
+          cap_changed = true;
+          
 
           first_free_arcs->erase(rng.first);
           return;
@@ -545,7 +596,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 
           um->set(arc, -Inf<C>());
           f_algo->upperMap(*um);
-          cap_changed = true;
+         // cap_changed = true;
 
           dgp->erase(arc);
           first_free_arcs->insert(rng.second - 1);

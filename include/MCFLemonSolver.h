@@ -536,7 +536,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); }
+ void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); MCFBs = nullptr; }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -571,6 +571,10 @@ void process_outstanding_Modification( void );
   bool cost_changed=false;
   bool cap_changed=false;
   bool supply_changed=false;
+  int n_arcs;
+  int n_arcs_added;
+  int n_nodes;
+  MCFBlock * MCFBs;
   
 
   /**< represents the directed graph implemented by two classes by Lemon
