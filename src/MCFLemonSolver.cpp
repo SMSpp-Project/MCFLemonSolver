@@ -520,7 +520,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             }
           }
 
-          static_cast<MCFListDigraph*>(dgp)->first_free_arc = static_cast<int>(rng.first);
           
           
           auto arc = dgp->addArc(dgp->addNode(), dgp->addNode());
