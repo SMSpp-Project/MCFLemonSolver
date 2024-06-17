@@ -284,6 +284,7 @@ class MCFLemonSolver : public CDASolver
  using Index = unsigned int;
  using MCFArcMapV = typename GR::template ArcMap< V >;
  using MCFNodeMapV = typename GR::template NodeMap< V >;
+ typedef typename ThisAlgo::ProblemType ProblemType;
  
 
  enum str_par_type_LEMON {
@@ -294,12 +295,9 @@ class MCFLemonSolver : public CDASolver
   };
 
  enum LEMON_sol_type {
-  UNSOLVED ,          ///< the problem has not been solved yet
-  OPTIMAL ,           ///< the problem has been solved
-  KSTOPTIME ,         ///< the problem has been stopped because of time limit
-  INFEASIBLE ,        ///< the problem is provably infeasible
-  UNBOUNDED ,          ///< the problem is provably unbounded
-  KERROR               ///< the algorithm stopped due to unrecoverable error
+    INFEASIBLE,
+    OPTIMAL,
+    UNBOUNDED
   }; 
 
  static constexpr int kErrorStatus = -1;
@@ -564,7 +562,7 @@ void process_outstanding_Modification( void );
   ///< string for DMX file output
 
   Algo<GR, V, C> * f_algo;
-  int status = UNSOLVED;
+  ProblemType status = ProblemType::INFEASIBLE;
 
   GR * dgp;
   
@@ -593,7 +591,6 @@ void process_outstanding_Modification( void );
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-  typename ThisAlgo::ProblemType status_2_pType;
   // Status of compute() method
 
   double ticks;  //Elaped time in ticks for compute() method
@@ -679,7 +676,6 @@ class MCFLemonSolverNetworkSimplex :
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
- using BaseClass::LEMON_sol_type::UNSOLVED;
 
  using typename BaseClass::ThisAlgo;
  using NSPivotRule = typename NetworkSimplex<GR, V, C>::PivotRule;
@@ -992,9 +988,9 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
   using SMSpp_di_unipi_it::Solver::f_id;
   using BaseClass::dgp;
   using BaseClass::f_algo;
+  using BaseClass::status;
   using BaseClass::strLastParLEMON;
   using BaseClass::str_par_type_LEMON::strDMXFile;
-  using BaseClass::LEMON_sol_type::UNSOLVED;
   using typename BaseClass::ThisAlgo;
   using CCMethod = typename ThisAlgo::Method;
   
@@ -1328,9 +1324,6 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
     /*--------------------------------------------------------------------------*/
     CCMethod f_method;
 
-    int status = UNSOLVED;  //Variable used in compute function for getting status
-    typename CycleCanceling< Digraph, int , int >::ProblemType status_2_pType;
-    //Status of compute() method
     double ticks;  //Elaped time in ticks for compute() method
     /*--------------------------------------------------------------------------*/
 
@@ -1389,10 +1382,10 @@ public MCFLemonSolver<SMSppCapacityScaling, GR, V, C>
  using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
  using SMSpp_di_unipi_it::Solver::f_id;
  using BaseClass::dgp;
+ using BaseClass::status;
  using BaseClass::f_algo;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
- using BaseClass::LEMON_sol_type::UNSOLVED;
 
  public:
 
@@ -1682,9 +1675,6 @@ enum LEMON_CS_dbl_par_type{
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
     
-    int status = UNSOLVED;  //Variable used in compute function for getting status
-    typename SMSppCapacityScaling< GR , V , C >::ProblemType status_2_pType;
-    //Status of compute() method
     
     double ticks;  //Elaped time in ticks for compute() method
     /*--------------------------------------------------------------------------*/
@@ -1744,9 +1734,9 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
  using SMSpp_di_unipi_it::Solver::f_id;
  using BaseClass::dgp;
  using BaseClass::f_algo;
+ using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
- using BaseClass::LEMON_sol_type::UNSOLVED;
 
  using typename BaseClass::ThisAlgo;
  using CSMethod = typename ThisAlgo::Method;
@@ -2058,9 +2048,6 @@ public MCFLemonSolver<SMSppCostScaling, GR, V, C>
     /*-------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
     CSMethod f_method;
-    int status = UNSOLVED;  //Variable used in compute function for getting status
-    typename SMSppCostScaling< GR , V , C >::ProblemType status_2_pType;
-    //Status of compute() method
     double ticks;  //Elapsed time in ticks for compute() method
 
     /*--------------------------------------------------------------------------*/

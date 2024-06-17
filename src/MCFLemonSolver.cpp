@@ -335,7 +335,6 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   ProbFile.close();
 
  auto start = chrono::system_clock::now();
-
  guts_of_compute();  // here the actual magic is done by specialised classes
 
  auto end = chrono::system_clock::now();
