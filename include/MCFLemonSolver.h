@@ -542,7 +542,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs; delete arcs_2_cap;}
+ void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs; }
 
 /*--------------------------------------------------------------------------*/
 
