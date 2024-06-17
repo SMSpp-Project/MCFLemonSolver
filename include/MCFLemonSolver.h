@@ -611,7 +611,6 @@ void process_outstanding_Modification( void );
 
   std::set<int> * first_free_arcs;
 
-  std::unordered_map<int, C> * arcs_2_cap;
  
 /*--------------------------------------------------------------------------*/
 
