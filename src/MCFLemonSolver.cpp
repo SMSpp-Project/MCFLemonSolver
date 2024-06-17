@@ -440,7 +440,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           {
             
             //Questo controllo può essere sostituito dalla funzione valid di ListDigraph
-            if ( dgp->valid(dgp->arcFromId(rng.first)) ){
+            if ( dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 0 ){
                //TODO: change MCFC function to Algo function.
               //If arc is not deleted, then change cost
               //Create reference to the ArcMap that represents the cost and change its value
@@ -449,7 +449,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               cost_changed = true;
             }else {
                 for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                      if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first)))){
+                      if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first))) && closed_arcs->count(i) == 0){
                       cm->set(dgp->arcFromId(i), MCFB->get_C(i));
                       cost_changed = true;                    
                       }else if(std::isnan(MCFB->get_C(rng.first))){
@@ -464,11 +464,11 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               
           }else{
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-              if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first)))){
+              if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first))) && closed_arcs->count(i) == 0){
               cm->set(dgp->arcFromId(i), MCFB->get_C(i));
               cost_changed = true;
 
-              }else if(std::isnan(MCFB->get_C(rng.first))){
+              }else if(std::isnan(MCFB->get_C(rng.first)) && closed_arcs->count(i) == 0){
                 cm->set(dgp->arcFromId(i), 0);
                 cost_changed = true;
 
@@ -484,15 +484,18 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         {
           if (rng.second == rng.first + 1)
           {
-            if (dgp->valid(dgp->arcFromId(rng.first))){
+            if (dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 0){
               um->set(dgp->arcFromId(rng.first), MCFB->get_U(rng.first));
               cap_changed = true;
             }
           }
           else{
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                um->set(dgp->arcFromId(i), MCFB->get_U(i));
-                cap_changed = true;
+                if(dgp->valid(dgp->arcFromId(i)) && closed_arcs->count(i) == 0){
+                  um->set(dgp->arcFromId(i), MCFB->get_U(i));
+                  cap_changed = true;
+                }
+
               }
             
           }
@@ -523,6 +526,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               auto arc = dgp->arcFromId(rng.first);
               um->set(arc, MCFB->get_U(rng.first));
               cap_changed = true;
+              closed_arcs->erase(rng.first);
             }
           }
 
@@ -535,6 +539,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               auto arc = dgp->arcFromId(rng.first);
               um->set(arc, -Inf<C>());
               cap_changed = true;
+              closed_arcs->insert(rng.first);
             }
           }
 
@@ -614,6 +619,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               auto arcc = dgp->arcFromId(arc);
               um->set(arcc, MCFB->get_U(arc));
               cap_changed = true;
+              closed_arcs->erase(arc);
             }
           return;
 
@@ -623,7 +629,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
                 (dgp->valid(dgp->arcFromId(arc)))){
               auto arcc = dgp->arcFromId(arc);
               um->set(arcc, -Inf<C>());
-              cap_changed = true;                 
+              cap_changed = true;
+              closed_arcs->insert(arc);                 
             }
           return;
         }
@@ -643,7 +650,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           // MCFBlock::Vec_CNumber NCost;
           // NCost.reserve(tmod->nms().size());
           for (auto i : tmod->nms())
-            if (!(std::isnan(MCFB->get_C(i)))) 
+            if (!(std::isnan(MCFB->get_C(i))) && closed_arcs->count(i) == 0) 
             {
               auto arc = dgp->arcFromId(i);
               // NCost.push_back(ci);
@@ -669,7 +676,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           auto &CC = MCFB->get_C();
           auto &U = MCFB->get_U();
           for (auto i : tmod->nms())
-            if (!std::isnan(CC[i]) && dgp->valid(dgp->arcFromId(i)))
+            if (!std::isnan(CC[i]) && dgp->valid(dgp->arcFromId(i)) && closed_arcs->count(i) == 0)
             {
               // NCap.push_back(U[i]);
               // nmsI.push_back(i);

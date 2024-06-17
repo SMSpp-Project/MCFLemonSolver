@@ -538,11 +538,11 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); }
+ void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); closed_arcs = new std::set<unsigned int>();}
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs; }
+ void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs; delete closed_arcs; }
 
 /*--------------------------------------------------------------------------*/
 
@@ -610,6 +610,7 @@ void process_outstanding_Modification( void );
   //NodeMap that contains the supply values of each node;
 
   std::set<int> * first_free_arcs;
+  std::set<unsigned int> *closed_arcs;
 
  
 /*--------------------------------------------------------------------------*/
