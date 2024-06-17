@@ -545,7 +545,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         case (MCFBlockMod::eAddArc):
         {
           if(static_cast<MCFListDigraph*>(dgp)->first_free_arc == -1) n_arcs_added++;
-          using MCFArcMapV = typename GR::template ArcMap< V >;
 
           if(dgp->valid(dgp->arcFromId(rng.first))) return;
           auto ca = MCFB->get_C(rng.first);

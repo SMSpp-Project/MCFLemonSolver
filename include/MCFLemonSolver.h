@@ -538,7 +538,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); arcs_2_cap = new std::unordered_map<int, C>(); }
+ void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
