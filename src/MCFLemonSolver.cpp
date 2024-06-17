@@ -131,7 +131,6 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB){
 
  //delete previous graph and f_algo (if present)
  //delete dgp;
- MCFBs = MCFB;
  delete f_algo;
  f_algo = nullptr;
  // create and clear new Graph (ListDigraph or SmartDigraph)
@@ -169,8 +168,12 @@ if constexpr (std::is_same<GR, ListDigraph>::value){
   dgp->addArc( dgp->nodeFromId( sn[ i ] - 1 ) ,
 	       dgp->nodeFromId( en[ i ] - 1 ) );
 
- // new instance of Lemon Algorithm
- f_algo = new Algo< GR , V, C >(  *dgp );
+ // new instance of Lemon Algorithm with no arc mixing
+ if constexpr (std::is_same<Algo<GR, V, C>, NetworkSimplex<GR, V, C> >::value){
+  f_algo = new Algo<GR, V, C >( *dgp, false);
+ }else{
+   f_algo = new Algo< GR , V, C >(  *dgp );
+ }
   
  // Algo<GR, V, C> * algo = f_algo->reset();
  // defining names for types for readability
@@ -403,7 +406,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
     
 
       auto MCFB = static_cast<MCFBlock *>(f_Block);
-      MCFBs = MCFB;
       
       // process Modification - - - - - - - - - - - - - - - - - - - - - - - - - - -
       //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -515,20 +517,31 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           return;
         }
         //TODO: change MCFC function to Algo function.
-        /*case (MCFBlockMod::eOpenArc):
-          for (; rng.first < rng.second; ++rng.first)
-            if ((!MCFB->is_deleted(rng.first)) &&
-                (!MCFC::IsDeletedArc(rng.first)))
-              MCFC::OpenArc(rng.first);
+        case (MCFBlockMod::eOpenArc):{
+          for(; rng.first < rng.second; ++rng.first){
+            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first))){
+              auto arc = dgp->arcFromId(rng.first);
+              um->set(arc, MCFB->get_U(rng.first));
+              cap_changed = true;
+            }
+          }
+
           return;
+        }
         //TODO: change MCFC function to Algo function.
-        case (MCFBlockMod::eCloseArc):
-          for (; rng.first < rng.second; ++rng.first)
-            if ((!MCFB->is_deleted(rng.first)) &&
-                (!MCFC::IsDeletedArc(rng.first)))
-              MCFC::CloseArc(rng.first);
+        case (MCFBlockMod::eCloseArc):{
+          for(; rng.first < rng.second; ++rng.first){
+            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first))){
+              auto arc = dgp->arcFromId(rng.first);
+              um->set(arc, -Inf<C>());
+              cap_changed = true;
+            }
+          }
+
           return;
-        */
+        }
+         
+        
         case (MCFBlockMod::eAddArc):
         {
           if(static_cast<MCFListDigraph*>(dgp)->first_free_arc == -1) n_arcs_added++;
@@ -539,10 +552,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           auto startNode = dgp->nodeFromId(MCFB->get_SN(rng.first) - 1);
           auto endNode = dgp->nodeFromId(MCFB->get_EN(rng.first) - 1);
           auto capacity = MCFB->get_U(rng.first);
-          // auto arc = MCFC::AddArc(MCFB->get_SN(rng.first),
-          //                         MCFB->get_EN(rng.first),
-          //                         MCFB->get_U(rng.first),
-          //                         std::isnan(ca) ? 0 : ca);
+     
+     
           if(static_cast<MCFListDigraph*>(dgp)->first_free_arc != static_cast<int>(rng.first)){
             if(!first_free_arcs->empty()){
             int ffa = *first_free_arcs->begin();
@@ -551,7 +562,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             }
           }
 
-         // static_cast<MCFListDigraph*>(dgp)->first_free_arc = static_cast<int>(rng.first);
           
           
           auto arc = dgp->addArc(startNode, endNode);
@@ -560,8 +570,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 
           cm->set(arc , std::isnan(ca) ? 0 : ca);
           um->set(arc, capacity);
-          //  f_algo->costMap(*cm);
-          //  f_algo->upperMap(*um);
+
           cost_changed = true;
           cap_changed = true;
           
@@ -596,25 +605,29 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 
       // MCFBlockSbstMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       if (auto tmod = dynamic_cast<const MCFBlockSbstMod *>(mod))
-      {/*
+      {
         switch (tmod->type())
         {
         case (MCFBlockMod::eOpenArc):
           for (auto arc : tmod->nms())
             if ((!MCFB->is_deleted(arc)) &&
-                (!MCFC::IsDeletedArc(arc)))
-              //TODO: change MCFC function to Algo function.
-              MCFC::OpenArc(arc);
+                (dgp->valid(dgp->arcFromId(arc)))){
+              auto arcc = dgp->arcFromId(arc);
+              um->set(arcc, MCFB->get_U(arc));
+              cap_changed = true;
+            }
           return;
 
         case (MCFBlockMod::eCloseArc):
           for (auto arc : tmod->nms())
             if ((!MCFB->is_deleted(arc)) &&
-                (!MCFC::IsDeletedArc(arc)))
-              //TODO: change MCFC function to Algo function.
-              MCFC::CloseArc(arc);
+                (dgp->valid(dgp->arcFromId(arc)))){
+              auto arcc = dgp->arcFromId(arc);
+              um->set(arcc, -Inf<C>());
+              cap_changed = true;                 
+            }
           return;
-        }*/
+        }
 
         // have to InINF-terminate the vector of indices (damn!)
         // meanwhile, when appropriate remove the indices of deleted

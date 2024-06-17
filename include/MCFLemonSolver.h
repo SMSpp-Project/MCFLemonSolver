@@ -62,6 +62,8 @@
 
 #include <lemon/lgf_writer.h>
 
+#include <unordered_map>
+
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -536,11 +538,11 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); MCFBs = nullptr; }
+ void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); arcs_2_cap = new std::unordered_map<int, C>(); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs;}
+ void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs; delete arcs_2_cap;}
 
 /*--------------------------------------------------------------------------*/
 
@@ -574,7 +576,6 @@ void process_outstanding_Modification( void );
   int n_arcs;
   int n_arcs_added;
   int n_arcs_deleted=0;
-  MCFBlock * MCFBs;
   
 
   /**< represents the directed graph implemented by two classes by Lemon
@@ -609,6 +610,8 @@ void process_outstanding_Modification( void );
   //NodeMap that contains the supply values of each node;
 
   std::set<int> * first_free_arcs;
+
+  std::unordered_map<int, C> * arcs_2_cap;
  
 /*--------------------------------------------------------------------------*/
 
@@ -965,7 +968,7 @@ class MCFLemonSolverNetworkSimplex :
  *    maximum compatibility, but int (or even smaller) would yeld better
  *    performances;
 */
-  template< typename GR,  typename V = int,  typename C = int>
+  template< typename GR,  typename V ,  typename C >
 class MCFLemonSolverCycleCanceling:  
 public MCFLemonSolver<CycleCanceling, GR, V, C>
 {
@@ -1093,7 +1096,7 @@ public MCFLemonSolver<CycleCanceling, GR, V, C>
 
         if( par == kMethod ) {      
         if( ( value < 0 ) || ( value > 4 ) )
-          throw( std::invalid_argument( "Error: invalid kPivot " +
+          throw( std::invalid_argument( "Error: invalid kMethod " +
                 std::to_string( value ) ) );
 
         if( value == f_method )
