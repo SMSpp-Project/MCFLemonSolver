@@ -573,7 +573,7 @@ void process_outstanding_Modification( void );
   bool supply_changed=false;
   int n_arcs;
   int n_arcs_added;
-  int n_nodes;
+  int n_arcs_deleted=0;
   MCFBlock * MCFBs;
   
 

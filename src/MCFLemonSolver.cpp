@@ -148,7 +148,6 @@ if constexpr (std::is_same<GR, ListDigraph>::value){
  auto maxNNodes = MCFB->get_MaxNNodes();
  dgp->reserveNode( maxNNodes );
  MCFBlock::Index n = MCFB->get_NNodes();
- n_nodes = n;
  // add all the nodes, one by one (looks stupid you con't do all in one blow,
  // but who are we to say ...)
  for( MCFBlock::Index i = 0 ; i < n ; ++i )
@@ -286,34 +285,20 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 
 
 
-   // throw(std::logic_error("ListDigraph doesn't support writeDimacsMat function"));
   
 
  if( ! owned )             // if the [MCF]Block was actually read_locked
   f_Block->read_unlock();  // read_unlock it
-//if the graph was modified adding arcs over the size, then reset() f_algo must be used
-  if(n_arcs_added > 0){
-    delete cm; delete um; delete bm;
+  
+  //if the graph was modified adding\removing arcs, then reset() f_algo must be used
+  if(n_arcs_added > 0 || n_arcs_deleted > 0){
     n_arcs += n_arcs_added;
     n_arcs_added = 0;
+    n_arcs_deleted = 0;
+
+
     f_algo->reset();
-    cm = new MCFArcMapV(*dgp);
-    um = new MCFArcMapV(*dgp);
-    bm = new MCFNodeMapV(*dgp);
 
-    auto &u = MCFBs->get_U();
-    auto &c = MCFBs->get_C();
-
-    for(int i = 0; i < n_arcs; ++i){
-      cm->set(dgp->arcFromId(i), c[i]);
-      um->set(dgp->arcFromId(i), u[i]);
-    }
-
-    auto &b = MCFBs->get_B();
-
-    for(int i = 0; i < n_nodes; ++i){
-      bm->set(dgp->nodeFromId(i), -b[i]);
-    }
     cost_changed = true;
     cap_changed = true;
     supply_changed = true;
@@ -595,7 +580,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           auto arc = dgp->arcFromId(rng.second - 1);
 
           um->set(arc, -Inf<C>());
-          f_algo->upperMap(*um);
+          //f_algo->upperMap(*um);
+          n_arcs_deleted++;
          // cap_changed = true;
 
           dgp->erase(arc);
