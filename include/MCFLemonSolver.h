@@ -526,8 +526,6 @@ void get_var_direction(Configuration *dirc = nullptr) override
   
   void add_Modification( sp_Mod &mod ) override;
 
-  void add_Modification_helper(std::true_type);
-  void add_Modification_helper(std::false_type);
 /*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -542,7 +540,7 @@ void get_var_direction(Configuration *dirc = nullptr) override
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; delete dgp; delete first_free_arcs; delete closed_arcs; }
+ void guts_of_destructor( void ) { delete f_algo; dgp->clear(); delete first_free_arcs; delete closed_arcs; delete dgp; }
 
 /*--------------------------------------------------------------------------*/
 
