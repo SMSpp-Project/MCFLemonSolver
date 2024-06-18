@@ -521,9 +521,16 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         //TODO: change MCFC function to Algo function.
         case (MCFBlockMod::eOpenArc):{
           for(; rng.first < rng.second; ++rng.first){
-            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first))){
-              auto arc = dgp->arcFromId(rng.first);
+
+            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 1){
+              
+              auto it = arc2nodes->find(rng.first);
+
+              auto arc = dgp->addArc(it->second.first, it->second.first);
+              n_arcs_added++;
               um->set(arc, MCFB->get_U(rng.first));
+              cm->set(arc, MCFB->get_C(rng.first));
+              cost_changed = true;
               cap_changed = true;
               closed_arcs->erase(rng.first);
             }
@@ -534,10 +541,11 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         //TODO: change MCFC function to Algo function.
         case (MCFBlockMod::eCloseArc):{
           for(; rng.first < rng.second; ++rng.first){
-            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first))){
+            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 0){
               auto arc = dgp->arcFromId(rng.first);
-              um->set(arc, -Inf<C>());
-              cap_changed = true;
+              arc2nodes->insert(std::make_pair(rng.first, std::make_pair(dgp->source(arc), dgp->target(arc))));
+              dgp->erase(dgp->arcFromId(rng.first));   
+              n_arcs_deleted++;           
               closed_arcs->insert(rng.first);
             }
           }
@@ -591,7 +599,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           } 
           auto arc = dgp->arcFromId(rng.second - 1);
 
-          um->set(arc, -Inf<C>());
+          um->set(arc, -1);
           //f_algo->upperMap(*um);
           n_arcs_deleted++;
          // cap_changed = true;
@@ -611,27 +619,40 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
       {
         switch (tmod->type())
         {
-        case (MCFBlockMod::eOpenArc):
+        case (MCFBlockMod::eOpenArc):{
+
           for (auto arc : tmod->nms())
-            if ((!MCFB->is_deleted(arc)) &&
-                (dgp->valid(dgp->arcFromId(arc)))){
-              auto arcc = dgp->arcFromId(arc);
+            if ((!MCFB->is_deleted(arc)) && (dgp->valid(dgp->arcFromId(arc))) && closed_arcs->count(arc) == 1){
+               auto it = arc2nodes->find(arc);
+
+              auto arcc = dgp->addArc(it->second.first, it->second.first);
+              n_arcs_added++;
               um->set(arcc, MCFB->get_U(arc));
+              cm->set(arcc, MCFB->get_C(arc));
+              cost_changed = true;
               cap_changed = true;
               closed_arcs->erase(arc);
+
+
+            }
+          return;
+        }
+        case (MCFBlockMod::eCloseArc):{
+
+      
+          for (auto arc : tmod->nms())
+            if ((!MCFB->is_deleted(arc)) && (dgp->valid(dgp->arcFromId(arc))) && closed_arcs->count(arc) == 0){
+              auto arcc = dgp->arcFromId(arc);
+              
+              arc2nodes->insert(std::make_pair(arc, std::make_pair(dgp->source(arcc), dgp->target(arcc))));
+              n_arcs_deleted++;
+              dgp->erase(dgp->arcFromId(arc));
+              closed_arcs->insert(arc);
+                             
             }
           return;
 
-        case (MCFBlockMod::eCloseArc):
-          for (auto arc : tmod->nms())
-            if ((!MCFB->is_deleted(arc)) &&
-                (dgp->valid(dgp->arcFromId(arc)))){
-              auto arcc = dgp->arcFromId(arc);
-              um->set(arcc, -Inf<C>());
-              cap_changed = true;
-              closed_arcs->insert(arc);                 
-            }
-          return;
+          }
         }
 
         // have to InINF-terminate the vector of indices (damn!)

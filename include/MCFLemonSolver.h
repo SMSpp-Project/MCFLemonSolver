@@ -60,10 +60,11 @@
 
 #include <set>
 
+#include <map>
+
 #include <lemon/lgf_writer.h>
 
-#include <unordered_map>
-
+#include <utility>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -284,6 +285,7 @@ class MCFLemonSolver : public CDASolver
  using Index = unsigned int;
  using MCFArcMapV = typename GR::template ArcMap< V >;
  using MCFNodeMapV = typename GR::template NodeMap< V >;
+ typedef typename ListDigraph::Node Node;
  typedef typename ThisAlgo::ProblemType ProblemType;
  
 
@@ -534,11 +536,17 @@ void get_var_direction(Configuration *dirc = nullptr) override
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void guts_of_constructor( void ) {  f_algo = nullptr; first_free_arcs = new std::set<int>(); closed_arcs = new std::set<unsigned int>();}
+ void guts_of_constructor( void ) {
+    f_algo = nullptr;
+    first_free_arcs = new std::set<int>();
+    closed_arcs = new std::set<unsigned int>();
+    node_ca = new std::vector<std::pair<Node,Node>>(); 
+    arc2nodes = new std::map<unsigned int, std::pair<Node,Node>>();
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; dgp->clear(); delete first_free_arcs; delete closed_arcs; delete dgp; }
+ void guts_of_destructor( void ) { delete f_algo; dgp->clear(); delete first_free_arcs; delete closed_arcs; delete node_ca; delete dgp; }
 
 /*--------------------------------------------------------------------------*/
 
@@ -606,6 +614,8 @@ void process_outstanding_Modification( void );
 
   std::set<int> * first_free_arcs;
   std::set<unsigned int> *closed_arcs;
+  std::vector<std::pair<Node, Node>> * node_ca;
+  std::map<unsigned int, std::pair<Node,Node>> * arc2nodes;
 
  
 /*--------------------------------------------------------------------------*/
