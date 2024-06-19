@@ -296,6 +296,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   //if the graph was modified adding\removing arcs, then reset() f_algo must be used
   if(n_arcs_added > 0 || n_arcs_deleted > 0){
     n_arcs += n_arcs_added;
+    n_arcs -= n_arcs_deleted;
     n_arcs_added = 0;
     n_arcs_deleted = 0;
 
@@ -438,12 +439,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           if (rng.second == rng.first + 1)
           {
             
-            //Questo controllo può essere sostituito dalla funzione valid di ListDigraph
             if ( dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 0 ){
-               //TODO: change MCFC function to Algo function.
-              //If arc is not deleted, then change cost
-              //Create reference to the ArcMap that represents the cost and change its value
-              //MCFC::ChgCost(rng.first, MCFB->get_C(rng.first));
               cm->set( dgp->arcFromId(rng.first), MCFB->get_C(rng.first));
               cost_changed = true;
             }else {
@@ -451,7 +447,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
                       if(dgp->valid(dgp->arcFromId(rng.first)) && !(std::isnan(MCFB->get_C(rng.first))) && closed_arcs->count(i) == 0){
                       cm->set(dgp->arcFromId(i), MCFB->get_C(i));
                       cost_changed = true;                    
-                      }else if(std::isnan(MCFB->get_C(rng.first))){
+                      }else if(std::isnan(MCFB->get_C(rng.first)) && closed_arcs->count(i) == 0){
                         cm->set(dgp->arcFromId(i), 0);
                         cost_changed = true;
                        }
@@ -518,35 +514,47 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           }
           return;
         }
-        //TODO: change MCFC function to Algo function.
+
         case (MCFBlockMod::eOpenArc):{
           for(; rng.first < rng.second; ++rng.first){
 
-            if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 1){
+            if(!MCFB->is_deleted(rng.first) && !dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 1){
               
               auto it = arc2nodes->find(rng.first);
 
-              auto arc = dgp->addArc(it->second.first, it->second.first);
+              if(static_cast<MCFListDigraph*>(dgp)->first_free_arc != static_cast<int>(rng.first)){
+                if(!first_free_arcs->empty()){
+                int ffa = *first_free_arcs->begin();
+                static_cast<MCFListDigraph*>(dgp)->first_free_arc = ffa;
+                first_free_arcs->erase(ffa);
+                }
+              }
+
+              auto arc = dgp->addArc(it->second.first, it->second.second);
               n_arcs_added++;
               um->set(arc, MCFB->get_U(rng.first));
               cm->set(arc, MCFB->get_C(rng.first));
               cost_changed = true;
               cap_changed = true;
+              arc2nodes->erase(rng.first);
               closed_arcs->erase(rng.first);
+              first_free_arcs->erase(rng.first);
             }
           }
 
           return;
         }
-        //TODO: change MCFC function to Algo function.
+
         case (MCFBlockMod::eCloseArc):{
           for(; rng.first < rng.second; ++rng.first){
             if(!MCFB->is_deleted(rng.first) && dgp->valid(dgp->arcFromId(rng.first)) && closed_arcs->count(rng.first) == 0){
               auto arc = dgp->arcFromId(rng.first);
               arc2nodes->insert(std::make_pair(rng.first, std::make_pair(dgp->source(arc), dgp->target(arc))));
               dgp->erase(dgp->arcFromId(rng.first));   
+              cap_changed = true;
               n_arcs_deleted++;           
               closed_arcs->insert(rng.first);
+              first_free_arcs->insert(rng.first);
             }
           }
 
@@ -592,14 +600,13 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 
         case (MCFBlockMod::eRmvArc):
         {
-          //TODO: change MCFC function to Algo function.
-          // MCFC::DelArc(rng.second - 1);
+
           if(!dgp->valid(dgp->arcFromId(rng.second - 1))){
             return;
           } 
           auto arc = dgp->arcFromId(rng.second - 1);
 
-          um->set(arc, -1);
+          // um->set(arc, -1);
           //f_algo->upperMap(*um);
           n_arcs_deleted++;
          // cap_changed = true;
@@ -622,16 +629,29 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         case (MCFBlockMod::eOpenArc):{
 
           for (auto arc : tmod->nms())
-            if ((!MCFB->is_deleted(arc)) && (dgp->valid(dgp->arcFromId(arc))) && closed_arcs->count(arc) == 1){
-               auto it = arc2nodes->find(arc);
+            if ((!MCFB->is_deleted(arc)) && !(dgp->valid(dgp->arcFromId(arc))) && closed_arcs->count(arc) == 1){
+              auto it = arc2nodes->find(arc);
 
-              auto arcc = dgp->addArc(it->second.first, it->second.first);
+
+              if(static_cast<MCFListDigraph*>(dgp)->first_free_arc != static_cast<int>(arc)){
+                if(!first_free_arcs->empty()){
+                int ffa = *first_free_arcs->begin();
+                static_cast<MCFListDigraph*>(dgp)->first_free_arc = ffa;
+                first_free_arcs->erase(ffa);
+                }
+              }
+
+              auto arcc = dgp->addArc(it->second.first, it->second.second);
               n_arcs_added++;
-              um->set(arcc, MCFB->get_U(arc));
-              cm->set(arcc, MCFB->get_C(arc));
+              auto cap = MCFB->get_U(arc);
+              auto cost = MCFB->get_C(arc);
+              um->set(arcc, cap);
+              cm->set(arcc, cost);
               cost_changed = true;
               cap_changed = true;
+              arc2nodes->erase(arc);
               closed_arcs->erase(arc);
+              first_free_arcs->erase(arc);
 
 
             }
@@ -648,6 +668,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               n_arcs_deleted++;
               dgp->erase(dgp->arcFromId(arc));
               closed_arcs->insert(arc);
+              first_free_arcs->insert(arc);
                              
             }
           return;
