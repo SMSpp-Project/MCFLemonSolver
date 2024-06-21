@@ -154,6 +154,68 @@ class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
   using concepts::Digraph::OutArcIt;
   using concepts::Digraph::NodeMap;
   using concepts::Digraph::ArcMap;
+
+  bool isClosed( int n ){
+    return _arcs[n].source < 0;
+  }
+
+  void closeArc( int n ) {
+
+      if(_arcs[n].next_in!=-1) {
+        _arcs[_arcs[n].next_in].prev_in = _arcs[n].prev_in;
+      }
+
+      if(_arcs[n].prev_in!=-1) {
+        _arcs[_arcs[n].prev_in].next_in = _arcs[n].next_in;
+      } else {
+        _nodes[_arcs[n].target].first_in = _arcs[n].next_in;
+      }
+
+      if(_arcs[n].next_out!=-1) {
+        _arcs[_arcs[n].next_out].prev_out = _arcs[n].prev_out;
+      }
+
+      if(_arcs[n].prev_out!=-1) {
+        _arcs[_arcs[n].prev_out].next_out = _arcs[n].next_out;
+      } else {
+        _nodes[_arcs[n].source].first_out = _arcs[n].next_out;
+      }
+
+
+      _arcs[n].source = - ( _arcs[n].source + 1 );
+
+  }
+
+
+   void openArc( int n ) {
+
+     _arcs[n].source = - (_arcs[n].source + 1);
+     auto uid = _arcs[n].source;
+     auto vid = _arcs[n].target;
+
+     _arcs[n].next_out = _nodes[uid].first_out;
+     if(_nodes[uid].first_out != -1) {
+       _arcs[_nodes[uid].first_out].prev_out = n;
+     }
+
+     _arcs[n].next_in = _nodes[vid].first_in;
+     if(_nodes[vid].first_in != -1) {
+       _arcs[_nodes[vid].first_in].prev_in = n;
+     }
+
+     _arcs[n].prev_in = _arcs[n].prev_out = -1;
+
+     _nodes[uid].first_out = _nodes[vid].first_in = n;
+
+   }
+
+    void eraseClosed( int n ) {
+
+      _arcs[n].next_in = first_free_arc;
+      first_free_arc = n;
+      _arcs[n].prev_in = -2;
+    }
+
 };
 
  /// concept for "one of the LEMON graphs"
@@ -539,14 +601,12 @@ void get_var_direction(Configuration *dirc = nullptr) override
  void guts_of_constructor( void ) {
     f_algo = nullptr;
     first_free_arcs = new std::set<int>();
-    closed_arcs = new std::set<unsigned int>();
-    node_ca = new std::vector<std::pair<Node,Node>>(); 
     arc2nodes = new std::map<unsigned int, std::pair<Node,Node>>();
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void guts_of_destructor( void ) { delete f_algo; dgp->clear(); delete first_free_arcs; delete closed_arcs; delete node_ca; delete dgp; }
+ void guts_of_destructor( void ) { delete f_algo; dgp->clear(); delete first_free_arcs; delete dgp; }
 
 /*--------------------------------------------------------------------------*/
 
@@ -613,8 +673,6 @@ void process_outstanding_Modification( void );
   //NodeMap that contains the supply values of each node;
 
   std::set<int> * first_free_arcs;
-  std::set<unsigned int> *closed_arcs;
-  std::vector<std::pair<Node, Node>> * node_ca;
   std::map<unsigned int, std::pair<Node,Node>> * arc2nodes;
 
  
