@@ -542,34 +542,18 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         
         case (MCFBlockMod::eAddArc):
         {
-         
-
-          //if(dgp->valid(dgp->arcFromId(rng.first))) return;
           auto graph = static_cast<MCFListDigraph*>(dgp);
           
           auto ca = MCFB->get_C(rng.first);
-          auto startNode = dgp->nodeFromId(MCFB->get_SN(rng.first) - 1);
-          auto endNode = dgp->nodeFromId(MCFB->get_EN(rng.first) - 1);
+          auto startNode = MCFB->get_SN(rng.first) - 1;
+          auto endNode = MCFB->get_EN(rng.first) - 1;
           auto capacity = MCFB->get_U(rng.first);
-     
-          
-          if(graph->first_free_arc != static_cast<int>(rng.first)){
-            if(!first_free_arcs->empty()){
-              int ffa = *first_free_arcs->begin();
-              static_cast<MCFListDigraph*>(dgp)->first_free_arc = ffa;
-              first_free_arcs->erase(ffa);
-            }else {
-              graph->first_free_arc = static_cast<int>(rng.first);
-            }
-          }
-          
 
-
-          
-          
-          auto arc = dgp->addArc(startNode, endNode);
+          graph->addArc(startNode, endNode);
+          auto arc = dgp->arcFromId(rng.first);
           // if (arc != dgp->arcFromId(rng.first))
           //   throw(std::logic_error("name mismatch in AddArc()"));
+          
           n_arcs_added++;
           cm->set(arc , std::isnan(ca) ? 0 : ca);
           um->set(arc, capacity);
@@ -578,7 +562,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           cap_changed = true;
           
 
-          first_free_arcs->erase(rng.first);
           return;
         }
 
@@ -598,9 +581,9 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           }
           
           n_arcs_deleted++;
+
           
          
-          first_free_arcs->insert(rng.second - 1);
           
           return;
         }
@@ -652,17 +635,12 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             {
               auto arc = dgp->arcFromId(i);
               auto cost = MCFB->get_C(i);
-              // NCost.push_back(ci);
-              // nmsI.push_back(i);
               cm->set(arc, std::isnan(cost) ? 0 : cost);
               cost_changed = true;
 
             }
           
 
-            //f_algo->costMap(*cm);
-          //nmsI.push_back(Inf<MCFBlock::Index>());
-          //MCFC::ChgCosts(NCost.data(), nmsI.data());
           return;
         }
 
@@ -674,14 +652,11 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           for (auto i : tmod->nms())
             if (!std::isnan(CC[i]) && dgp->valid(dgp->arcFromId(i)) && !graph->isClosed(i))
             {
-              // NCap.push_back(U[i]);
-              // nmsI.push_back(i);
-              um->set(dgp->arcFromId(i), U[i]);
 
+              um->set(dgp->arcFromId(i), U[i]);
+              cap_changed = true;
             }
-          cap_changed = true;
-          //nmsI.push_back(Inf<MCFBlock::Index>());
-          //MCFC::ChgUCaps(NCap.data(), nmsI.data());
+          
           return;
         }
 
@@ -696,9 +671,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             bm->set(dgp->nodeFromId(i), -B[nmsI[i]]);
             supply_changed = true;
           }
-            // NDfct[i] = B[nmsI[i]];
-
-          //MCFC::ChgDfcts(NDfct.data(), nmsI.data());
           return;
         }
 

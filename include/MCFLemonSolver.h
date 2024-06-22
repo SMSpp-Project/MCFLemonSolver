@@ -137,13 +137,12 @@ class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
   MCFListDigraph() : lemon::ListDigraph() { }
   ~MCFListDigraph() = default;
 
-  void setFirstFreeArc(int value){
-    first_free_arc = value;
-  }
 
-  int getFirstFreeArc(){
-    return first_free_arc;
-  }
+  class MCFArc : ListDigraph::Arc {
+    friend class MCFListDigraph;
+    protected:
+      MCFArc(int pid){id = pid;}
+  };
 
   using ListDigraphBase::first_free_arc;
   using ListDigraphBase::Node;
@@ -158,6 +157,70 @@ class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
   bool isClosed( int n ){
     return _arcs[n].source < 0;
   }
+
+  MCFArc addArc(int u, int v) {
+      int n;
+
+      if (first_free_arc == -1) {
+        n = _arcs.size();
+        _arcs.push_back(ArcT());
+      } else {
+        // look for the min-index arc in the deleted arc list
+        int minidx = first_free_arc;
+        int idx = first_free_arc;
+        int prevmin = -1;
+        for(auto nextidx = _arcs[ idx ].next_in ; nextidx != -1;
+              idx = nextidx , nextidx = _arcs[ idx ].next_in)
+            if( nextidx < minidx){
+              minidx = nextidx;
+              prevmin = idx;
+            }
+
+        if(prevmin == -1)
+          first_free_arc = _arcs[ first_free_arc ].next_in;
+        else
+          _arcs[ prevmin ].next_in = _arcs[ minidx ].next_in;
+
+
+        _arcs[ minidx ].source = u;
+        _arcs[ minidx ].target = v;
+
+        _arcs[ minidx ].next_out = _nodes[u].first_out;
+        if(_nodes[u].first_out != -1) {
+          _arcs[_nodes[u].first_out].prev_out = minidx;
+        }
+
+        _arcs[ minidx ].next_in = _nodes[v].first_in;
+        if(_nodes[v].first_in != -1) {
+          _arcs[_nodes[v].first_in].prev_in = minidx;
+        }
+
+        _arcs[ minidx ].prev_in = _arcs[ minidx ].prev_out = -1;
+
+        _nodes[u].first_out = _nodes[v].first_in = minidx;
+
+        return MCFArc( minidx );
+      }
+
+      _arcs[n].source = u;
+      _arcs[n].target = v;
+
+      _arcs[n].next_out = _nodes[u].first_out;
+      if(_nodes[u].first_out != -1) {
+        _arcs[_nodes[u].first_out].prev_out = n;
+      }
+
+      _arcs[n].next_in = _nodes[v].first_in;
+      if(_nodes[v].first_in != -1) {
+        _arcs[_nodes[v].first_in].prev_in = n;
+      }
+
+      _arcs[n].prev_in = _arcs[n].prev_out = -1;
+
+      _nodes[u].first_out = _nodes[v].first_in = n;
+
+      return MCFArc(n);
+    }
 
   void closeArc( int n ) {
 
@@ -215,6 +278,32 @@ class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
       first_free_arc = n;
       _arcs[n].prev_in = -2;
     }
+
+    // void erase( int n ){
+      
+    //   if(_arcs[n].next_in!=-1) {
+    //     _arcs[_arcs[n].next_in].prev_in = _arcs[n].prev_in;
+    //   }
+
+    //   if(_arcs[n].prev_in!=-1) {
+    //     _arcs[_arcs[n].prev_in].next_in = _arcs[n].next_in;
+    //   } else {
+    //     _nodes[_arcs[n].target].first_in = _arcs[n].next_in;
+    //   }
+
+
+    //   if(_arcs[n].next_out!=-1) {
+    //     _arcs[_arcs[n].next_out].prev_out = _arcs[n].prev_out;
+    //   }
+
+    //   if(_arcs[n].prev_out!=-1) {
+    //     _arcs[_arcs[n].prev_out].next_out = _arcs[n].next_out;
+    //   } else {
+    //     _nodes[_arcs[n].source].first_out = _arcs[n].next_out;
+    //   }
+
+    //   _arcs[n].prev_in = -2;
+    // }
 
 };
 
