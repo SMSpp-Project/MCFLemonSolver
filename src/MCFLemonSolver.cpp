@@ -206,7 +206,7 @@ if constexpr (std::is_same<GR, ListDigraph>::value){
   bm = new MCFNodeMapV( * dgp );  // create the supply map
   auto & b = MCFB->get_B();
   for( MCFBlock::Index i = 0 ; i < n ; i++ )
-   bm->set( dgp->nodeFromId( i ) , -b[ i ] );  // note tat supply = - deficit
+   bm->set( dgp->nodeFromId( i ) , b[i] == 0 ? 0 : -b[i] );  // note tat supply = - deficit
 
   f_algo->supplyMap( *bm );  // pass it to the algo
   }
@@ -440,13 +440,13 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           if (rng.second == rng.first + 1)
           {
             
-            if ( dgp->valid(dgp->arcFromId(rng.first)) && !graph->isClosed(rng.first)){
+            if ( dgp->valid(dgp->arcFromId(rng.first) )){
               auto cost = MCFB->get_C(rng.first);
               cm->set( dgp->arcFromId(rng.first), std::isnan(cost) ? 0 : cost);
               cost_changed = true;
             }else {
                 for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                      if(dgp->valid(dgp->arcFromId(i)) && !(std::isnan(MCFB->get_C(i))) && !graph->isClosed(rng.first)){
+                      if(dgp->valid(dgp->arcFromId(i)) && !(std::isnan(MCFB->get_C(i)))){
                       cm->set(dgp->arcFromId(i), MCFB->get_C(i));
                       cost_changed = true;                    
                       }else if(std::isnan(MCFB->get_C(i)) && !graph->isClosed(rng.first)){
@@ -461,7 +461,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
               
           }else{
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-              if(dgp->valid(dgp->arcFromId(i)) && !graph->isClosed(rng.first)){
+              if(dgp->valid(dgp->arcFromId(i))){
                 auto cost = MCFB->get_C(i);
                 cm->set(dgp->arcFromId(i), std::isnan(cost) ? 0 : cost);
                 cost_changed = true;
@@ -478,14 +478,14 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           auto graph = static_cast<MCFListDigraph*>(dgp);
           if (rng.second == rng.first + 1)
           {
-            if (dgp->valid(dgp->arcFromId(rng.first)) && !graph->isClosed(rng.first)){
+            if (dgp->valid(dgp->arcFromId(rng.first))){
               um->set(dgp->arcFromId(rng.first), MCFB->get_U(rng.first));
               cap_changed = true;
             }
           }
           else{
             for(MCFBlock::Index i = rng.first; i < rng.second; i++){
-                if(dgp->valid(dgp->arcFromId(i)) && !graph->isClosed(rng.first)){
+                if(dgp->valid(dgp->arcFromId(i))){
                   um->set(dgp->arcFromId(i), MCFB->get_U(i));
                   cap_changed = true;
                 }
@@ -555,8 +555,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           //   throw(std::logic_error("name mismatch in AddArc()"));
           
           n_arcs_added++;
-          cm->set(arc , std::isnan(ca) ? 0 : ca);
-          um->set(arc, capacity);
+          cm->set(arc, std::isnan(ca) ? 0 : ca);
+          um->set(arc , capacity);
 
           cost_changed = true;
           cap_changed = true;
@@ -631,7 +631,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         {
           auto graph = static_cast<MCFListDigraph*>(dgp);
           for (auto i : tmod->nms())
-            if (dgp->valid(dgp->arcFromId(i)) && !graph->isClosed(i)) 
+            if (dgp->valid(dgp->arcFromId(i))) 
             {
               auto arc = dgp->arcFromId(i);
               auto cost = MCFB->get_C(i);
@@ -650,7 +650,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
           auto &CC = MCFB->get_C();
           auto &U = MCFB->get_U();
           for (auto i : tmod->nms())
-            if (!std::isnan(CC[i]) && dgp->valid(dgp->arcFromId(i)) && !graph->isClosed(i))
+            if (!std::isnan(CC[i]) && dgp->valid(dgp->arcFromId(i)))
             {
 
               um->set(dgp->arcFromId(i), U[i]);
