@@ -306,7 +306,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
     cost_changed = true;
     cap_changed = true;
     supply_changed = true;
-  }
+  }  
 
   if( cost_changed ){
     f_algo->costMap(*cm);
@@ -354,8 +354,7 @@ template<template<typename,typename,typename> class Algo, LEMONGraph GR, typenam
 void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 {
 
-  if(std::is_same<GR, ListDigraph>::value){
-  
+
 
     if (std::dynamic_pointer_cast<const NBModification>(mod))
     {
@@ -369,9 +368,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
       else
       push_back(mod);
 
-  }else{
-    throw (std::logic_error("SmartDigraph doesn't support Modification"));
-  }
+
 }
 
   
@@ -379,9 +376,6 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
   void MCFLemonSolver<Algo, GR, V, C>::process_outstanding_Modification(void)
   {
 
-    if(std::is_same<GR, SmartDigraph>::value){
-    throw (std::logic_error("SmartDigraph doesn't support Modification"));
-    }
     // no-frills loop: do them in order, with no attempt at optimizing
     // note that NBModification have already been dealt with and therefore need
     // not be considered here
@@ -402,7 +396,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
   void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod)
   {
 
-    if constexpr (std::is_same<GR, ListDigraph>::value){
+    
     
 
       auto MCFB = static_cast<MCFBlock *>(f_Block);
@@ -436,7 +430,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         {
         case (MCFBlockMod::eChgCost):
         {
-          auto graph = static_cast<MCFListDigraph*>(dgp);
+          
           if (rng.second == rng.first + 1)
           {
             
@@ -450,7 +444,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
                       auto cost = MCFB->get_C(i);
                       cm->set(dgp->arcFromId(i), cost);
                       cost_changed = true;                    
-                      }else if(std::isnan(MCFB->get_C(i)) && !graph->isClosed(rng.first)){
+                      }else if(std::isnan(MCFB->get_C(i))){
                         cm->set(dgp->arcFromId(i), 0);
                         cost_changed = true;
                        }
@@ -476,7 +470,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         }
         case (MCFBlockMod::eChgCaps):
         {
-          auto graph = static_cast<MCFListDigraph*>(dgp);
+          
           if (rng.second == rng.first + 1)
           {
             if (dgp->valid(dgp->arcFromId(rng.first))){
@@ -517,76 +511,89 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         }
 
         case (MCFBlockMod::eOpenArc):{
-          auto graph = static_cast<MCFListDigraph*>(dgp);
-          for(; rng.first < rng.second; ++rng.first){
-            if ((!MCFB->is_deleted(rng.first)) && dgp->valid(dgp->arcFromId(rng.first)) && graph->isClosed(rng.first)){    
-              graph->openArc(rng.first);   
-               n_arcs_added++;
+          if constexpr (std::is_same<GR, ListDigraph>::value){
+
+          
+            auto graph = static_cast<MCFListDigraph*>(dgp);
+            for(; rng.first < rng.second; ++rng.first){
+              if ((!MCFB->is_deleted(rng.first)) && dgp->valid(dgp->arcFromId(rng.first)) && graph->isClosed(rng.first)){    
+                graph->openArc(rng.first);   
+                n_arcs_added++;
+              }
             }
           }
-
           return;
         }
 
         case (MCFBlockMod::eCloseArc):{
-          auto graph = static_cast<MCFListDigraph*>(dgp);
-          for(; rng.first < rng.second; ++rng.first){
-            if ((!MCFB->is_deleted(rng.first)) && !graph->isClosed(rng.first) && dgp->valid(dgp->arcFromId(rng.first))){
-                graph->closeArc(rng.first);  
-                n_arcs_deleted++;
-            }
-          }   
+          if constexpr (std::is_same<GR, ListDigraph>::value){
 
+          
+            auto graph = static_cast<MCFListDigraph*>(dgp);
+            for(; rng.first < rng.second; ++rng.first){
+              if ((!MCFB->is_deleted(rng.first)) && !graph->isClosed(rng.first) && dgp->valid(dgp->arcFromId(rng.first))){
+                  graph->closeArc(rng.first);  
+                  n_arcs_deleted++;
+              }
+            }   
+          }
           return;
         }
          
         
         case (MCFBlockMod::eAddArc):
         {
-          auto graph = static_cast<MCFListDigraph*>(dgp);
+          if constexpr (std::is_same<GR, ListDigraph>::value){
+            auto graph = static_cast<MCFListDigraph*>(dgp);
           
-          auto ca = MCFB->get_C(rng.first);
-          auto startNode = MCFB->get_SN(rng.first) - 1;
-          auto endNode = MCFB->get_EN(rng.first) - 1;
-          auto capacity = MCFB->get_U(rng.first);
+            auto ca = MCFB->get_C(rng.first);
+            auto startNode = MCFB->get_SN(rng.first) - 1;
+            auto endNode = MCFB->get_EN(rng.first) - 1;
+            auto capacity = MCFB->get_U(rng.first);
 
-          graph->addArc(startNode, endNode);
-          auto arc = dgp->arcFromId(rng.first);
-          // if (arc != dgp->arcFromId(rng.first))
-          //   throw(std::logic_error("name mismatch in AddArc()"));
-          
-          n_arcs_added++;
-          cm->set(arc, std::isnan(ca) ? 0 : ca);
-          um->set(arc , capacity);
+            graph->addArc(startNode, endNode);
+            auto arc = dgp->arcFromId(rng.first);
+            // if (arc != dgp->arcFromId(rng.first))
+            //   throw(std::logic_error("name mismatch in AddArc()"));
+            
+            n_arcs_added++;
+            cm->set(arc, std::isnan(ca) ? 0 : ca);
+            um->set(arc , capacity);
 
-          cost_changed = true;
-          cap_changed = true;
-          
+            cost_changed = true;
+            cap_changed = true;
+            
+
+            return;
+          }
+ 
 
           return;
         }
 
         case (MCFBlockMod::eRmvArc):
         {
-          auto graph = static_cast<MCFListDigraph*>(dgp);
-          if(!dgp->valid(dgp->arcFromId(rng.second - 1))){
-            return;
-          }
-          auto arc = dgp->arcFromId(rng.second - 1);
+          if constexpr (std::is_same<GR, ListDigraph>::value){
+            auto graph = static_cast<MCFListDigraph*>(dgp);
+            if(!dgp->valid(dgp->arcFromId(rng.second - 1))){
+              return;
+            }
+            auto arc = dgp->arcFromId(rng.second - 1);
+            
           
-         
-          if(graph->isClosed(rng.second - 1)){
-            graph->eraseClosed(rng.second - 1);
-          }else{
-            dgp->erase(arc);
-          }
-          
-          n_arcs_deleted++;
+            if(graph->isClosed(rng.second - 1)){
+              graph->eraseClosed(rng.second - 1);
+            }else{
+              dgp->erase(arc);
+            }
+            
+            n_arcs_deleted++;
 
-          
+          }
          
           
           return;
+          
         }
         default:
           throw(std::invalid_argument("unknown MCFBlockRngdMod type"));
@@ -599,24 +606,29 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         switch (tmod->type())
         {
         case (MCFBlockMod::eOpenArc):{
-          auto graph = static_cast<MCFListDigraph*>(dgp);
-          for (auto arc : tmod->nms())
-            if ((!MCFB->is_deleted(arc)) && graph->isClosed(arc) && dgp->valid(dgp->arcFromId(arc))){
-                graph->openArc(arc);
-                 n_arcs_added++;
-            }
+          if constexpr (std::is_same<GR, ListDigraph>::value){
+            auto graph = static_cast<MCFListDigraph*>(dgp);
+            for (auto arc : tmod->nms())
+              if ((!MCFB->is_deleted(arc)) && graph->isClosed(arc) && dgp->valid(dgp->arcFromId(arc))){
+                  graph->openArc(arc);
+                  n_arcs_added++;
+              }
+          }
           return;
+          
         }
         case (MCFBlockMod::eCloseArc):{
-          auto graph = static_cast<MCFListDigraph*>(dgp);
-      
-          for (auto arc : tmod->nms())
-            
-            if ((!MCFB->is_deleted(arc)) && dgp->valid(dgp->arcFromId(arc)) && !graph->isClosed(arc)){
-                graph->closeArc(arc);  
-                n_arcs_deleted++;
+          if constexpr (std::is_same<GR, ListDigraph>::value){
+            auto graph = static_cast<MCFListDigraph*>(dgp);
+        
+            for (auto arc : tmod->nms())         
+              if ((!MCFB->is_deleted(arc)) && dgp->valid(dgp->arcFromId(arc)) && !graph->isClosed(arc)){
+                  graph->closeArc(arc);  
+                  n_arcs_deleted++;
 
-            }
+              }
+
+            
           return;
 
           }
@@ -630,7 +642,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
         {
         case (MCFBlockMod::eChgCost):
         {
-          auto graph = static_cast<MCFListDigraph*>(dgp);
+         
           for (auto i : tmod->nms())
             if (dgp->valid(dgp->arcFromId(i))) 
             {
@@ -647,7 +659,7 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
 
         case (MCFBlockMod::eChgCaps):
         {
-          auto graph = static_cast<MCFListDigraph*>(dgp);
+         
           auto &CC = MCFB->get_C();
           auto &U = MCFB->get_U();
           for (auto i : tmod->nms())

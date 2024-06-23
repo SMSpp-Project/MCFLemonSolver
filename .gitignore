@@ -1,7 +1,8 @@
 ### LEMON build & install folder
 lemon-development/build
 lemon-development/lib
-
+include/.clang-format
+src/.clang-format
 ### Makefile-generated binaries
 
 ### data directories

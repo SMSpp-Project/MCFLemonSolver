@@ -137,7 +137,7 @@ class MCFListDigraph : public lemon::ListDigraph,  concepts::Digraph{
   MCFListDigraph() : lemon::ListDigraph() { }
   ~MCFListDigraph() = default;
 
-
+ 
   class MCFArc : ListDigraph::Arc {
     friend class MCFListDigraph;
     protected:
