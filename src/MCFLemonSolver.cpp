@@ -447,7 +447,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod)
             }else {
                 for(MCFBlock::Index i = rng.first; i < rng.second; i++){
                       if(dgp->valid(dgp->arcFromId(i)) && !(std::isnan(MCFB->get_C(i)))){
-                      cm->set(dgp->arcFromId(i), MCFB->get_C(i));
+                      auto cost = MCFB->get_C(i);
+                      cm->set(dgp->arcFromId(i), cost);
                       cost_changed = true;                    
                       }else if(std::isnan(MCFB->get_C(i)) && !graph->isClosed(rng.first)){
                         cm->set(dgp->arcFromId(i), 0);
