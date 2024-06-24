@@ -37,79 +37,76 @@ using namespace SMSpp_di_unipi_it;
 
 // register the various LEMONSolver GR , V , C > to the Solver factory
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverNetworkSimplex<SmartDigraph, int, int>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverNetworkSimplex<SmartDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverNetworkSimplex<SmartDigraph, double, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverNetworkSimplex<SmartDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverNetworkSimplex<SmartDigraph, long, long>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverNetworkSimplex<MCFListDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverNetworkSimplex<ListDigraph, int, int>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverNetworkSimplex<MCFListDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverNetworkSimplex<ListDigraph, double, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCycleCanceling<SmartDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverNetworkSimplex<ListDigraph, long, long>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCycleCanceling<SmartDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCycleCanceling<SmartDigraph, int, int>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCycleCanceling<MCFListDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCycleCanceling<SmartDigraph, double, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCycleCanceling<MCFListDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCycleCanceling<SmartDigraph, long, long>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCostScaling<SmartDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCycleCanceling<ListDigraph, int, int>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCostScaling<SmartDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCycleCanceling<ListDigraph, double, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCostScaling<MCFListDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCycleCanceling<ListDigraph, long, long>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCostScaling<MCFListDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCostScaling<SmartDigraph, int, int>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCapacityScaling<SmartDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCostScaling<SmartDigraph, long, long>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCapacityScaling<SmartDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCostScaling<SmartDigraph, double, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCapacityScaling<SmartDigraph, long, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCostScaling<ListDigraph, int, int>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCapacityScaling<MCFListDigraph, double, double>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCostScaling<ListDigraph, double, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCapacityScaling<MCFListDigraph, long, long>);
 
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCostScaling<ListDigraph, long, long>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<SmartDigraph, int, int>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<SmartDigraph, double, double>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<SmartDigraph, long, long>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<SmartDigraph, int, double>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<SmartDigraph, long, double>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<ListDigraph, int, int>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<ListDigraph, double, double>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<ListDigraph, long, long>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<ListDigraph, int, double>);
-
-SMSpp_insert_in_factory_cpp_0_t(MCFLemonSolverCapacityScaling<ListDigraph, long, double>);
+SMSpp_insert_in_factory_cpp_0_t(
+    MCFLemonSolverCapacityScaling<MCFListDigraph, long, double>);
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of MCFLemonSolver ------------------------*/
 /*--------------------------------------------------------------------------*/
 
-template <template <typename, typename, typename> class Algo, LEMONGraph GR, typename V, typename C>
+template <template <typename, typename, typename> class Algo, LEMONGraph GR,
+          typename V, typename C>
 void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB) {
 
     // delete previous graph and f_algo (if present)
     // delete dgp;
     delete f_algo;
     f_algo = nullptr;
-    // create and clear new Graph (ListDigraph or SmartDigraph)
-    if constexpr (std::is_same<GR, ListDigraph>::value) {
-        dgp = new MCFListDigraph();
-    } else {
-        dgp = new GR;
-    }
+    // create and clear new Graph (MCFListDigraph or SmartDigraph)
+
+    dgp = new GR;
+
     dgp->clear();
 
     // actually reserve get_MaxNNodes() node space in dgp
@@ -134,10 +131,15 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB) {
     // add all arcs in dgp
     // sn[ i ] - 1 and en[ i ] - 1 are used because sn , en nodes start from 1
     for (MCFBlock::Index i = 0; i < m; ++i)
-        dgp->addArc(dgp->nodeFromId(sn[i] - 1), dgp->nodeFromId(en[i] - 1));
+        if constexpr (std::is_same<GR, SmartDigraph>::value) {
+            dgp->addArc(dgp->nodeFromId(sn[i] - 1), dgp->nodeFromId(en[i] - 1));
+        } else {
+            dgp->addArc(sn[i] - 1, en[i] - 1);
+        }
 
     // new instance of Lemon Algorithm with no arc mixing
-    if constexpr (std::is_same<Algo<GR, V, C>, NetworkSimplex<GR, V, C>>::value) {
+    if constexpr (std::is_same<Algo<GR, V, C>,
+                               NetworkSimplex<GR, V, C>>::value) {
         f_algo = new Algo<GR, V, C>(*dgp, false);
     } else {
         f_algo = new Algo<GR, V, C>(*dgp);
@@ -174,13 +176,15 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_set_Block(MCFBlock *MCFB) {
         bm = new MCFNodeMapV(*dgp); // create the supply map
         auto &b = MCFB->get_B();
         for (MCFBlock::Index i = 0; i < n; i++)
-            bm->set(dgp->nodeFromId(i), b[i] == 0 ? 0 : -b[i]); // note tat supply = - deficit
+            bm->set(dgp->nodeFromId(i),
+                    b[i] == 0 ? 0 : -b[i]); // note tat supply = - deficit
 
         f_algo->supplyMap(*bm); // pass it to the algo
     }
 }
 
-template <template <typename, typename, typename> class Algo, LEMONGraph GR, typename V, typename C>
+template <template <typename, typename, typename> class Algo, LEMONGraph GR,
+          typename V, typename C>
 void MCFLemonSolver<Algo, GR, V, C>::set_Block(Block *block) {
     if (block == f_Block) // actually doing nothing
         return;           // cowardly and silently return
@@ -192,7 +196,8 @@ void MCFLemonSolver<Algo, GR, V, C>::set_Block(Block *block) {
 
     auto MCFB = dynamic_cast<MCFBlock *>(block);
     if (!MCFB)
-        throw(std::invalid_argument("MCFSolver:set_Block: block must be a MCFBlock"));
+        throw(std::invalid_argument(
+            "MCFSolver:set_Block: block must be a MCFBlock"));
 
     bool owned = MCFB->is_owned_by(f_id);
     if ((!owned) && (!MCFB->read_lock()))
@@ -207,13 +212,15 @@ void MCFLemonSolver<Algo, GR, V, C>::set_Block(Block *block) {
 
 /*--------------------------------------------------------------------------*/
 
-template <template <typename, typename, typename> class Algo, LEMONGraph GR, typename V, typename C>
+template <template <typename, typename, typename> class Algo, LEMONGraph GR,
+          typename V, typename C>
 int MCFLemonSolver<Algo, GR, V, C>::compute(bool changedvars) {
 
     using MCFArcMapV = typename GR::template ArcMap<V>;
     using MCFNodeMapV = typename GR::template NodeMap<V>;
 
-    const static std::array<int, 3> LEMONstatus_2_sol_type = {Solver::kInfeasible, Solver::kOK, Solver::kUnbounded};
+    const static std::array<int, 3> LEMONstatus_2_sol_type = {
+        Solver::kInfeasible, Solver::kOK, Solver::kUnbounded};
 
     lock(); // first of all, acquire self-lock
 
@@ -225,7 +232,6 @@ int MCFLemonSolver<Algo, GR, V, C>::compute(bool changedvars) {
         return (kBlockLocked);               // return error on failure
 
     // while [read_]locked, process any outstanding Modification
-    // TODO: ensure that modification are actually processed for MCFLemonSolver.
     process_outstanding_Modification();
 
     if (!f_dmx_file.empty()) { // if so required
@@ -242,7 +248,8 @@ int MCFLemonSolver<Algo, GR, V, C>::compute(bool changedvars) {
     if (!owned)                 // if the [MCF]Block was actually read_locked
         f_Block->read_unlock(); // read_unlock it
 
-    // if the graph was modified adding\removing arcs, then reset() f_algo must be used
+    // if the graph was modified adding\removing arcs, then reset() f_algo must
+    // be used
     if (n_arcs_added > 0 || n_arcs_deleted > 0) {
         n_arcs += n_arcs_added;
         n_arcs -= n_arcs_deleted;
@@ -272,16 +279,15 @@ int MCFLemonSolver<Algo, GR, V, C>::compute(bool changedvars) {
     }
 
     // using Lemon Digraph Writer for debuggging
-    std::ofstream ProbFile("lmn.txt", ios_base::out | ios_base::trunc);
-    if (!ProbFile.is_open()) {
-        throw(std::logic_error("cannot open LMN file lmn.txt"));
-    }
-    DigraphWriter<GR>(*dgp, ProbFile).nodeMap("supply", *bm).arcMap("cost", *cm).arcMap("upper", *um).run();
-    ProbFile.close();
+    // std::ofstream ProbFile("lmn.txt", ios_base::out | ios_base::trunc);
+    // if (!ProbFile.is_open()) {
+    //     throw(std::logic_error("cannot open file lmn.txt"));
+    // }
+    // DigraphWriter<GR>(*dgp, ProbFile).nodeMap("supply", *bm).arcMap("cost",
+    // *cm).arcMap("upper", *um).run(); ProbFile.close();
 
     auto start = chrono::system_clock::now();
     guts_of_compute(); // here the actual magic is done by specialised classes
-
     auto end = chrono::system_clock::now();
 
     chrono::duration<double> elapsed = end - start;
@@ -294,7 +300,8 @@ int MCFLemonSolver<Algo, GR, V, C>::compute(bool changedvars) {
 
 } // end( MCFLemonSolver< Algo , GR , V , C >::compute )
 
-template <template <typename, typename, typename> class Algo, LEMONGraph GR, typename V, typename C>
+template <template <typename, typename, typename> class Algo, LEMONGraph GR,
+          typename V, typename C>
 void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod) {
 
     if (std::dynamic_pointer_cast<const NBModification>(mod)) {
@@ -308,7 +315,8 @@ void MCFLemonSolver<Algo, GR, V, C>::add_Modification(sp_Mod &mod) {
         push_back(mod);
 }
 
-template <template <typename, typename, typename> class Algo, LEMONGraph GR, typename V, typename C>
+template <template <typename, typename, typename> class Algo, LEMONGraph GR,
+          typename V, typename C>
 void MCFLemonSolver<Algo, GR, V, C>::process_outstanding_Modification(void) {
 
     // no-frills loop: do them in order, with no attempt at optimizing
@@ -326,18 +334,22 @@ void MCFLemonSolver<Algo, GR, V, C>::process_outstanding_Modification(void) {
 
 /*--------------------------------------------------------------------------*/
 
-template <template <typename, typename, typename> class Algo, LEMONGraph GR, typename V, typename C>
+template <template <typename, typename, typename> class Algo, LEMONGraph GR,
+          typename V, typename C>
 void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
 
     auto MCFB = static_cast<MCFBlock *>(f_Block);
 
-    // process Modification - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // process Modification - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // -
+    //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    //-
     /* This requires to patiently sift through the possible Modification types
      * to find what this Modification exactly is, and call the appropriate
      * method of MCFClass. */
 
-    // GroupModification- - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // GroupModification- - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // -
     if (auto tmod = dynamic_cast<const GroupModification *>(mod)) {
         for (const auto &submod : tmod->sub_Modifications())
             guts_of_poM(submod.get());
@@ -345,7 +357,8 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
         return;
     }
 
-    // MCFBlockRngdMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // MCFBlockRngdMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // -
     /* Note: in the following we can assume that C, B and U are nonempty. This
      * is because they can be empty only if they are so when the object is
      * loaded. But if a Modification has been issued they are no longer empty (a
@@ -361,11 +374,13 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
 
                 if (dgp->valid(dgp->arcFromId(rng.first))) {
                     auto cost = MCFB->get_C(rng.first);
-                    cm->set(dgp->arcFromId(rng.first), std::isnan(cost) ? 0 : cost);
+                    cm->set(dgp->arcFromId(rng.first),
+                            std::isnan(cost) ? 0 : cost);
                     cost_changed = true;
                 } else {
                     for (MCFBlock::Index i = rng.first; i < rng.second; i++) {
-                        if (dgp->valid(dgp->arcFromId(i)) && !(std::isnan(MCFB->get_C(i)))) {
+                        if (dgp->valid(dgp->arcFromId(i)) &&
+                            !(std::isnan(MCFB->get_C(i)))) {
                             auto cost = MCFB->get_C(i);
                             cm->set(dgp->arcFromId(i), cost);
                             cost_changed = true;
@@ -388,6 +403,9 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
 
             return;
         }
+
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eChgCaps): {
 
             if (rng.second == rng.first + 1) {
@@ -406,6 +424,9 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
 
             return;
         }
+
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eChgDfct): {
 
             if (rng.second == rng.first + 1) {
@@ -423,53 +444,61 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
             return;
         }
 
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eOpenArc): {
-            if constexpr (std::is_same<GR, ListDigraph>::value) {
+            // only if the graph is ListDigraph
+            if constexpr (std::is_same<GR, MCFListDigraph>::value) {
 
-                auto graph = static_cast<MCFListDigraph *>(dgp);
                 for (; rng.first < rng.second; ++rng.first) {
-                    if ((!MCFB->is_deleted(rng.first)) && dgp->valid(dgp->arcFromId(rng.first)) &&
-                        graph->isClosed(rng.first)) {
-                        graph->openArc(rng.first);
+                    if ((!MCFB->is_deleted(rng.first)) &&
+                        dgp->valid(dgp->arcFromId(rng.first)) &&
+                        dgp->isClosed(rng.first)) {
+                        dgp->openArc(rng.first);
                         n_arcs_added++;
                     }
                 }
             } else {
-                throw(std::logic_error("SmartDigraph doesn't support operations on arc"));
+                throw(std::logic_error(
+                    "SmartDigraph doesn't support operations on arc"));
             }
             return;
         }
 
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eCloseArc): {
-            if constexpr (std::is_same<GR, ListDigraph>::value) {
+            // only if the graph is ListDigraph
+            if constexpr (std::is_same<GR, MCFListDigraph>::value) {
 
-                auto graph = static_cast<MCFListDigraph *>(dgp);
                 for (; rng.first < rng.second; ++rng.first) {
-                    if ((!MCFB->is_deleted(rng.first)) && !graph->isClosed(rng.first) &&
+                    if ((!MCFB->is_deleted(rng.first)) &&
+                        !dgp->isClosed(rng.first) &&
                         dgp->valid(dgp->arcFromId(rng.first))) {
-                        graph->closeArc(rng.first);
+                        dgp->closeArc(rng.first);
                         n_arcs_deleted++;
                     }
                 }
             } else {
-                throw(std::logic_error("SmartDigraph doesn't support operations on arc"));
+                throw(std::logic_error(
+                    "SmartDigraph doesn't support operations on arc"));
             }
             return;
         }
 
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eAddArc): {
-            if constexpr (std::is_same<GR, ListDigraph>::value) {
-                auto graph = static_cast<MCFListDigraph *>(dgp);
+            // only if the graph is ListDigraph
+            if constexpr (std::is_same<GR, MCFListDigraph>::value) {
 
                 auto ca = MCFB->get_C(rng.first);
                 auto startNode = MCFB->get_SN(rng.first) - 1;
                 auto endNode = MCFB->get_EN(rng.first) - 1;
                 auto capacity = MCFB->get_U(rng.first);
 
-                graph->addArc(startNode, endNode);
+                dgp->addArc(startNode, endNode);
                 auto arc = dgp->arcFromId(rng.first);
-                // if (arc != dgp->arcFromId(rng.first))
-                //   throw(std::logic_error("name mismatch in AddArc()"));
 
                 n_arcs_added++;
                 cm->set(arc, std::isnan(ca) ? 0 : ca);
@@ -480,29 +509,35 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
 
                 return;
             } else {
-                throw(std::logic_error("SmartDigraph doesn't support operations on arc"));
+                throw(std::logic_error(
+                    "SmartDigraph doesn't support operations on arc"));
             }
 
             return;
         }
-
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eRmvArc): {
-            if constexpr (std::is_same<GR, ListDigraph>::value) {
-                auto graph = static_cast<MCFListDigraph *>(dgp);
+            // only if ListDigraph is used
+            if constexpr (std::is_same<GR, MCFListDigraph>::value) {
+                // if the arc was previous deleted, return
                 if (!dgp->valid(dgp->arcFromId(rng.second - 1))) {
                     return;
                 }
                 auto arc = dgp->arcFromId(rng.second - 1);
 
-                if (graph->isClosed(rng.second - 1)) {
-                    graph->eraseClosed(rng.second - 1);
+                // if the arc isClosed, only 'mark' it as eliminated, otherwise
+                // normally erase it
+                if (dgp->isClosed(rng.second - 1)) {
+                    dgp->eraseClosed(rng.second - 1);
                 } else {
                     dgp->erase(arc);
                 }
 
                 n_arcs_deleted++;
             } else {
-                throw(std::logic_error("SmartDigraph doesn't support operations on arc"));
+                throw(std::logic_error(
+                    "SmartDigraph doesn't support operations on arc"));
             }
 
             return;
@@ -512,43 +547,52 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
         }
     }
 
-    // MCFBlockSbstMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // MCFBlockSbstMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // -
     if (auto tmod = dynamic_cast<const MCFBlockSbstMod *>(mod)) {
         switch (tmod->type()) {
+
         case (MCFBlockMod::eOpenArc): {
-            if constexpr (std::is_same<GR, ListDigraph>::value) {
-                auto graph = static_cast<MCFListDigraph *>(dgp);
+            // only if ListDigraph is used
+            if constexpr (std::is_same<GR, MCFListDigraph>::value) {
                 for (auto arc : tmod->nms())
-                    if ((!MCFB->is_deleted(arc)) && graph->isClosed(arc) && dgp->valid(dgp->arcFromId(arc))) {
-                        graph->openArc(arc);
+                    // checking if the arc is closed
+                    if ((!MCFB->is_deleted(arc)) && dgp->isClosed(arc) &&
+                        dgp->valid(dgp->arcFromId(arc))) {
+                        dgp->openArc(arc);
                         n_arcs_added++;
                     }
             } else {
-                throw(std::logic_error("SmartDigraph doesn't support operations on arc"));
+                throw(std::logic_error(
+                    "SmartDigraph doesn't support operations on arc"));
             }
             return;
         }
+
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eCloseArc): {
-            if constexpr (std::is_same<GR, ListDigraph>::value) {
-                auto graph = static_cast<MCFListDigraph *>(dgp);
+            // only if ListDigraph is used
+            if constexpr (std::is_same<GR, MCFListDigraph>::value) {
 
                 for (auto arc : tmod->nms())
-                    if ((!MCFB->is_deleted(arc)) && dgp->valid(dgp->arcFromId(arc)) && !graph->isClosed(arc)) {
-                        graph->closeArc(arc);
+                    // checking if the arc is not closed
+                    if ((!MCFB->is_deleted(arc)) &&
+                        dgp->valid(dgp->arcFromId(arc)) &&
+                        !dgp->isClosed(arc)) {
+                        dgp->closeArc(arc);
                         n_arcs_deleted++;
                     }
 
                 return;
             } else {
-                throw(std::logic_error("SmartDigraph doesn't support operations on arc"));
+                throw(std::logic_error(
+                    "SmartDigraph doesn't support operations on arc"));
             }
-        }
+        };
 
-        // have to InINF-terminate the vector of indices (damn!)
-        // meanwhile, when appropriate remove the indices of deleted
-        // arcs for which the operations make no sense;
-        ;
-
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eChgCost): {
 
             for (auto i : tmod->nms())
@@ -562,6 +606,8 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
             return;
         }
 
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eChgCaps): {
 
             auto &CC = MCFB->get_C();
@@ -576,10 +622,13 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
             return;
         }
 
+        /*--------------------------------------------------------------*/
+        /*--------------------------------------------------------------*/
         case (MCFBlockMod::eChgDfct): {
             MCFBlock::Vec_FNumber NDfct(tmod->nms().size());
             MCFBlock::Subset nmsI(tmod->nms().size() + 1);
-            *copy(tmod->nms().begin(), tmod->nms().end(), nmsI.begin()) = Inf<MCFBlock::Index>();
+            *copy(tmod->nms().begin(), tmod->nms().end(), nmsI.begin()) =
+                Inf<MCFBlock::Index>();
             auto B = MCFB->get_B();
             for (MCFBlock::Index i = 0; i < NDfct.size(); i++) {
                 bm->set(dgp->nodeFromId(i), -B[nmsI[i]]);
