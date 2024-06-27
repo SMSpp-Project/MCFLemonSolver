@@ -346,7 +346,7 @@ void MCFLemonSolver<Algo, GR, V, C>::guts_of_poM(c_p_Mod mod) {
     //-
     /* This requires to patiently sift through the possible Modification types
      * to find what this Modification exactly is, and call the appropriate
-     * method of MCFClass. */
+     * method of LEMON. */
 
     // GroupModification- - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // -

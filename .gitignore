@@ -3,6 +3,8 @@ lemon-development/build
 lemon-development/lib
 include/.clang-format
 src/.clang-format
+.vscode
+LICENSE
 ### Makefile-generated binaries
 
 ### data directories

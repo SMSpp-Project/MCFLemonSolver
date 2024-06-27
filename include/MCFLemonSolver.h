@@ -621,14 +621,12 @@ class MCFLemonSolver : public CDASolver {
     void add_Modification(sp_Mod &mod) override;
 
     /*--------------------------------------------------------------------------*/
-    /*--------------------- PROTECTED PART OF THE CLASS
-     * ------------------------*/
+    /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
     /*--------------------------------------------------------------------------*/
 
   protected:
     /*--------------------------------------------------------------------------*/
-    /*-------------------------- PROTECTED METHODS
-     * -----------------------------*/
+    /*-------------------------- PROTECTED METHODS -----------------------------*/
     /*--------------------------------------------------------------------------*/
 
     void guts_of_constructor(void) { f_algo = nullptr; }
@@ -654,8 +652,7 @@ class MCFLemonSolver : public CDASolver {
     void process_outstanding_Modification(void);
 
     /*--------------------------------------------------------------------------*/
-    /*---------------------------- PROTECTED FIELDS
-     * ---------------------------*/
+    /*---------------------------- PROTECTED FIELDS ---------------------------*/
     /*--------------------------------------------------------------------------*/
 
     std::string f_dmx_file;
@@ -686,14 +683,12 @@ class MCFLemonSolver : public CDASolver {
     // number of arcs deleted in the graph with rmvArc/closeArc
 
     /*--------------------------------------------------------------------------*/
-    /*--------------------- PRIVATE PART OF THE CLASS
-     * --------------------------*/
+    /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
     /*--------------------------------------------------------------------------*/
 
   private:
     /*--------------------------------------------------------------------------*/
-    /*--------------------------- PRIVATE FIELDS
-     * -------------------------------*/
+    /*--------------------------- PRIVATE FIELDS -------------------------------*/
     /*--------------------------------------------------------------------------*/
 
     double ticks; // Elapsed time in ticks for compute() method
@@ -731,11 +726,11 @@ class MCFLemonSolver : public CDASolver {
  *    in the file MCFLemonSolver.h
  *
  *  - V, which is the type of flows / deficits; typically, double can be used
- *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    for maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  *
  * - C, which is the type of ar costs; typically, double can be used for
- *    maximum compatibility, but int (or even smaller) would yeld better
+ *    maximum compatibility, but long (or even smaller) would yeld better
  *    performances; */
 
 template <typename GR, typename V, typename C>
@@ -795,8 +790,7 @@ class MCFLemonSolverNetworkSimplex : public MCFLemonSolver<NetworkSimplex, GR, V
 
     /** @}
      * ---------------------------------------------------------------------*/
-    /*------- CONSTRUCTING AND DESTRUCTING MCFLemonSolverNetworkSimplex
-     * --------*/
+    /*------- CONSTRUCTING AND DESTRUCTING MCFLemonSolverNetworkSimplex --------*/
     /*--------------------------------------------------------------------------*/
     /** @name Constructing and destructing MCFLemonSolverNetworkSimplex
      *  @{ */
@@ -984,11 +978,11 @@ class MCFLemonSolverNetworkSimplex : public MCFLemonSolver<NetworkSimplex, GR, V
  * the file MCFLemonSolver.h at line 339
  *
  *  - V, which is the type of flows / deficits; typically, double can be used
- *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    for maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  *
  * - C, which is the type of ar costs; typically, double can be used for
- *    maximum compatibility, but int (or even smaller) would yeld better
+ *    maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  */
 template <typename GR, typename V, typename C>
@@ -1295,12 +1289,12 @@ class MCFLemonSolverCycleCanceling : public MCFLemonSolver<CycleCanceling, GR, V
  *  - GR that represents the directed graph, the possibilities are described in
  * the file MCFLemonSolver.h at line 339
  *
- *  - V, which is the type of flows / deficits; typically, double can be used
- *    for maximum compatibility, but int (or even smaller) would yeld better
+ *  - V, which is the type of flows / deficits; typically, l can be used
+ *    for maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  *
  * - C, which is the type of ar costs; typically, double can be used for
- *    maximum compatibility, but int (or even smaller) would yeld better
+ *    maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  */
 template <typename GR, typename V, typename C>
@@ -1391,8 +1385,7 @@ class MCFLemonSolverCapacityScaling : public MCFLemonSolver<SMSppCapacityScaling
     ///@return number of int algorithmic parameters
     [[nodiscard]] idx_type get_num_int_par(void) const override { return (intLastParLEMON_CS); }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     * -*/
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  -*/
 
     /// @return number of dbl algorithmic parameters
     [[nodiscard]] idx_type get_num_dbl_par(void) const override { return (dblLastParLEMON_CS); }
@@ -1440,8 +1433,7 @@ class MCFLemonSolverCapacityScaling : public MCFLemonSolver<SMSppCapacityScaling
         return (get_dflt_int_par(par));
     }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     * -*/
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
     /// @brief used for get the value of dbl parameters
     /// @param par
@@ -1460,8 +1452,7 @@ class MCFLemonSolverCapacityScaling : public MCFLemonSolver<SMSppCapacityScaling
         return (CDASolver::int_par_str2idx(name));
     }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     * -*/
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
     /// @brief used for convert string to dbl parameter's index
     /// @param name
@@ -1488,8 +1479,7 @@ class MCFLemonSolverCapacityScaling : public MCFLemonSolver<SMSppCapacityScaling
         return (CDASolver::int_par_idx2str(idx));
     }
 
-    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     * -*/
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
     /// @brief used for convert dbl index idx to phrasal rapresentation
     /// @param idx
@@ -1567,11 +1557,11 @@ class MCFLemonSolverCapacityScaling : public MCFLemonSolver<SMSppCapacityScaling
  *  - GR that represents the directed graph
  *
  *  - V, which is the type of flows / deficits; typically, double can be used
- *    for maximum compatibility, but int (or even smaller) would yeld better
+ *    for maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  *
  * - C, which is the type of ar costs; typically, double can be used for
- *    maximum compatibility, but int (or even smaller) would yeld better
+ *    maximum compatibility, but long (or even smaller) would yeld better
  *    performances;
  */
 
