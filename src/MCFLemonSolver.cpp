@@ -236,11 +236,11 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  lock(); // first of all, acquire self-lock
 
  if( ! f_Block ) // there is no [MCFBlock] to solve
-  return ( kBlockLocked ); // return error
+  return( kBlockLocked ); // return error
 
  bool owned = f_Block->is_owned_by( f_id ); // check if already locked
  if( ( ! owned ) && ( ! f_Block->read_lock() ) ) // if not try to read_lock
-  return ( kBlockLocked ); // return error on failure
+  return( kBlockLocked ); // return error on failure
 
  // while [read_]locked, process any outstanding Modification
  process_outstanding_Modification();
@@ -314,7 +314,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  unlock(); // release self-lock
 
  // now give out the result
- return ( LEMONstatus_2_sol_type[ this->get_status() ] );
+ return( LEMONstatus_2_sol_type[ this->get_status() ] );
 } // end( MCFLemonSolver< Algo , GR , V , C >::compute )
 
 template< template <typename, typename, typename> class Algo , LEMONGraph GR,
