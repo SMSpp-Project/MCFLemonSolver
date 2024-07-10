@@ -58,46 +58,46 @@ SMSpp_insert_in_factory_cpp_0_t(
  MCFLemonSolverNetworkSimplex< MCFListDigraph , long , long > );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<SmartDigraph , double , double> );
+ MCFLemonSolverCycleCanceling< SmartDigraph , double , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<SmartDigraph , long , long> );
+ MCFLemonSolverCycleCanceling< SmartDigraph , long , long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<MCFListDigraph , double , double> );
+ MCFLemonSolverCycleCanceling< MCFListDigraph , double , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<MCFListDigraph , long , long> );
+ MCFLemonSolverCycleCanceling< MCFListDigraph , long , long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<SmartDigraph , long , long> );
+ MCFLemonSolverCostScaling< SmartDigraph , long , long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<SmartDigraph , double , double> );
+ MCFLemonSolverCostScaling< SmartDigraph , double , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<MCFListDigraph , double , double> );
+ MCFLemonSolverCostScaling< MCFListDigraph , double , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<MCFListDigraph , long , long> );
+ MCFLemonSolverCostScaling< MCFListDigraph , long , long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<SmartDigraph , double , double> );
+ MCFLemonSolverCapacityScaling< SmartDigraph , double , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<SmartDigraph , long , long> );
+ MCFLemonSolverCapacityScaling< SmartDigraph , long , long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<SmartDigraph , long , double> );
+ MCFLemonSolverCapacityScaling< SmartDigraph , long , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<MCFListDigraph , double , double> );
+ MCFLemonSolverCapacityScaling< MCFListDigraph , double , double> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<MCFListDigraph , long , long> );
+ MCFLemonSolverCapacityScaling< MCFListDigraph , long , long> );
 
 SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<MCFListDigraph , long , double> );
+ MCFLemonSolverCapacityScaling< MCFListDigraph , long , double> );
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of MCFLemonSolver ------------------------*/
