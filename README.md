@@ -1,14 +1,16 @@
-# LEMONSolver
+# MCFLemonSolver
 
-This project implements `MCFLEMONSolver`, a SMS++ :Solver
-for [MCFBlock](https://gitlab.com/smspp/mcfblock) based
-on interfacing solvers from the
-[LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon).
-In fact, `MCFLEMONSolver` is not a single solver but no less
-than 16 classes obtained instantiating 4 different "base"
-solvers
+This project implements `MCFLemonSolver`, a SMS++ `:Solver` for
+[MCFBlock](https://gitlab.com/smspp/mcfblock) based on interfacing
+solvers from the [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon).
+In fact, `MCFLemonSolver` is not a single solver but no less than
+16 classes obtained instantiating 4 different "base" solvers.
 
-Each solver is instantiated on two different types of graphs (SmartDigraph and MCFListDigraph) and on the types of costs and capacities on the edges, which can be Double or Long. Although int is supported, for very large graphs it risks overflowing the size of an int.
+Each solver is instantiated on two different types of graphs
+(`SmartDigraph` and `MCFListDigraph`) and on the types of costs and capacities
+on the edges, which can be `int`, `double` or `long`. Although `int` is
+supported, for large graphs (or large costs/capacities/deficits on small
+graphs) it risks overflows.
 
 The algorithms implemented by the LEMON project are:
 
@@ -17,7 +19,9 @@ The algorithms implemented by the LEMON project are:
 - CycleCanceling
 - CapacityScaling
 
-For each of these algorithms, a class has been created, derived from a base class MCFLemonSolver that unites them, to manage method calls correctly using polymorphism.
+For each of these algorithms, a class has been created, derived from a base
+class `MCFLemonSolver` that unites them, to manage method calls correctly using
+polymorphism.
 
 The interface with the solvers provided by the LEMON project works thanks to the modifications made to the include/lemon/array_map.h file. Since it has not been updated for some time, it was not compatible with C++20 versions, causing problems, especially with the compilation of Concepts. This file is provided within the include/lemon directory, modified to ensure correctness, and a patch has been proposed to the LEMON developers, who I assume will modify this file to make it available in their repositories.
 
@@ -36,7 +40,7 @@ Currently, LEMON provides solvers that are compatible with integer costs and cap
 
 ## Getting started
 
-These instructions will let you build MCFBlock and MCFLemonSolver on your system.
+These instructions will let you build MCFLemonSolver on your system.
 
 
 ### Requirements
@@ -123,7 +127,7 @@ directory tree constructed in the build/ folder) and therefore it is more
 convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
-Each executable using `MCFBlock` has to include a "main makefile" of the
+Each executable using `LEMONSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all
 necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
