@@ -90,11 +90,6 @@ make
 The library has the same configuration options of
 [SMS++](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration).
 
-Optionally, install the library in the system with:
-
-```sh
-sudo make install
-```
 
 
 ### Usage with CMake
@@ -133,8 +128,8 @@ necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
 modules that already include them). One relevant case is the
-[tester comparing MCFBlock + MCFSolver with direct usage of the
-original :MCFClass solver](test/test.cpp) alluded to in the previous section.
+[tester comparing MCFBlock + MCFLemonSolver with direct usage of the
+original solver](test/test.cpp) alluded to in the previous section.
 The makefiles in turn recursively include all the required other makefiles,
 hence one should only need to edit the "main makefile" for compilation type
 (C++ compiler and its options) and it all should be good to go. In case some
@@ -181,14 +176,13 @@ running the `batch` file in the `tools` folder.
 
 The [test](test) folder contains a tester that reads an instance of a MCF
 from a file (in either DIMACS or netCDF format) in an `MCFBlock`, and from
-there in an object of a class MCFC derived from `MCFClass`, as decided by
-the macro `WHICH_MCF`. Then, a `MCFSolver< MCFC >` is attached to the
+there in an object of a class MCFLemonSolver* derived from `MCFLemonSolver`.
+ Then, a `MCFLemonSolver*< Algo, GR, V, C >` is attached to the
 `MCFBlock`. The MCF problem is then repeatedly solved with several changes in
 costs / capacities / deficits, arcs openings / closures and arcs additions /
 deletions. The same operations are performed on the two solvers, and the
-results are compared. This mostly tests `MCFBlock` and `MCFSolver`, since
-the actual `MCFClass` solved is the same, and so it can easily be wrong in
-the same way for both the objects. The `batch` file tests basically only one
+results are compared. This mostly tests `MCFBlock` and `MCFLemonSolver`.
+ The `batch` file tests basically only one
 instance but in many different configurations (there can actually be two
 `MCFBlock`, one of which is modified and the other solved, in all possible
 combinations) and repeatedly, while the `batch-l` tests only the simplest
@@ -213,6 +207,9 @@ conduct, and the process for submitting merge requests to us.
 
 - **Antonio Frangioni**  
   Dipartimento di Informatica  
+  Università di Pisa
+
+- **Daniele Caliandro**
   Università di Pisa
 
 ### Contributors
