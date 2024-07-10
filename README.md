@@ -209,8 +209,7 @@ conduct, and the process for submitting merge requests to us.
   Dipartimento di Informatica  
   Università di Pisa
 
-- **Daniele Caliandro**
-
+- **Daniele Caliandro**  
   Università di Pisa
 
 ### Contributors
