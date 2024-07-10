@@ -210,6 +210,7 @@ conduct, and the process for submitting merge requests to us.
   Università di Pisa
 
 - **Daniele Caliandro**
+
   Università di Pisa
 
 ### Contributors
