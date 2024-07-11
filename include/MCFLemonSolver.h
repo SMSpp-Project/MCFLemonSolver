@@ -743,6 +743,7 @@ class MCFLemonSolverNetworkSimplex : public
  // their names
 
  using BaseClass = MCFLemonSolver< NetworkSimplex , GR , V , C >;
+ using idx_type = ThinComputeInterface::idx_type;
 
  using BaseClass::f_algo;
  using BaseClass::intLastParCDAS;
@@ -757,7 +758,6 @@ class MCFLemonSolverNetworkSimplex : public
  using Solver::lock;
  using Solver::OFValue;
  using Solver::unlock;
- using ThinComputeInterface::idx_type;
  using ThinComputeInterface::kUnEval;
 
  using typename BaseClass::ThisAlgo;
@@ -916,6 +916,7 @@ class MCFLemonSolverCycleCanceling : public
  // their names
 
  using BaseClass = MCFLemonSolver< CycleCanceling , GR , V , C >;
+ using idx_type = ThinComputeInterface::idx_type;
 
  using BaseClass::intLastParCDAS;
 
@@ -933,7 +934,6 @@ class MCFLemonSolverCycleCanceling : public
  using Solver::lock;
  using Solver::OFValue;
  using Solver::unlock;
- using ThinComputeInterface::idx_type;
  using ThinComputeInterface::kUnEval;
 
  using typename BaseClass::ThisAlgo;
@@ -1082,6 +1082,7 @@ template< typename GR , typename V , typename C >
  // their names
 
  using BaseClass = MCFLemonSolver< SMSppCapacityScaling , GR , V , C >;
+ using idx_type = ThinComputeInterface::idx_type;
 
  using BaseClass::intLastParCDAS;
  using BaseClass::dgp;
@@ -1097,7 +1098,6 @@ template< typename GR , typename V , typename C >
  using Solver::lock;
  using Solver::OFValue;
  using Solver::unlock;
- using ThinComputeInterface::idx_type;
  using ThinComputeInterface::kUnEval;
 
 /*------ CONSTRUCTING AND DESTRUCTING MCFLemonSolverCapacityScaling --------*/
@@ -1161,6 +1161,7 @@ class MCFLemonSolverCostScaling : public
  // their names
 
  using BaseClass = MCFLemonSolver< SMSppCostScaling , GR , V , C >;
+ using idx_type = ThinComputeInterface::idx_type;
 
  using BaseClass::intLastParCDAS;
  using BaseClass::dgp;
@@ -1176,7 +1177,6 @@ class MCFLemonSolverCostScaling : public
  using Solver::lock;
  using Solver::OFValue;
  using Solver::unlock;
- using ThinComputeInterface::idx_type;
  using ThinComputeInterface::kUnEval;
 
  using typename BaseClass::ThisAlgo;

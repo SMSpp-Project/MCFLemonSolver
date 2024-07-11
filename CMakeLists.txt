@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------- #
-#    Main CMake file for SMS++ LemonSolver                                    #
+#    Main CMake file for SMS++ LEMONSolver                                    #
 #                                                                             #
 #    This file allows one to build the library using CMake.                   #
 #    To do so, you can use the following commands:                            #
@@ -55,7 +55,21 @@ if (NOT hasParent)
     find_package(MCFBlock REQUIRED)
 endif ()
 
-add_subdirectory(lemon-development)
+# Define a function to wrap add_subdirectory with CMAKE_SUPPRESS_DEVELOPER_WARNINGS, i.e., -Wno-dev, set to TRUE
+function(add_subdirectory_no_dev_warnings dir)
+    set(old_value ${CMAKE_SUPPRESS_DEVELOPER_WARNINGS})
+    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS TRUE CACHE INTERNAL "Suppress developer warnings")
+    add_subdirectory(${dir})
+    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ${old_value} CACHE INTERNAL "Suppress developer warnings")
+endfunction()
+
+set(LEMON_ENABLE_GLPK OFF)
+set(LEMON_ENABLE_ILOG OFF)
+set(LEMON_ENABLE_COIN OFF)
+set(LEMON_ENABLE_SOPLEX OFF)
+
+# Use the function to add the subdirectory
+add_subdirectory_no_dev_warnings(lemon-development)
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
