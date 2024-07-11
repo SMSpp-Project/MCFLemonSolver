@@ -317,25 +317,21 @@ namespace SMSpp_di_unipi_it
 
  /// CapacityScaling algorithm using the default trait
  template< LEMONGraph GR, typename V , typename C >
- class SMSppCapacityScaling : public CapacityScaling< GR , V , C ,
-                               CapacityScalingDefaultTraits< GR , V , C > >
+ class SMSppCapacityScaling : public CapacityScaling< GR , V , C >
  {
   public:
 
-  SMSppCapacityScaling( const GR& dgp ) : CapacityScaling< GR , V , C ,
-   CapacityScalingDefaultTraits< GR , V , C > >( dgp ) {}
+  SMSppCapacityScaling( const GR& dgp ) : CapacityScaling< GR , V , C >( dgp ) {}
 
   ~SMSppCapacityScaling() = default;
   };
 
  /// CostScaling algorithm using the default trait
  template< LEMONGraph GR, typename V , typename C >
- class SMSppCostScaling : public CostScaling< GR , V , C ,
-                                  CostScalingDefaultTraits< GR , V , C > >
+ class SMSppCostScaling : public CostScaling< GR , V , C >
  {
   public:
-  SMSppCostScaling( const GR& dgp ) : CostScaling< GR , V , C ,
-   CostScalingDefaultTraits< GR , V , C > >( dgp ) {}
+  SMSppCostScaling( const GR& dgp ) : CostScaling< GR , V , C >( dgp ) {}
 
   ~SMSppCostScaling() = default;
   };
@@ -753,16 +749,16 @@ class MCFLemonSolverNetworkSimplex : public
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
- using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
- using SMSpp_di_unipi_it::CDASolver::kInfeasible;
- using SMSpp_di_unipi_it::CDASolver::kStopTime;
- using SMSpp_di_unipi_it::Solver::f_Block;
- using SMSpp_di_unipi_it::Solver::f_id;
- using SMSpp_di_unipi_it::Solver::lock;
- using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
- using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
+ using CDASolver::kBlockLocked;
+ using CDASolver::kInfeasible;
+ using CDASolver::kStopTime;
+ using Solver::f_Block;
+ using Solver::f_id;
+ using Solver::lock;
+ using Solver::OFValue;
+ using Solver::unlock;
+ using ThinComputeInterface::idx_type;
+ using ThinComputeInterface::kUnEval;
 
  using typename BaseClass::ThisAlgo;
  using NSPivotRule = typename NetworkSimplex< GR , V , C >::PivotRule;
@@ -928,17 +924,17 @@ class MCFLemonSolverCycleCanceling : public
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
- using SMSpp_di_unipi_it::CDASolver::dblLastParCDAS;
- using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
- using SMSpp_di_unipi_it::CDASolver::kInfeasible;
- using SMSpp_di_unipi_it::CDASolver::kStopTime;
- using SMSpp_di_unipi_it::Solver::f_Block;
- using SMSpp_di_unipi_it::Solver::f_id;
- using SMSpp_di_unipi_it::Solver::lock;
- using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
- using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
+ using CDASolver::dblLastParCDAS;
+ using CDASolver::kBlockLocked;
+ using CDASolver::kInfeasible;
+ using CDASolver::kStopTime;
+ using Solver::f_Block;
+ using Solver::f_id;
+ using Solver::lock;
+ using Solver::OFValue;
+ using Solver::unlock;
+ using ThinComputeInterface::idx_type;
+ using ThinComputeInterface::kUnEval;
 
  using typename BaseClass::ThisAlgo;
  using CCMethod = typename ThisAlgo::Method;
@@ -1172,16 +1168,16 @@ class MCFLemonSolverCostScaling : public
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using BaseClass::str_par_type_LEMON::strDMXFile;
- using SMSpp_di_unipi_it::CDASolver::kBlockLocked;
- using SMSpp_di_unipi_it::CDASolver::kInfeasible;
- using SMSpp_di_unipi_it::CDASolver::kStopTime;
- using SMSpp_di_unipi_it::Solver::f_Block;
- using SMSpp_di_unipi_it::Solver::f_id;
- using SMSpp_di_unipi_it::Solver::lock;
- using SMSpp_di_unipi_it::Solver::OFValue;
- using SMSpp_di_unipi_it::Solver::unlock;
- using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
- using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
+ using CDASolver::kBlockLocked;
+ using CDASolver::kInfeasible;
+ using CDASolver::kStopTime;
+ using Solver::f_Block;
+ using Solver::f_id;
+ using Solver::lock;
+ using Solver::OFValue;
+ using Solver::unlock;
+ using ThinComputeInterface::idx_type;
+ using ThinComputeInterface::kUnEval;
 
  using typename BaseClass::ThisAlgo;
  using CSMethod = typename ThisAlgo::Method;
