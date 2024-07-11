@@ -196,6 +196,7 @@ conduct, and the process for submitting merge requests to us.
 ### Current Lead Authors
 
 - **Daniele Caliandro**  
+  Dipartimento di Informatica  
   Università di Pisa
 
 - **Antonio Frangioni**  
