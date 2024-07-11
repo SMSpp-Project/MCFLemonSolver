@@ -44,7 +44,6 @@ using namespace SMSpp_di_unipi_it;
 //   i.e., 3^2 = 9 possible data configurations
 // so it is 4 * 2 * 8 = 64 versione
 
-
 SMSpp_insert_in_factory_cpp_0_t(
  MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
 
