@@ -129,11 +129,6 @@ make
 The library has the same configuration options of
 [SMS++](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration).
 
-Optionally, install the library in the system with:
-
-```sh
-sudo make install
-```
 
 ### Usage with CMake
 
@@ -171,8 +166,8 @@ necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
 modules that already include them). One relevant case is the
-[tester comparing MCFBlock + MCFSolver with direct usage of the
-original :MCFClass solver](test/test.cpp) alluded to in the previous section.
+[tester comparing MCFBlock + MCFLemonSolver with direct usage of the
+original solver](test/test.cpp) alluded to in the previous section.
 The makefiles in turn recursively include all the required other makefiles,
 hence one should only need to edit the "main makefile" for compilation type
 (C++ compiler and its options) and it all should be good to go. In case some
@@ -183,7 +178,6 @@ necessary to create the `../extlib/makefile-paths` out of the
 
 Check the [SMS++ installation wiki](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration#location-of-required-libraries)
 for further details.
-
 
 ## Getting help
 
@@ -202,7 +196,6 @@ conduct, and the process for submitting merge requests to us.
 ### Current Lead Authors
 
 - **Daniele Caliandro**  
-  Dipartimento di Informatica  
   Università di Pisa
 
 - **Antonio Frangioni**  

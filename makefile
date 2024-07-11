@@ -50,7 +50,7 @@ MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
-MCFLELIB = -L$(MCFLESDR)/lemon-development/lib/lib -lemon
+MCFLELIB = -L$(MCFLESDR)/lemon-development/lib/lib -llemon
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

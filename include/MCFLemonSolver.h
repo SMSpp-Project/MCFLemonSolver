@@ -45,15 +45,15 @@
 
 #include "lemon/network_simplex.h"
 
-#include<lemon/list_graph.h>
+#include <lemon/list_graph.h>
 
-#include<lemon/smart_graph.h>
+#include <lemon/smart_graph.h>
 
-#include<lemon/dimacs.h>
+#include <lemon/dimacs.h>
 
-#include<type_traits>
+#include <type_traits>
 
-#include<lemon/lgf_writer.h>
+#include <lemon/lgf_writer.h>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/

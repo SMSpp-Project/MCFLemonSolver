@@ -87,12 +87,11 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 // register the various MCFLemonSolver*< GR , V , C > to the Solver factory
 // it's all combinations of:
-// - four algorithms ( NetworkSimplex , CycleCanceling , CostScaling ,
-//   CapacityScaling )
+// - four algorithms ( NetworkSimplex , CycleCanceling , CostScaling , CapacityScaling )
 // - two graphs ( SmartDigraph , ListDigraph )
 // - three data tyopes ( int , long , double ) in two places ( costs , flows ),
 //   i.e., 3^2 = 9 possible data configurations
-// so it is 4 * 2 * 8 = 64 versione
+// so it is 4 * 2 * 9 = 72 versione
 
 #if SMSpp_which_insert_LEMON & 1     // double costs and flows are allowed
 
