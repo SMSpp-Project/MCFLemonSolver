@@ -3,45 +3,84 @@
 This project implements `MCFLemonSolver`, a SMS++ `:Solver` for
 [MCFBlock](https://gitlab.com/smspp/mcfblock) based on interfacing
 solvers from the [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon).
-In fact, `MCFLemonSolver` is not a single solver but no less than
-16 classes obtained instantiating 4 different "base" solvers.
+In fact, `MCFLemonSolver` is not a single solver but up to 72 classes
+obtained instantiating 4 different "base" solvers on 2 different kinds
+of graphs and with all possible combinations of 3 different types of
+flows and costs (`double`, `long`, `int`).
 
-Each solver is instantiated on two different types of graphs
-(`SmartDigraph` and `MCFListDigraph`) and on the types of costs and capacities
-on the edges, which can be `int`, `double` or `long`. Although `int` is
+## MCFLemonSolver* variants
+
+Upon compiling, a number of `Solver` variants is added to the `Solver`
+factory. These depend on the four main algorithms implemented by the
+LEMON project
+
+- `NetworkSimplex`
+- `CostScaling`
+- `CycleCanceling`
+- `CapacityScaling`
+
+Each solver is instantiated on two different types of graphs:
+`SmartDigraph`, which is more efficient but static (it does not allow
+to add/remove, open/close arcs) and `MCFListDigraph` (a small ad-hoc
+improvement of the original `ListDigraph`), which can be less efficient
+but allows to add/remove, open/close arcs. These already make 8 variants,
+each of which can be implemented with different of costs and capacities
+on the arcs, which can be `int`, `double` or `long`. Although `int` is
 supported, for large graphs (or large costs/capacities/deficits on small
 graphs) it risks overflows.
 
-The algorithms implemented by the LEMON project are:
+Thus, up to 72 variants can be inserted in the `Solver` factory, with the
+general form
 
-- NetworkSimplex
-- CostScaling
-- CycleCanceling
-- CapacityScaling
+    A<G,C,V>
 
-For each of these algorithms, a class has been created, derived from a base
-class `MCFLemonSolver` that unites them, to manage method calls correctly using
-polymorphism.
+with A chosen in 
 
-The interface with the solvers provided by the LEMON project works thanks to the modifications made to the include/lemon/array_map.h file. Since it has not been updated for some time, it was not compatible with C++20 versions, causing problems, especially with the compilation of Concepts. This file is provided within the include/lemon directory, modified to ensure correctness, and a patch has been proposed to the LEMON developers, who I assume will modify this file to make it available in their repositories.
+	MCFLemonSolverNetworkSimplex ,
+	MCFLemonSolverCycleCanceling ,
+	MCFLemonSolverCostScaling ,
+	MCFLemonSolverCapacityScaling ,
 
-The files are provided "working," so the user does not need to download LEMON themselves. If they did, the array_map.h file downloaded from LEMON might not have been updated yet, potentially compromising the compilation of MCFLemonSolver.
+G chosen in `SmartDigraph`, `MCFListDigraph`, and C, V chosen in `int`,
+`double` or `long` (the first being the cost type, the second the flows
+type). Since these can be many, the macro `SMSpp\_which\_insert\_LEMON'
+in `MCFLemonSolver.cpp` allows to restrict them to only a subset of the
+supported cost / flow types. The value is numeric and coded bitwise:
 
-If LEMON provides a new release and the user wants to update, it is necessary to check the correctness of array_map.h, particularly the correct use of std::allocator.
+ - bit 0 ( + 1 ): double costs and/or flows
 
-This repository depends, of course, on MCFBlock, as its proper functioning depends on it. The reasons why MCFLemonSolver strictly depends on MCFBlock are:
+ - bit 1 ( + 2 ): long costs and/or flows
 
-- All LEMON structures contained within MCFLemonSolver depend on the relative structures of MCFBlock (the cost map of LEMON depends on the cost vector of MCFBlock, and so on ...)
+ - bit 2 ( + 3 ): int costs and/or flows
 
-- For the Modifications, an instance of MCFBlock is modified to reflect its changes to the LEMON structures contained in MCFLemonSolver.
+With only one bit set to 1, the 8 variants having only that type as flows
+and costs are inserted. With two bits set to 1, 8 variants are inserted for
+each of the 4 possible combinations of the two types as flows and costs
+(i.e., 32 variants). With all three bits set to 1, 8 variants are inserted
+for each of the 9 possible combinations of the three types as flows and
+costs (i.e., 72 variants. The macro can be changed in the `makefile`.
 
-Currently, LEMON provides solvers that are compatible with integer costs and capacities, so tests with double values for these would not work.
+The interface with the solvers provided by the LEMON project works thanks to the
+changes made to the `include/lemon/array_map.h` file. Since it has not been updated
+for some time, it was not compatible with C++20 versions, causing problems,
+especially with the compilation of Concepts. This file is provided within the
+include/lemon directory, modified to ensure correctness, and a patch has been
+proposed to the LEMON developers, who I assume will modify this file to make it
+available in their repositories.
+
+The files are provided "working", so the user does not need to download LEMON
+themselves. If they did, the `array_map.h` file downloaded from LEMON might not
+have been updated yet, potentially compromising the compilation of
+`MCFLemonSolver`.
+
+If LEMON provides a new release and the user wants to update, it is necessary
+to check the correctness of array_map.h, particularly the correct use of
+`std::allocator`.
 
 
 ## Getting started
 
-These instructions will let you build MCFLemonSolver on your system.
-
+These instructions will let you build `MCFLemonSolver` on your system.
 
 ### Requirements
 
@@ -53,7 +92,7 @@ These instructions will let you build MCFLemonSolver on your system.
   `LEMONSolver` provides its own)
 
 - The [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), currently contained
-  in this repository, do not download the LEMON Project from their site if there
+  in this repository: do not download the LEMON Project from their site if there
   aren't new realeses, for the reasons discussed above, but use what is provided
   as "functional" in this repository.
 
@@ -95,7 +134,6 @@ Optionally, install the library in the system with:
 ```sh
 sudo make install
 ```
-
 
 ### Usage with CMake
 
@@ -146,54 +184,6 @@ necessary to create the `../extlib/makefile-paths` out of the
 Check the [SMS++ installation wiki](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration#location-of-required-libraries)
 for further details.
 
-Note thar the [MCFClass
-project](https://github.com/frangio68/Min-Cost-Flow-Class) has a similar
-arrangement with its own extlib/ folder, but due to some magic it is noy
-necessary to that must be independently edit it in an analogous way.
-
-
-## Tools
-
-We provide a simple tool that converts MCF instances written in the DIMACS
-standard into netCDF files. Optionally it hacks into the netCDF file to
-change the number of static and dynamic nodes and arcs, as well as the
-maximum number of nodes and arcs.
-
-You can run the tool from the `<build-dir>/tools` directory or install it
-with the library (see above). Run the tool without arguments for info on
-its usage:
-
-```sh
-dmx2nc4
-```
-
-
-## Data
-
-We provide a small sample of small-to-mid-size MCF problems in the
-[data](data) folder. The instances comes compressed in the `dmx.tgz` file
-in [data/dmx](data/dmx). Once this is decompressed and `data/nc4` is
-created, the netCDF versions of the instances can be created in there by
-running the `batch` file in the `tools` folder.
-
-
-## Tests
-
-The [test](test) folder contains a tester that reads an instance of a MCF
-from a file (in either DIMACS or netCDF format) in an `MCFBlock`, and from
-there in an object of a class MCFC derived from `MCFClass`, as decided by
-the macro `WHICH_MCF`. Then, a `MCFSolver< MCFC >` is attached to the
-`MCFBlock`. The MCF problem is then repeatedly solved with several changes in
-costs / capacities / deficits, arcs openings / closures and arcs additions /
-deletions. The same operations are performed on the two solvers, and the
-results are compared. This mostly tests `MCFBlock` and `MCFSolver`, since
-the actual `MCFClass` solved is the same, and so it can easily be wrong in
-the same way for both the objects. The `batch` file tests basically only one
-instance but in many different configurations (there can actually be two
-`MCFBlock`, one of which is modified and the other solved, in all possible
-combinations) and repeatedly, while the `batch-l` tests only the simplest
-case but on several different problems of the [data](data) folder.
-
 
 ## Getting help
 
@@ -211,12 +201,15 @@ conduct, and the process for submitting merge requests to us.
 
 ### Current Lead Authors
 
+- **Daniele Caliandro**  
+  Dipartimento di Informatica  
+  Università di Pisa
+
 - **Antonio Frangioni**  
   Dipartimento di Informatica  
   Università di Pisa
 
 ### Contributors
-
 
 ## License
 

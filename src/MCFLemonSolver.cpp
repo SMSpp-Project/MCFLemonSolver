@@ -16,14 +16,65 @@
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
 /*--------------------------------------------------------------------------*/
-/*------------------------------- MACROS -----------------------------------*/
-/*--------------------------------------------------------------------------*/
-
-/*--------------------------------------------------------------------------*/
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 #include "MCFLemonSolver.h"
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- MACROS -----------------------------------*/
+/*--------------------------------------------------------------------------*/
+// insert into the Solver factory all he 8 variants of MCFLemonSolver having
+// the types C and V and all possible choice of the 4 algorithms and 2 graphs
+
+#define SMSpp_insert_LEMON( C , V ) \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverNetworkSimplex< SmartDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverNetworkSimplex< MCFListDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverCycleCanceling< SmartDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverCycleCanceling< MCFListDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverCostScaling< SmartDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverCostScaling< MCFListDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverCapacityScaling< SmartDigraph , C , V > ); \
+ \
+SMSpp_insert_in_factory_cpp_0_t(    \
+ MCFLemonSolverCapacityScaling< MCFListDigraph , C , V > );
+
+/*--------------------------------------------------------------------------*/
+// this macro, coded bit-wise, decides which variants of the algorithms are
+// inserted in the factory in terms of types of allowed costs and flows:
+//
+// - bit 0 ( SMSpp_which_insert_LEMON & 1 ): double costs and/or flows
+//
+// - bit 1 ( SMSpp_which_insert_LEMON & 2 ): long costs and/or flows
+//
+// - bit 2 ( SMSpp_which_insert_LEMON & 4 ): int costs and/or flows
+//
+// The macro can be either defined from outside (say, the makefile) or,
+// if not, set by changing the definition below
+//
+// Note that with only one bit set to 1, the 8 variants having only that type
+// as flows and costs are inserted. With two bits set to 1, 8 variants are
+// inserted for each of the 4 possible combinations of the two types as
+// flows and costs (i.e., 32 variants). With all three bits set to 1, 8
+// variants are inserted for each of the 9 possible combinations of the three
+// types as flows and costs (i.e., 72 variants)
+
+#ifndef SMSpp_which_insert_LEMON
+ #define SMSpp_which_insert_LEMON 7
+#endif
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
@@ -34,7 +85,6 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 /*----------------------------- STATIC MEMBERS -----------------------------*/
 /*--------------------------------------------------------------------------*/
-
 // register the various MCFLemonSolver*< GR , V , C > to the Solver factory
 // it's all combinations of:
 // - four algorithms ( NetworkSimplex , CycleCanceling , CostScaling ,
@@ -44,60 +94,45 @@ using namespace SMSpp_di_unipi_it;
 //   i.e., 3^2 = 9 possible data configurations
 // so it is 4 * 2 * 8 = 64 versione
 
+#if SMSpp_which_insert_LEMON & 1     // double costs and flows are allowed
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverNetworkSimplex< SmartDigraph , double , double > );
+ SMSpp_insert_LEMON( double , double )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverNetworkSimplex< SmartDigraph , long , long > );
+ #if SMSpp_which_insert_LEMON & 2    // long costs and flows are allowed
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverNetworkSimplex< MCFListDigraph , double , double > );
+  SMSpp_insert_LEMON( long , double )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverNetworkSimplex< MCFListDigraph , long , long > );
+  SMSpp_insert_LEMON( double , long )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<SmartDigraph , double , double> );
+ #endif
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<SmartDigraph , long , long> );
+ #if SMSpp_which_insert_LEMON & 4    // int costs and flows are allowed
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<MCFListDigraph , double , double> );
+  SMSpp_insert_LEMON( int , double )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCycleCanceling<MCFListDigraph , long , long> );
+  SMSpp_insert_LEMON( double , int )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<SmartDigraph , long , long> );
+ #endif
+#endif
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<SmartDigraph , double , double> );
+#if SMSpp_which_insert_LEMON & 2     // long costs and flows are allowed
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<MCFListDigraph , double , double> );
+ SMSpp_insert_LEMON( long , long )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCostScaling<MCFListDigraph , long , long> );
+ #if SMSpp_which_insert_LEMON & 4    // int costs and flows are allowed
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<SmartDigraph , double , double> );
+  SMSpp_insert_LEMON( int , long )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<SmartDigraph , long , long> );
+  SMSpp_insert_LEMON( long , int )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<SmartDigraph , long , double> );
+ #endif
+#endif
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<MCFListDigraph , double , double> );
+#if SMSpp_which_insert_LEMON & 4     // int costs and flows are allowed
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<MCFListDigraph , long , long> );
+  SMSpp_insert_LEMON( int , int )
 
-SMSpp_insert_in_factory_cpp_0_t(
- MCFLemonSolverCapacityScaling<MCFListDigraph , long , double> );
+#endif
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of MCFLemonSolver ------------------------*/
