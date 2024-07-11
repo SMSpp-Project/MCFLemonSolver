@@ -55,7 +55,7 @@ if (NOT hasParent)
     find_package(MCFBlock REQUIRED)
 endif ()
 
-set(MCFClass_USE_CPLEX OFF)
+add_subdirectory(lemon-development)
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
@@ -88,7 +88,7 @@ target_sources(${modName} PRIVATE src/MCFLemonSolver.cpp)
 target_include_directories(
         ${modName} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lemon-development/lib/include>
+        $<BUILD_INTERFACE:${LEMON_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include/${modNamespace}>)
 
 # When linking other targets to the library with target_link_libraries(),
@@ -96,16 +96,9 @@ target_include_directories(
 # PUBLIC means they will be linked also to the targets that depend on this
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
-
-if (UNIX)
-    SET(LEMON_LIB_NAME "libemon.a")
-elseif (WIN32)
-    SET(LEMON_LIB_NAME "lemon.lib")
-endif ()
-
 target_link_libraries(
         ${modName} PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lemon-development/lib/lib/${LEMON_LIB_NAME}>
+        $<BUILD_INTERFACE:${LEMON_LIBRARY}>
         ${modNamespace}::MCFBlock)
 
 # This alias is defined so that executables in this same project can use

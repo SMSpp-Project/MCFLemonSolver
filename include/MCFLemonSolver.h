@@ -939,6 +939,7 @@ class MCFLemonSolverCycleCanceling : public
  using SMSpp_di_unipi_it::Solver::unlock;
  using SMSpp_di_unipi_it::ThinComputeInterface::idx_type;
  using SMSpp_di_unipi_it::ThinComputeInterface::kUnEval;
+
  using typename BaseClass::ThisAlgo;
  using CCMethod = typename ThisAlgo::Method;
 
