@@ -12,8 +12,8 @@ ENDIF(POLICY CMP0026)
 SET(PROJECT_NAME "LEMON")
 PROJECT(${PROJECT_NAME})
 
-INCLUDE(FindPythonInterp)
-INCLUDE(FindWget)
+find_package(PythonInterp QUIET)
+find_package(Wget QUIET)
 
 IF(EXISTS ${PROJECT_SOURCE_DIR}/cmake/version.cmake)
   INCLUDE(${PROJECT_SOURCE_DIR}/cmake/version.cmake)
