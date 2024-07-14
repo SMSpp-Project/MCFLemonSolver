@@ -63,10 +63,11 @@ function(add_subdirectory_no_dev_warnings dir)
     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ${old_value} CACHE INTERNAL "Suppress developer warnings")
 endfunction()
 
-set(LEMON_ENABLE_GLPK OFF)
-set(LEMON_ENABLE_ILOG OFF)
-set(LEMON_ENABLE_COIN OFF)
-set(LEMON_ENABLE_SOPLEX OFF)
+# Set the LEMONSolver options in the cache
+set(LEMON_ENABLE_GLPK OFF CACHE BOOL "Enable GLPK solver backend.")
+set(LEMON_ENABLE_ILOG OFF CACHE BOOL "Enable ILOG (CPLEX) solver backend.")
+set(LEMON_ENABLE_COIN OFF CACHE BOOL "Enable COIN solver backend.")
+set(LEMON_ENABLE_SOPLEX OFF CACHE BOOL "Enable SoPlex solver backend.")
 
 # Use the function to add the subdirectory
 add_subdirectory_no_dev_warnings(lemon-development)
