@@ -749,7 +749,6 @@ class MCFLemonSolverNetworkSimplex : public
  using BaseClass::intLastParCDAS;
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
- using BaseClass::str_par_type_LEMON::strDMXFile;
  using CDASolver::kBlockLocked;
  using CDASolver::kInfeasible;
  using CDASolver::kStopTime;
@@ -924,7 +923,6 @@ class MCFLemonSolverCycleCanceling : public
  using BaseClass::f_algo;
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
- using BaseClass::str_par_type_LEMON::strDMXFile;
  using CDASolver::dblLastParCDAS;
  using CDASolver::kBlockLocked;
  using CDASolver::kInfeasible;
@@ -1089,7 +1087,6 @@ template< typename GR , typename V , typename C >
  using BaseClass::f_algo;
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
- using BaseClass::str_par_type_LEMON::strDMXFile;
  using CDASolver::kBlockLocked;
  using CDASolver::kInfeasible;
  using CDASolver::kStopTime;
@@ -1168,7 +1165,6 @@ class MCFLemonSolverCostScaling : public
  using BaseClass::f_algo;
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
- using BaseClass::str_par_type_LEMON::strDMXFile;
  using CDASolver::kBlockLocked;
  using CDASolver::kInfeasible;
  using CDASolver::kStopTime;

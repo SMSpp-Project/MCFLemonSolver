@@ -37,11 +37,7 @@
 
 namespace lemon {
 
-#ifdef _MSC_VER
-#define LEMON_SCOPE_FIX(OUTER, NESTED) OUTER::NESTED
-#else
 #define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED
-#endif
 
   template<typename DGR>
   class DigraphAdaptorBase {

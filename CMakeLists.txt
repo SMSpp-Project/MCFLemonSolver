@@ -85,6 +85,11 @@ configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 add_library(${modName})
 target_compile_features(${modName} PUBLIC cxx_std_20)
 
+# Add the /bigobj flag for lemon-development
+if (MSVC)
+    target_compile_options(${modName} PRIVATE /bigobj)
+endif()
+
 # When adding source files with target_sources(), PRIVATE means that the files
 # should only be added to this library, whereas PUBLIC means they should be
 # added to this library and to any target that links to it.
