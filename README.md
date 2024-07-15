@@ -103,11 +103,11 @@ These instructions will let you build `MCFLemonSolver` on your system.
 ### Requirements
 
 - The [SMS++ core library](https://gitlab.com/smspp/smspp) and
-  its requirements
+  its requirements.
 
 - [MCFBlock](https://gitlab.com/smspp/mcfblock) and its
   requirements (but no actual `MCFSolver` are needed, since
-  `LEMONSolver` provides its own)
+  `LEMONSolver` provides its own).
 
 - The [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), currently contained
   in this repository: do not download the LEMON Project from their site if there
@@ -126,8 +126,8 @@ cd lemon-development
 mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=../lib
-make
-make install
+cmake --build .
+cmake --install .
 cd ..
 rm -Rf build
 ```
@@ -141,7 +141,7 @@ Then configure and build the library with:
 mkdir build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=../lib
-make
+cmake --build .
 ```
 
 The library has the same configuration options of
