@@ -74,8 +74,8 @@ have been updated yet, potentially compromising the compilation of
 `MCFLemonSolver`.
 
 If LEMON provides a new release and the user wants to update, it is necessary
-to check the correctness of array_map.h, particularly the correct use of
-`std::allocator`.
+to check the correctness of the `include/lemon/bits/array_map.h` file,
+particularly the correct use of `std::allocator`.
 
 
 ## Getting started
