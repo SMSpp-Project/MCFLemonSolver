@@ -73,7 +73,7 @@ SMSpp_insert_in_factory_cpp_0_t(    \
 // types as flows and costs (i.e., 72 variants)
 
 #ifndef SMSpp_which_insert_LEMON
- #define SMSpp_which_insert_LEMON 7
+ #define SMSpp_which_insert_LEMON 3
 #endif
 
 /*--------------------------------------------------------------------------*/
