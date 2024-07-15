@@ -61,12 +61,12 @@ for each of the 9 possible combinations of the three types as flows and
 costs (i.e., 72 variants. The macro can be changed in the `makefile`.
 
 The interface with the solvers provided by the LEMON project works thanks to the
-changes made to the `include/lemon/array_map.h` file. Since it has not been updated
-for some time, it was not compatible with C++20 versions, causing problems,
-especially with the compilation of Concepts. This file is provided within the
-include/lemon directory, modified to ensure correctness, and a patch has been
-proposed to the LEMON developers, who I assume will modify this file to make it
-available in their repositories.
+changes made to the `include/lemon/bits/array_map.h` file. Since it has not been
+updated for some time, it was not compatible with C++20 versions, causing
+problems, especially with the compilation of Concepts. This file is provided
+within the include/lemon directory, modified to ensure correctness, and a patch
+has been proposed to the LEMON developers, who I assume will modify this file to
+make it available in their repositories.
 
 The files are provided "working", so the user does not need to download LEMON
 themselves. If they did, the `array_map.h` file downloaded from LEMON might not
@@ -93,7 +93,7 @@ These instructions will let you build `MCFLemonSolver` on your system.
 
 - The [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), currently contained
   in this repository: do not download the LEMON Project from their site if there
-  aren't new realeses, for the reasons discussed above, but use what is provided
+  aren't new releases, for the reasons discussed above, but use what is provided
   as "functional" in this repository.
 
 
@@ -101,7 +101,7 @@ These instructions will let you build `MCFLemonSolver` on your system.
 
 ### Build and install with CMake
 
-First you have to separately build LEMON with
+First you have to separately build LEMON with:
 
 ```sh
 cd lemon-development
