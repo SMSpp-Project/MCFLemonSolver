@@ -77,6 +77,24 @@ If LEMON provides a new release and the user wants to update, it is necessary
 to check the correctness of the `include/lemon/bits/array_map.h` file,
 particularly the correct use of `std::allocator`.
 
+It is also necessary to fix the following line of code in the
+`include/lemon/adaptors.h` file:
+
+```c++
+#ifdef _MSC_VER
+#define LEMON_SCOPE_FIX(OUTER, NESTED) OUTER::NESTED
+#else
+#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED
+#endif
+```
+
+and change it to:
+
+```c++
+#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED
+```
+
+otherwise it will not compile on Windows with MSVC.
 
 ## Getting started
 
