@@ -143,8 +143,8 @@ cmake --install .
 After the library is built, you can use it in your CMake project with:
 
 ```cmake
-find_package(MCFBlock)
-target_link_libraries(<my_target> SMS++::MCFBlock)
+find_package(LEMONSolver)
+target_link_libraries(<my_target> SMS++::LEMONSolver)
 ```
 
 
@@ -221,7 +221,7 @@ If you need support, you want to submit bugs or propose a new feature, you can
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of
+Please read [CONTRIBUTING.md](../CONTRIBUTING.md) for details on our code of
 conduct, and the process for submitting merge requests to us.
 
 
@@ -237,13 +237,17 @@ conduct, and the process for submitting merge requests to us.
   Dipartimento di Informatica  
   Università di Pisa
 
-### Contributors
 
 ## License
 
-This code is provided free of charge under the [GNU Lesser General Public
+The SMS++ code is provided free of charge under the [GNU Lesser General Public
 License version 3.0](https://opensource.org/licenses/lgpl-3.0.html) -
-see the [LICENSE](LICENSE) file for details.
+see the [LICENSE](LICENSE) file for details. Due to the above-mentioned
+issues we are also redistributing a (lightly patched) version of the latest
+LEMON version available at the time of released, which is separately
+available under the (more permissive) Boost Software License, Version 1.0;
+see the [LICENSE](lemon-development/LICENSE) file in the
+[lemon-development](lemon-development/) folder.
 
 
 ## Disclaimer
