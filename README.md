@@ -119,33 +119,23 @@ These instructions will let you build `MCFLemonSolver` on your system.
 
 ### Build and install with CMake
 
-First you have to separately build LEMON with:
-
-```sh
-cd lemon-development
-mkdir build
-cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=../lib
-cmake --build .
-cmake --install .
-cd ..
-rm -Rf build
-```
-
-This will build a LEMON instance in
-lemon-development/lib (getting rid of the build folder).
-
-Then configure and build the library with:
+Configure and build the library with:
 
 ```sh
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=../lib
+cmake ..
 cmake --build .
 ```
 
 The library has the same configuration options of
 [SMS++](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration).
+
+Optionally, install the library in the system with:
+
+```sh
+cmake --install .
+```
 
 
 ### Usage with CMake
@@ -177,6 +167,32 @@ tree where the code is) as opposed to out-of-source (in the copy of the
 directory tree constructed in the build/ folder) and therefore it is more
 convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
+
+To build code with LEMONSolver dependencies you will first need to separately
+build LEMON with:
+
+```sh
+cd lemon-development
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../lib
+cmake --build .
+cmake --install .
+cd ..
+rm -Rf build
+```
+
+This will build a LEMON instance in
+`lemon-development/lib` (getting rid of the build folder).
+
+Then configure and build the library with:
+
+```sh
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../lib
+cmake --build .
+```
 
 Each executable using `LEMONSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all
