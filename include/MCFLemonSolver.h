@@ -109,7 +109,7 @@ namespace SMSpp_di_unipi_it
   * (questionable decision ...), but friendship is not inherited, so it
   * has to be done again. */
 
- class MCFListDigraph : public lemon::ListDigraph
+ class MCFListDigraph : public ListDigraph
  {
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
 
@@ -133,7 +133,7 @@ namespace SMSpp_di_unipi_it
 /*--------------------- CONSTRUCTOR AND DESTRUCTOR -------------------------*/
 
  /// constructor, has nothing special to do
- MCFListDigraph() : lemon::ListDigraph() {}
+ MCFListDigraph() {}
 
  /// destructor = default
  ~MCFListDigraph() = default;
@@ -807,8 +807,7 @@ class MCFLemonSolverNetworkSimplex : public
    }
 
   CDASolver::set_par( par , value );
-  return;
-  }
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -974,8 +973,7 @@ class MCFLemonSolverCycleCanceling : public
    }
 
   CDASolver::set_par( par , value );
-  return;
-  }
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -1215,8 +1213,7 @@ class MCFLemonSolverCostScaling : public
    }
 
   CDASolver::set_par( par , value );
-  return;
-  }
+ }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
