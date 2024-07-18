@@ -37,7 +37,7 @@ general form
 with A chosen in 
 
 	MCFLemonSolverNetworkSimplex ,
-«	MCFLemonSolverCycleCanceling ,
+	MCFLemonSolverCycleCanceling ,
 	MCFLemonSolverCostScaling ,
 	MCFLemonSolverCapacityScaling ,
 
