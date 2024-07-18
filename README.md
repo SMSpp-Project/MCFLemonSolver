@@ -37,7 +37,7 @@ general form
 with A chosen in 
 
 	MCFLemonSolverNetworkSimplex ,
-	MCFLemonSolverCycleCanceling ,
+«	MCFLemonSolverCycleCanceling ,
 	MCFLemonSolverCostScaling ,
 	MCFLemonSolverCapacityScaling ,
 
@@ -65,7 +65,7 @@ changes made to the `include/lemon/bits/array_map.h` file. Since it has not been
 updated for some time, it was not compatible with C++20 versions, causing
 problems, especially with the compilation of Concepts. This file is provided
 within the include/lemon directory, modified to ensure correctness, and a patch
-has been proposed to the LEMON developers, who I assume will modify this file to
+has been proposed to the LEMON developers, who may one day modify this file to
 make it available in their repositories.
 
 The files are provided "working", so the user does not need to download LEMON
