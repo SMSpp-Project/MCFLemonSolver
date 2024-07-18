@@ -131,6 +131,18 @@ cmake --build .
 The library has the same configuration options of
 [SMS++](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration).
 
+You can also choose the following configuration options:
+
+| Variable                   | Description                                                          | Default value |
+|----------------------------|----------------------------------------------------------------------|---------------|
+| `SMSpp_which_insert_LEMON` | 1, i.e., double costs<br/>2, i.e., long costs<br/>3, i.e., int costs | 3             |
+
+You can set them with:
+
+```sh
+cmake <source-path> -D<var>=<value>
+```
+
 Optionally, install the library in the system with:
 
 ```sh
@@ -146,17 +158,6 @@ After the library is built, you can use it in your CMake project with:
 find_package(LEMONSolver)
 target_link_libraries(<my_target> SMS++::LEMONSolver)
 ```
-
-
-### Running the tests with CMake
-
-A unit test will be built with the library.
-To disable it, set the option `BUILD_TESTING` to `OFF`.
-
-The test takes an instance of a MCF in DIMACS or NC4 format. The MCF problem
-is then repeatedly solved with several changes in costs/capacities/deficits,
-arcs openings/closures and arcs additions/deletions. The same operations are
-performed on the two solvers, and the results are compared.
 
 
 ### Build and install with makefiles
