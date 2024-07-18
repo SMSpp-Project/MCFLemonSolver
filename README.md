@@ -114,9 +114,6 @@ These instructions will let you build `MCFLemonSolver` on your system.
   aren't new releases, for the reasons discussed above, but use what is provided
   as "functional" in this repository.
 
-
-## TODO: UPDATE
-
 ### Build and install with CMake
 
 Configure and build the library with:
@@ -137,7 +134,6 @@ Optionally, install the library in the system with:
 cmake --install .
 ```
 
-
 ### Usage with CMake
 
 After the library is built, you can use it in your CMake project with:
@@ -146,7 +142,6 @@ After the library is built, you can use it in your CMake project with:
 find_package(LEMONSolver)
 target_link_libraries(<my_target> SMS++::LEMONSolver)
 ```
-
 
 ### Running the tests with CMake
 
@@ -199,16 +194,15 @@ module, which typically is either [makefile-c](makefile-c) including all
 necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
-modules that already include them). One relevant case is the
-[tester comparing MCFBlock + MCFLemonSolver with direct usage of the
-original solver](test/test.cpp) alluded to in the previous section.
-The makefiles in turn recursively include all the required other makefiles,
-hence one should only need to edit the "main makefile" for compilation type
-(C++ compiler and its options) and it all should be good to go. In case some
-of the external libraries are not at their default location, it should only be
-necessary to create the `../extlib/makefile-paths` out of the
-`extlib/makefile-default-paths-*` for your OS `*` and edit the relevant bits
-(commenting out all the rest).
+modules that already include them). One relevant case is the `test/MCF_MILP`
+tester that compares different solvers for `MCFBlock` (be them specialised
+or general-purpose). The makefiles in turn recursively include all the
+required other makefiles, hence one should only need to edit the "main
+makefile" for compilation type (C++ compiler and its options) and it all
+should be good to go. In case some of the external libraries are not at their
+default location, it should only be necessary to create the
+`../extlib/makefile-paths` out of the `extlib/makefile-default-paths-*` for
+your OS `*` and edit the relevant bits (commenting out all the rest).
 
 Check the [SMS++ installation wiki](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration#location-of-required-libraries)
 for further details.
@@ -216,7 +210,7 @@ for further details.
 ## Getting help
 
 If you need support, you want to submit bugs or propose a new feature, you can
-[open a new issue](https://gitlab.com/smspp/mcfblock/-/issues/new).
+[open a new issue](https://gitlab.com/smspp/lemonsolver/-/issues/new).
 
 
 ## Contributing
@@ -234,6 +228,12 @@ conduct, and the process for submitting merge requests to us.
   Università di Pisa
 
 - **Antonio Frangioni**  
+  Dipartimento di Informatica  
+  Università di Pisa
+
+### Contributors
+
+- **Donato Meoli**  
   Dipartimento di Informatica  
   Università di Pisa
 
