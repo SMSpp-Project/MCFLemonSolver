@@ -447,7 +447,7 @@ class MCFLemonSolver : public CDASolver
 
  MCFLemonSolver( void ) :  um( nullptr ) , cm( nullptr ) , bm( nullptr ) {}
 
- ~MCFLemonSolver( void ) { delete um; delete cm; delete bm; }
+ ~MCFLemonSolver( void ) override { delete um; delete cm; delete bm; }
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PUBLIC METHODS --------------------------------*/
@@ -787,7 +787,7 @@ class MCFLemonSolverNetworkSimplex : public
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// destructor, calls guts_of_destructor()
 
- ~MCFLemonSolverNetworkSimplex() { BaseClass::guts_of_destructor(); }
+ ~MCFLemonSolverNetworkSimplex() override { BaseClass::guts_of_destructor(); }
 
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 
@@ -956,7 +956,7 @@ class MCFLemonSolverCycleCanceling : public
 
  /// destructor, calls guts_of_destructor()
 
- ~MCFLemonSolverCycleCanceling( void ) { BaseClass::guts_of_destructor(); }
+ ~MCFLemonSolverCycleCanceling( void ) override { BaseClass::guts_of_destructor(); }
 
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 
@@ -1105,7 +1105,7 @@ template< typename GR , typename V , typename C >
 
  /// destructor, calls guts_of_destructor()
 
- ~MCFLemonSolverCapacityScaling( void ) {
+ ~MCFLemonSolverCapacityScaling( void ) override {
   BaseClass::guts_of_destructor();
   }
 
@@ -1196,7 +1196,7 @@ class MCFLemonSolverCostScaling : public
   }
 
  /// destructor, calls guts_of_destructor()
- ~MCFLemonSolverCostScaling( void ) { BaseClass::guts_of_constructor(); }
+ ~MCFLemonSolverCostScaling( void ) override { BaseClass::guts_of_constructor(); }
 
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 
