@@ -120,7 +120,6 @@ target_sources(${modName} PRIVATE src/MCFLemonSolver.cpp)
 target_include_directories(
         ${modName} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<BUILD_INTERFACE:${LEMON_INCLUDE_DIR}>
         $<INSTALL_INTERFACE:include/${modNamespace}>)
 
 # When linking other targets to the library with target_link_libraries(),
@@ -130,7 +129,7 @@ target_include_directories(
 # on this library.
 target_link_libraries(
         ${modName} PUBLIC
-        $<BUILD_INTERFACE:${LEMON_LIBRARY}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/lemon-development/lemon/${LEMON_LIB_NAME}>
         ${modNamespace}::MCFBlock)
 
 # This alias is defined so that executables in this same project can use
