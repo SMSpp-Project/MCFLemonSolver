@@ -1,6 +1,9 @@
 ### LEMON build & install folder
 lemon-development/build
+lemon-development/bin
+lemon-development/include
 lemon-development/lib
+lemon-development/share
 include/.clang-format
 src/.clang-format
 .vscode

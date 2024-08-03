@@ -172,24 +172,14 @@ build LEMON with:
 cd lemon-development
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=../lib
+cmake .. -DCMAKE_INSTALL_PREFIX=..
 cmake --build .
 cmake --install .
 cd ..
 rm -Rf build
 ```
 
-This will build a LEMON instance in
-`lemon-development/lib` (getting rid of the build folder).
-
-Then configure and build the library with:
-
-```sh
-mkdir build
-cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=../lib
-cmake --build .
-```
+This will build a LEMON instance in `lemon-development` (getting rid of the build folder).
 
 Each executable using `LEMONSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all

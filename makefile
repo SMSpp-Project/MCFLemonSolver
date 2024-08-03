@@ -46,11 +46,11 @@
 
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/lib/include
+MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/include
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
-MCFLELIB = -L$(MCFLESDR)/lemon-development/lib/lib -lemon
+MCFLELIB = -L$(MCFLESDR)/lemon-development/lib -lemon
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
