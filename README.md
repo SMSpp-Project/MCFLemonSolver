@@ -172,9 +172,9 @@ build LEMON with:
 cd lemon-development
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=..
-cmake --build .
-cmake --install .
+cmake .. -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
+cmake --install . --config Release
 cd ..
 rm -Rf build
 ```
