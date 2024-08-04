@@ -49,6 +49,12 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(BuildType)
 
 # ----- Requirements -------------------------------------------------------- #
+# This sets the variable CMAKE_USE_WIN32_THREADS_INIT, see:
+# https://cmake.org/cmake/help/latest/module/FindThreads.html
+if (WIN32)
+    find_package(PThreads4W QUIET)
+endif ()
+
 if (NOT hasParent)
     # If it's not being called by the umbrella, we need to
     # look for the system-installed libraries.
@@ -128,6 +134,10 @@ target_link_libraries(
         ${modName} PUBLIC
         ${modNamespace}::MCFBlock
         lemon)
+
+if (WIN32)
+    target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
+endif ()
 
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
@@ -211,8 +221,8 @@ install(FILES
 # dynamic loading will look into it.
 if (hasParent)
     set(SMSPP_BUILD_RPATH
-        "${SMSPP_BUILD_RPATH};${CMAKE_CURRENT_BINARY_DIR}"
-        PARENT_SCOPE)
+            "${SMSPP_BUILD_RPATH};${CMAKE_CURRENT_BINARY_DIR}"
+            PARENT_SCOPE)
 endif ()
 
 # ----- Packaging support --------------------------------------------------- #
@@ -227,9 +237,9 @@ if (NOT hasParent)
     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/LICENSE")
     set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
     set(CPACK_SOURCE_IGNORE_FILES
-        \\\\.git/
-        \\\\.gitignore$
-        \\\\.gitattributes$)
+            \\\\.git/
+            \\\\.gitignore$
+            \\\\.gitattributes$)
     include(CPack)
 endif ()
 
