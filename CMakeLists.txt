@@ -175,10 +175,6 @@ install(TARGETS lemon
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-# Install the auto-generated configuration header for lemon (if it exists)
-install(FILES ${PROJECT_BINARY_DIR}/lemonConfig.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lemon)
-
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
 install(EXPORT ${modName}Targets
