@@ -22,7 +22,7 @@
 cmake_minimum_required(VERSION 3.19)
 cmake_policy(VERSION 3.12)
 project(LEMONSolver
-        VERSION 0.4.4
+        VERSION 0.1.0
         DESCRIPTION "SMS++ LEMONSolver"
         HOMEPAGE_URL https://gitlab.com/smspp/lemonsolver
         LANGUAGES C CXX)
