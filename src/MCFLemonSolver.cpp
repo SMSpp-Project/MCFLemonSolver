@@ -168,7 +168,7 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
  MCFBlock::c_Subset& en = MCFB->get_EN();
 
  // add all arcs in dgp
- // sn[ i ] - 1 and en[ i ] - 1 are used because sn , en nodes start from 1
+ // sn[ i ] - 1 and en[ i ] - 1 are used because sn, en nodes start from 1
  for( MCFBlock::Index i = 0 ; i < m ; ++i )
   if constexpr( std::is_same< GR , SmartDigraph >::value )
    dgp->addArc( dgp->nodeFromId( sn[ i ] - 1 ) ,
@@ -266,7 +266,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   return( kBlockLocked ); // return error
 
  bool owned = f_Block->is_owned_by( f_id ); // check if already locked
- if( ( ! owned ) && ( ! f_Block->read_lock() ) ) // if not try to read_lock
+ if( ( ! owned ) && ( ! f_Block->read_lock() ) ) // if not, try to read_lock
   return( kBlockLocked ); // return error on failure
 
  // while [read_]locked, process any outstanding Modification
@@ -388,7 +388,7 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
 
  // process Modification - - - - - - - - - - - - - - - - - - - - - - - - - -
  //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
- /* This requires to patiently sift through the possible Modification types
+ /* This requires patiently sifting through the possible Modification types
   * to find what this Modification exactly is, and call the appropriate
   * method of LEMON. */
 
@@ -401,9 +401,9 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
   }
 
  // MCFBlockRngdMod- - - - - - - - - - - - - - - - - - - - - - - - - - - - -
- /* Note: in the following we can assume that C, B and U are nonempty. This
+ /* Note: in the following, we can assume that C, B and U are nonempty. This
   * is because they can be empty only if they are so when the object is
-  * loaded. But if a Modification has been issued they are no longer empty (a
+  * loaded. But if a Modification has been issued, they are no longer empty (a
   * Modification changin nothing from the "empty" state is not issued). */
 
  if( auto tmod = dynamic_cast< const MCFBlockRngdMod* >( mod ) ) {
@@ -506,7 +506,7 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
    case( MCFBlockMod::eRmvArc ) : {
     // only if ListDigraph is used
     if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
-     // if the arc was previous deleted, return
+     // if the arc was previously deleted, return
      if( ! dgp->valid( dgp->arcFromId( rng.second - 1 ) ) )
       return;
 
