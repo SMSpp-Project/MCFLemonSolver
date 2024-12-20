@@ -1297,7 +1297,7 @@ class MCFLemonSolverCostScaling : public
 
 /*--------------------------------------------------------------------------*/
 
-#endif /* MCFLemonSolver.h included */
+#endif /* __MCFLemonSolver */
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- End File MCFLemonSolver.h ------------------------*/
