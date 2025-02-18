@@ -734,7 +734,7 @@ int main()
     check(n == 3, "Wrong number");
     check(map1.falseNum() == 3, "Wrong number");
 
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       int c = 0;
       for(auto v: map1.items(false)) { c++; ::lemon::ignore_unused_variable_warning(v); }
@@ -807,7 +807,7 @@ int main()
       ++n;
     }
     check(n == num, "Wrong number");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       int c = 0;
       for(auto v: map1.items(0)) { c++; ::lemon::ignore_unused_variable_warning(v); }
@@ -875,7 +875,7 @@ int main()
     }
     check(n == num, "Wrong number");
 
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       int c = 0;
       for(auto v: map1.items(0.0)) { c++; ::lemon::ignore_unused_variable_warning(v); }

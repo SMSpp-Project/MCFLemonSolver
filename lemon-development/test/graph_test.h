@@ -39,7 +39,7 @@ namespace lemon {
     check(n==INVALID,"Wrong Node list linking.");
     check(countNodes(G)==cnt,"Wrong Node number.");
 
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::NodeIt n(G);
       for(auto u: G.nodes())
@@ -77,7 +77,7 @@ namespace lemon {
     }
     check(n==INVALID,"Wrong red Node list linking.");
     check(countRedNodes(G)==cnt,"Wrong red Node number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::RedNodeIt n(G);
       for(auto u: G.redNodes())
@@ -115,7 +115,7 @@ namespace lemon {
     }
     check(n==INVALID,"Wrong blue Node list linking.");
     check(countBlueNodes(G)==cnt,"Wrong blue Node number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::BlueNodeIt n(G);
       for(auto u: G.blueNodes())
@@ -152,7 +152,7 @@ namespace lemon {
     }
     check(e==INVALID,"Wrong Arc list linking.");
     check(countArcs(G)==cnt,"Wrong Arc number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::ArcIt a(G);
       for(auto e: G.arcs())
@@ -188,7 +188,7 @@ namespace lemon {
     }
     check(e==INVALID,"Wrong OutArc list linking.");
     check(countOutArcs(G,n)==cnt,"Wrong OutArc number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::OutArcIt a(G,n);
       for(auto e: G.outArcs(n))
@@ -224,7 +224,7 @@ namespace lemon {
     }
     check(e==INVALID,"Wrong InArc list linking.");
     check(countInArcs(G,n)==cnt,"Wrong InArc number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::InArcIt a(G,n);
       for(auto e: G.inArcs(n))
@@ -258,7 +258,7 @@ namespace lemon {
     }
     check(e==INVALID,"Wrong Edge list linking.");
     check(countEdges(G)==cnt,"Wrong Edge number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::EdgeIt a(G);
       for(auto e: G.edges())
@@ -295,7 +295,7 @@ namespace lemon {
     }
     check(e==INVALID,"Wrong IncEdge list linking.");
     check(countIncEdges(G,n)==cnt,"Wrong IncEdge number.");
-#ifdef LEMON_CXX11
+#ifdef LEMON_CXX17
     {
       typename Graph::IncEdgeIt a(G,n);
       for(auto e: G.incEdges(n))

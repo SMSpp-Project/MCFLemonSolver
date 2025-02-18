@@ -5,7 +5,7 @@
 
 #define LEMON_HAVE_LONG_LONG 1
 
-#define LEMON_CXX11 1
+#define LEMON_CXX17 1
 
 /* #undef LEMON_WIN32 */
 

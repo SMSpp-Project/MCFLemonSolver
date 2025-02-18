@@ -5,7 +5,7 @@
 
 #cmakedefine LEMON_HAVE_LONG_LONG 1
 
-#cmakedefine LEMON_CXX11 1
+#cmakedefine LEMON_CXX17 1
 
 #cmakedefine LEMON_WIN32 1
 
