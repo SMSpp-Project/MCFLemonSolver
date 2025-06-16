@@ -53,6 +53,8 @@
 
 #include <type_traits>
 
+#include <chrono>
+
 #include <lemon/lgf_writer.h>
 
 /*--------------------------------------------------------------------------*/
