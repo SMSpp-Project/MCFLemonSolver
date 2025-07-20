@@ -134,9 +134,7 @@ target_link_libraries(${modName} PUBLIC
                       lemon)
 
 if (WIN32)
-    if (TARGET PThreads4W::PThreads4W)
-        target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
-    endif ()
+    target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
 endif ()
 
 # This alias is defined so that executables in this same project can use
