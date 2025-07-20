@@ -129,13 +129,14 @@ target_include_directories(
 # PUBLIC means they will be linked also to the targets that depend on this
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
-target_link_libraries(
-        ${modName} PUBLIC
-        ${modNamespace}::MCFBlock
-        lemon)
+target_link_libraries(${modName} PUBLIC
+                      ${modNamespace}::MCFBlock
+                      lemon)
 
 if (WIN32)
-    target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
+    if (TARGET PThreads4W::PThreads4W)
+        target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
+    endif ()
 endif ()
 
 # This alias is defined so that executables in this same project can use
