@@ -44,6 +44,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # See: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
 include(BuildType)
 
+include(FindPackageHandleStandardArgs)
+
 # ----- Requirements -------------------------------------------------------- #
 # This sets the variable CMAKE_USE_WIN32_THREADS_INIT, see:
 # https://cmake.org/cmake/help/latest/module/FindThreads.html
@@ -65,23 +67,20 @@ if (WIN32)
                      NO_DEFAULT_PATH
                      DOC "PThreads4W library.")
 
-        if (PThreads4W_INCLUDE_DIR AND PThreads4W_LIBRARY)
+        find_package_handle_standard_args(
+                PThreads4W::PThreads4W
+                REQUIRED_VARS PThreads4W_LIBRARY PThreads4W_INCLUDE_DIR)
+    endif ()
+
+    if (PThreads4W_FOUND)
+        if (NOT TARGET PThreads4W::PThreads4W)
             add_library(PThreads4W::PThreads4W UNKNOWN IMPORTED)
             set_target_properties(
                     PThreads4W::PThreads4W PROPERTIES
                     IMPORTED_LOCATION ${PThreads4W_LIBRAY}
                     IMPORTED_LOCATION_DEBUG ${PThreads4W_LIBRAY}
-                    INTERFACE_INCLUDE_DIRECTORIES ${PThreads4W_INCLUDE_DIR})
-            set(PThreads4W_FOUND TRUE)
-        else ()
-            set(_missing "")
-            if (NOT PThreads4W_INCLUDE_DIR)
-                string(APPEND _missing " PThreads4W_INCLUDE_DIR")
-            endif ()
-            if (NOT PThreads4W_LIBRARY)
-                string(APPEND _missing " PThreads4W_LIBRARY")
-            endif ()
-            message(FATAL_ERROR "Could NOT find PThreads4W (missing:${_missing})")
+                    INTERFACE_INCLUDE_DIRECTORIES ${PThreads4W_INCLUDE_DIR}
+                    IMPORTED_LINK_INTERFACE_LANGUAGES "C")
         endif ()
     endif ()
 endif ()
