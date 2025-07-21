@@ -69,8 +69,9 @@ if (WIN32)
             add_library(PThreads4W::PThreads4W UNKNOWN IMPORTED)
             set_target_properties(
                     PThreads4W::PThreads4W PROPERTIES
-                    IMPORTED_LOCATION "${PThreads4W_LIBRAY}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${PThreads4W_INCLUDE_DIR}")
+                    IMPORTED_LOCATION ${PThreads4W_LIBRAY}
+                    IMPORTED_LOCATION_DEBUG ${PThreads4W_LIBRAY}
+                    INTERFACE_INCLUDE_DIRECTORIES ${PThreads4W_INCLUDE_DIR})
             set(PThreads4W_FOUND TRUE)
         else ()
             set(_missing "")
