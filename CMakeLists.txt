@@ -45,11 +45,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(BuildType)
 
 # ----- Requirements -------------------------------------------------------- #
-# This sets the variable CMAKE_USE_WIN32_THREADS_INIT, see:
+# This sets the variable CMAKE_THREAD_LIBS_INIT, see:
 # https://cmake.org/cmake/help/latest/module/FindThreads.html
-if (WIN32)
-    find_package(PThreads4W QUIET)
-endif ()
+find_package(Threads QUIET)
 
 if (NOT hasParent)
     # If it's not being called by the umbrella, we need to
@@ -128,11 +126,8 @@ target_include_directories(
 # on this library.
 target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::MCFBlock
+                      Threads::Threads
                       lemon)
-
-if (WIN32)
-    target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
-endif ()
 
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
