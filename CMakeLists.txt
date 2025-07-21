@@ -68,7 +68,7 @@ if (WIN32)
                      DOC "PThreads4W library.")
 
         find_package_handle_standard_args(
-                PThreads4W::PThreads4W
+                PThreads4W
                 REQUIRED_VARS PThreads4W_LIBRARY PThreads4W_INCLUDE_DIR)
     endif ()
 
