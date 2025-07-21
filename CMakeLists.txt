@@ -48,7 +48,34 @@ include(BuildType)
 # This sets the variable CMAKE_USE_WIN32_THREADS_INIT, see:
 # https://cmake.org/cmake/help/latest/module/FindThreads.html
 if (WIN32)
+    # PThreads4WConfig.cmake given if `pthreads` installed via vcpkg..
     find_package(PThreads4W QUIET)
+    # ... otherwise, overrides macros in Conda to find the `pthreads-win32` package
+    if (NOT PThreads4W_FOUND)
+
+        find_path(PThreads4W_INCLUDE_DIR
+                  NAMES pthread.h
+                  PATHS $ENV{LIBRARY_INC}
+                  NO_DEFAULT_PATH
+                  DOC "PThreads4W include directory.")
+
+        find_library(PThreads4W_LIBRARY
+                     NAMES pthreadVC2 pthreadVC3 pthread
+                     PATHS $ENV{LIBRARY_LIB}
+                     NO_DEFAULT_PATH
+                     DOC "PThreads4W library.")
+
+        if (PThreads4W_INCLUDE_DIR AND PThreads4W_LIBRARY)
+            add_library(PThreads4W::PThreads4W UNKNOWN IMPORTED)
+            set_target_properties(
+                    PThreads4W::PThreads4W PROPERTIES
+                    IMPORTED_LOCATION "${PThreads4W_LIBRAY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${PThreads4W_INCLUDE_DIR}")
+            set(PThreads4W_FOUND TRUE)
+        else ()
+            message(FATAL_ERROR "PThreads4W not found")
+        endif ()
+    endif ()
 endif ()
 
 if (NOT hasParent)
