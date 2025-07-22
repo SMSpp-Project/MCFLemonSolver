@@ -78,7 +78,6 @@ if (WIN32)
             set_target_properties(
                     PThreads4W::PThreads4W PROPERTIES
                     IMPORTED_LOCATION ${PThreads4W_LIBRARY}
-                    IMPORTED_LOCATION_DEBUG ${PThreads4W_LIBRARY}
                     INTERFACE_INCLUDE_DIRECTORIES ${PThreads4W_INCLUDE_DIR}
                     IMPORTED_LINK_INTERFACE_LANGUAGES "C")
         endif ()
