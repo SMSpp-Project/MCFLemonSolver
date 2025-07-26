@@ -57,13 +57,13 @@ if (WIN32)
 
         find_path(PThreads4W_INCLUDE_DIR
                   NAMES pthread.h
-                  PATHS $ENV{LIBRARY_INC}
+                  PATHS $ENV{LIBRARY_PREFIX}/include
                   NO_DEFAULT_PATH
                   DOC "PThreads4W include directory.")
 
         find_library(PThreads4W_LIBRARY
                      NAMES pthreadVC2 pthreadVC3 pthread
-                     PATHS $ENV{LIBRARY_LIB}
+                     PATHS $ENV{LIBRARY_PREFIX}/lib
                      NO_DEFAULT_PATH
                      DOC "PThreads4W library.")
 
