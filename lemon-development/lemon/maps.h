@@ -1766,7 +1766,7 @@ namespace lemon {
       return _begin;
     }
 
-    /// Gives back the the 'after the last' iterator
+    /// Gives back the 'after the last' iterator
     Iterator end() const {
       return _end;
     }

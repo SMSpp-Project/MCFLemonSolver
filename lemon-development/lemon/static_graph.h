@@ -330,13 +330,13 @@ namespace lemon {
 
     /// \brief The index of the given node.
     ///
-    /// This function returns the index of the the given node.
+    /// This function returns the index of the given node.
     /// \sa node()
     static int index(Node node) { return Parent::id(node); }
 
     /// \brief The index of the given arc.
     ///
-    /// This function returns the index of the the given arc.
+    /// This function returns the index of the given arc.
     /// \sa arc()
     static int index(Arc arc) { return Parent::id(arc); }
 

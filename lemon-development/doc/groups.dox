@@ -606,7 +606,7 @@ embedding and drawing.
 @ingroup algs
 \brief Algorithms for the symmetric traveling salesman problem
 
-This group contains basic heuristic algorithms for the the symmetric
+This group contains basic heuristic algorithms for the symmetric
 \e traveling \e salesman \e problem (TSP).
 Given an \ref FullGraph "undirected full graph" with a cost map on its edges,
 the problem is to find a shortest possible tour that visits each node exactly

@@ -715,7 +715,7 @@ namespace lemon {
 
     /// \brief Returns the value of the dual variable.
     ///
-    /// Returns the the value of the dual variable.
+    /// Returns the value of the dual variable.
     Value dualValue(int k) const {
       return _dual_variables[k].value;
     }

@@ -94,7 +94,7 @@ namespace lemon {
 
     // \brief Constructor to use default value to initialize the map.
     //
-    // It constructs a map and initialize all of the the map.
+    // It constructs a map and initialize all of the map.
     ArrayMap(const GraphType& graph, const Value& value) {
       Parent::attach(graph.notifier(Item()));
       allocate_memory();
