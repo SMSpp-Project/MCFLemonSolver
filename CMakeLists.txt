@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------- #
-#    Main CMake file for SMS++ LEMONSolver                                    #
+#    Main CMake file for SMS++ MCFLemonSolver                                 #
 #                                                                             #
 #    This file allows one to build the library using CMake.                   #
 #    To do so, you can use the following commands:                            #
@@ -17,9 +17,9 @@
 # --------------------------------------------------------------------------- #
 cmake_minimum_required(VERSION 3.16)
 cmake_policy(VERSION 3.15)
-project(LEMONSolver
+project(MCFLemonSolver
         VERSION 0.1.0
-        DESCRIPTION "SMS++ LEMONSolver"
+        DESCRIPTION "SMS++ MCFLemonSolver"
         HOMEPAGE_URL https://gitlab.com/smspp/lemonsolver
         LANGUAGES C CXX)
 
@@ -110,7 +110,7 @@ add_subdirectory_no_dev_warnings(lemon-development)
 # if SMSpp_which_insert_LEMON is *not* given in input as CMake option...
 # (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not `add_compile_definitions( )`)
 if (NOT DEFINED SMSpp_which_insert_LEMON)
-    # ... then use 3 in LEMONSolver
+    # ... then use 3 in MCFLemonSolver
     add_compile_definitions(SMSpp_which_insert_LEMON=3)
 else ()
     add_compile_definitions(SMSpp_which_insert_LEMON=${SMSpp_which_insert_LEMON})
@@ -125,6 +125,10 @@ configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 # be STATIC or SHARED, so no reason to do it now.
 add_library(${modName})
 target_compile_features(${modName} PUBLIC cxx_std_20)
+
+if (MSVC AND BUILD_SHARED_LIBS)
+    target_link_options(${modName} INTERFACE "/INCLUDE:SMSpp_force_load_${modName}")
+endif()
 
 # Add the /bigobj flag for lemon-development
 if (MSVC)

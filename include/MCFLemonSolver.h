@@ -111,9 +111,11 @@ namespace SMSpp_di_unipi_it
   * (questionable decision ...), but friendship is not inherited, so it
   * has to be done again. */
 
- class MCFListDigraph : public ListDigraph
- {
+class MCFListDigraph : public ListDigraph
+{
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -163,7 +165,7 @@ namespace SMSpp_di_unipi_it
    int idx = first_free_arc;
    int prevmin = -1;
    for( auto nextidx = _arcs[ idx ].next_in ; nextidx != -1 ;
-	idx = nextidx , nextidx = _arcs[ idx ].next_in )
+	       idx = nextidx , nextidx = _arcs[ idx ].next_in )
     if( nextidx < minidx ) {
      minidx = nextidx;
      prevmin = idx;
@@ -411,7 +413,7 @@ namespace SMSpp_di_unipi_it
   *   < GR , V , C >) that are meant to be used instead of the original
   *   CapacityScaling and CostScaling. */
 
-template< template< typename , typename , typename> class Algo ,
+template< template< typename , typename , typename > class Algo ,
            LEMONGraph GR, typename V , typename C >
 class MCFLemonSolver : public CDASolver
 {
@@ -702,9 +704,7 @@ class MCFLemonSolver : public CDASolver
 
  private:
 
-/*--------------------------------------------------------------------------*/
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
-/*--------------------------------------------------------------------------*/
 
   double ticks;  ///< Elapsed time in ticks for compute() method
 
@@ -733,7 +733,9 @@ template< typename GR , typename V , typename C >
 class MCFLemonSolverNetworkSimplex : public
  MCFLemonSolver< NetworkSimplex , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -863,7 +865,9 @@ class MCFLemonSolverNetworkSimplex : public
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -877,7 +881,9 @@ class MCFLemonSolverNetworkSimplex : public
 
   NSPivotRule f_pivot_rule;
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -904,7 +910,9 @@ template< typename GR , typename V , typename C >
 class MCFLemonSolverCycleCanceling : public
  MCFLemonSolver< CycleCanceling , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -1029,7 +1037,9 @@ class MCFLemonSolverCycleCanceling : public
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -1039,7 +1049,9 @@ class MCFLemonSolverCycleCanceling : public
   status = f_algo->run( CCMethod( f_method ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -1047,7 +1059,7 @@ class MCFLemonSolverCycleCanceling : public
 
  SMSpp_insert_in_factory_h;
 
-/*-------------------------- PRIVATE FIELDS -------------------------------*/
+/*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  CCMethod f_method;
 
@@ -1068,7 +1080,9 @@ template< typename GR , typename V , typename C >
  class MCFLemonSolverCapacityScaling : public
  MCFLemonSolver< SMSppCapacityScaling , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -1111,7 +1125,9 @@ template< typename GR , typename V , typename C >
   BaseClass::guts_of_destructor();
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -1119,7 +1135,9 @@ template< typename GR , typename V , typename C >
 
  void guts_of_compute( void ) override { status = f_algo->run(); }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -1146,7 +1164,9 @@ template< typename GR , typename V , typename C >
 class MCFLemonSolverCostScaling : public
  MCFLemonSolver< SMSppCostScaling , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -1266,7 +1286,9 @@ class MCFLemonSolverCostScaling : public
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -1276,7 +1298,9 @@ class MCFLemonSolverCostScaling : public
   status = f_algo->run( CSMethod( f_method ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -1284,7 +1308,7 @@ class MCFLemonSolverCostScaling : public
 
  SMSpp_insert_in_factory_h;
 
-/*-------------------------- PRIVATE FIELDS -------------------------------*/
+/*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  CSMethod f_method;
 

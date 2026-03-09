@@ -24,6 +24,9 @@
 /*--------------------------------------------------------------------------*/
 /*------------------------------- MACROS -----------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+SMSpp_define_force_load( MCFLemonSolver );
+
 // insert into the Solver factory all he 8 variants of MCFLemonSolver having
 // the types C and V and all possible choice of the 4 algorithms and 2 graphs
 
