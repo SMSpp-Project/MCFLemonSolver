@@ -15,7 +15,7 @@
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 cmake_policy(VERSION 3.15)
 project(MCFLemonSolver
         VERSION 0.1.0
@@ -56,16 +56,16 @@ if (WIN32)
     if (NOT PThreads4W_FOUND)
 
         find_path(PThreads4W_INCLUDE_DIR
-                  NAMES pthread.h
-                  PATHS $ENV{LIBRARY_INC}
-                  NO_DEFAULT_PATH
-                  DOC "PThreads4W include directory.")
+                NAMES pthread.h
+                PATHS $ENV{LIBRARY_INC}
+                NO_DEFAULT_PATH
+                DOC "PThreads4W include directory.")
 
         find_library(PThreads4W_LIBRARY
-                     NAMES pthreadVC2 pthreadVC3 pthread
-                     PATHS $ENV{LIBRARY_LIB}
-                     NO_DEFAULT_PATH
-                     DOC "PThreads4W library.")
+                NAMES pthreadVC2 pthreadVC3 pthread
+                PATHS $ENV{LIBRARY_LIB}
+                NO_DEFAULT_PATH
+                DOC "PThreads4W library.")
 
         find_package_handle_standard_args(
                 PThreads4W
@@ -128,7 +128,7 @@ target_compile_features(${modName} PUBLIC cxx_std_20)
 
 if (MSVC AND BUILD_SHARED_LIBS)
     target_link_options(${modName} INTERFACE "/INCLUDE:SMSpp_force_load_${modName}")
-endif()
+endif ()
 
 # Add the /bigobj flag for lemon-development
 if (MSVC)
@@ -164,8 +164,8 @@ target_include_directories(
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
 target_link_libraries(${modName} PUBLIC
-                      ${modNamespace}::MCFBlock
-                      lemon)
+        ${modNamespace}::MCFBlock
+        lemon)
 
 if (WIN32)
     target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
