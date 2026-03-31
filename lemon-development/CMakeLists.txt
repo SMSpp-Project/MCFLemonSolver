@@ -311,6 +311,7 @@ CONFIGURE_FILE(
 INSTALL(
   FILES ${PROJECT_BINARY_DIR}/cmake/LEMONConfig.cmake
   DESTINATION share/lemon/cmake
+)
 
 CONFIGURE_FILE(
   ${PROJECT_SOURCE_DIR}/cmake/version.cmake.in
