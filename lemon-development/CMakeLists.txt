@@ -307,17 +307,10 @@ CONFIGURE_FILE(
   ${PROJECT_BINARY_DIR}/cmake/LEMONConfig.cmake
   @ONLY
 )
-IF(UNIX)
-  INSTALL(
-    FILES ${PROJECT_BINARY_DIR}/cmake/LEMONConfig.cmake
-    DESTINATION share/lemon/cmake
-  )
-ELSEIF(WIN32)
-  INSTALL(
-    FILES ${PROJECT_BINARY_DIR}/cmake/LEMONConfig.cmake
-    DESTINATION cmake
-  )
-ENDIF()
+
+INSTALL(
+  FILES ${PROJECT_BINARY_DIR}/cmake/LEMONConfig.cmake
+  DESTINATION share/lemon/cmake
 
 CONFIGURE_FILE(
   ${PROJECT_SOURCE_DIR}/cmake/version.cmake.in
