@@ -1,9 +1,0 @@
-digraph "Graph Maps"
-{
-  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
-  node [fontname="Helvetica",fontsize="10",shape=box];
-  rankdir=LR;
-  Node1 [label="Graph Maps",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip="Special graph-related maps."];
-  Node2 [label="Maps",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__maps.html",tooltip="Map structures implemented in LEMON."];
-  Node2->Node1 [shape=plaintext, dir="back", style="solid"];
-}

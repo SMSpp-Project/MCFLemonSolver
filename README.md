@@ -61,24 +61,29 @@ for each of the 9 possible combinations of the three types as flows and
 costs (i.e., 72 variants. The macro can be changed in the `makefile`.
 
 The interface with the solvers provided by the LEMON project works thanks to the
-changes made to the `include/lemon/bits/array_map.h` file. Since it has not been
+changes made to the `lemon/bits/array_map.h` file. Since it has not been
 updated for some time, it was not compatible with C++20 versions, causing
-problems, especially with the compilation of Concepts. This file is provided
-within the include/lemon directory, modified to ensure correctness, and a patch
-has been proposed to the LEMON developers, who may one day modify this file to
-make it available in their repositories.
+problems, especially with the compilation of Concepts. For this reason a
+lightly-patched copy of LEMON is maintained in a dedicated repository,
+[lemon-solver](https://gitlab.com/smspp/lemon-solver), where this file has been
+modified to ensure correctness; a patch has also been proposed to the LEMON
+developers, who may one day modify this file to make it available in their
+repositories.
 
-The files are provided "working", so the user does not need to download LEMON
-themselves. If they did, the `array_map.h` file downloaded from LEMON might not
-have been updated yet, potentially compromising the compilation of
-`MCFLemonSolver`.
+When building with CMake the patched LEMON is fetched automatically (see below),
+so the user does not need to download LEMON themselves. If they did, the
+`array_map.h` file downloaded directly from the upstream LEMON might not have
+been updated yet, potentially compromising the compilation of `MCFLemonSolver`.
+When building with the makefiles, the same patched repository must instead be
+downloaded and built manually (see the makefile build section below).
 
-If LEMON provides a new release and the user wants to update, it is necessary
-to check the correctness of the `include/lemon/bits/array_map.h` file,
-particularly the correct use of `std::allocator`.
+If LEMON provides a new release and the user wants to update the
+[lemon-solver](https://gitlab.com/smspp/lemon-solver) repository, it is necessary
+to check the correctness of its `lemon/bits/array_map.h` file, particularly the
+correct use of `std::allocator`.
 
-It is also necessary to fix the following line of code in the
-`include/lemon/adaptors.h` file:
+It is also necessary to fix the following line of code in its
+`lemon/adaptors.h` file:
 
 ```c++
 #ifdef _MSC_VER
@@ -109,10 +114,12 @@ These instructions will let you build `MCFLemonSolver` on your system.
   requirements (but no actual `MCFSolver` are needed, since
   `LEMONSolver` provides its own).
 
-- The [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), currently contained
-  in this repository: do not download the LEMON Project from their site if there
-  aren't new releases, for the reasons discussed above, but use what is provided
-  as "functional" in this repository.
+- The [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), in the lightly-patched
+  version hosted at [lemon-solver](https://gitlab.com/smspp/lemon-solver): do not
+  download the LEMON Project from their site if there aren't new releases, for the
+  reasons discussed above, but use that patched version. With CMake it is fetched
+  automatically; with the makefiles it has to be downloaded and built manually, as
+  described below.
 
 ### Build and install with CMake
 
@@ -165,21 +172,32 @@ directory tree constructed in the build/ folder) and therefore it is more
 convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
-To build code with LEMONSolver dependencies you will first need to separately
-build LEMON with:
+Unlike CMake, the makefiles do not fetch LEMON automatically: you will first
+need to separately download and build the (lightly-patched) LEMON sources from
+the dedicated [lemon-solver](https://gitlab.com/smspp/lemon-solver) repository.
+
+Clone the repository and build/install it into the directory pointed to by the
+`Lemon_ROOT` makefile macro (by default `/opt/lemon` on Linux and
+`/Library/lemon` on macOS, see `extlib/makefile-default-paths-*`):
 
 ```sh
-cd lemon-development
+git clone https://gitlab.com/smspp/lemon-solver.git
+cd lemon-solver
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/lemon -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 cmake --install . --config Release
 cd ..
 rm -Rf build
 ```
 
-This will build a LEMON instance in `lemon-development` (getting rid of the build folder).
+This installs LEMON's headers and library under `/opt/lemon/{include,lib}` (use
+the prefix matching your OS, or any location of your choice). If you install
+LEMON somewhere other than the default `Lemon_ROOT`, point that macro to your
+location by creating `../extlib/makefile-paths` out of the
+`extlib/makefile-default-paths-*` for your OS and editing the `Lemon_ROOT` entry
+(commenting out all the rest), exactly as for any other external library.
 
 Each executable using `LEMONSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all
@@ -236,10 +254,10 @@ The SMS++ code is provided free of charge under the [GNU Lesser General Public
 License version 3.0](https://opensource.org/licenses/lgpl-3.0.html) -
 see the [LICENSE](LICENSE) file for details. Due to the above-mentioned
 issues we are also redistributing a (lightly patched) version of the latest
-LEMON version available at the time of released, which is separately
+LEMON version available at the time of release in a separate
+[lemon-solver](https://gitlab.com/smspp/lemon-solver) repository, which is
 available under the (more permissive) Boost Software License, Version 1.0;
-see the [LICENSE](lemon-development/LICENSE) file in the
-[lemon-development](lemon-development/) folder.
+see the LICENSE file in that repository.
 
 
 ## Disclaimer

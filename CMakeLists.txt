@@ -94,18 +94,27 @@ endif ()
 function(add_subdirectory_no_dev_warnings dir)
     set(old_value ${CMAKE_SUPPRESS_DEVELOPER_WARNINGS})
     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS TRUE CACHE INTERNAL "Suppress developer warnings")
-    add_subdirectory(${dir})
+    add_subdirectory(${dir} ${ARGN})
     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ${old_value} CACHE INTERNAL "Suppress developer warnings")
 endfunction()
 
-# Set the lemon-development options in the cache
+include(FetchContent)
+FetchContent_Declare(
+        lemon
+        GIT_REPOSITORY https://gitlab.com/smspp/lemon-solver.git
+        GIT_TAG main)
+
+FetchContent_Populate(lemon)
+
+# Set the LEMON options in the cache (before adding its subdirectory)
 set(LEMON_ENABLE_GLPK OFF CACHE BOOL "Enable GLPK solver backend.")
 set(LEMON_ENABLE_ILOG OFF CACHE BOOL "Enable ILOG (CPLEX) solver backend.")
 set(LEMON_ENABLE_COIN OFF CACHE BOOL "Enable COIN solver backend.")
 set(LEMON_ENABLE_SOPLEX OFF CACHE BOOL "Enable SoPlex solver backend.")
 
-# Use the function to add the subdirectory
-add_subdirectory_no_dev_warnings(lemon-development)
+# Add the fetched LEMON sources to the build (an explicit binary directory is
+# required since the source lives outside this project's tree)
+add_subdirectory_no_dev_warnings(${lemon_SOURCE_DIR} ${lemon_BINARY_DIR})
 
 # if SMSpp_which_insert_LEMON is *not* given in input as CMake option...
 # (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not `add_compile_definitions( )`)
@@ -130,7 +139,7 @@ if (MSVC AND BUILD_SHARED_LIBS)
     target_link_options(${modName} INTERFACE "/INCLUDE:SMSpp_force_load_${modName}")
 endif ()
 
-# Add the /bigobj flag for lemon-development
+# Add the /bigobj flag for LEMON
 if (MSVC)
     target_compile_options(${modName} PRIVATE /bigobj)
 endif ()
@@ -156,7 +165,13 @@ target_sources(${modName} PRIVATE src/MCFLemonSolver.cpp)
 target_include_directories(
         ${modName} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include/${modNamespace}>)
+        $<INSTALL_INTERFACE:include/${modNamespace}>
+        # LEMON headers (and its generated config.h) are pulled from the fetched
+        # sources, since the lemon target uses the old directory-scoped
+        # INCLUDE_DIRECTORIES() and therefore does not export its own include
+        # directories to the targets that link against it
+        $<BUILD_INTERFACE:${lemon_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${lemon_BINARY_DIR}>)
 
 # When linking other targets to the library with target_link_libraries(),
 # PRIVATE means that the libraries will be linked only to this library,

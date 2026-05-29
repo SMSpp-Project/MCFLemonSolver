@@ -30,6 +30,9 @@
 #           $(MCFBkOBJ)    = the object(s) / library for MCFBlock            #
 #           $(MCFBkINC)    = the -I$( source directory ) for MCFBlock        #
 #           $(MCFLESDR)    = the directory where the source is               #
+#           $(Lemon_ROOT)  = the directory where LEMON is installed, i.e.,   #
+#                            the one containing its include/ and lib/        #
+#                            subdirectories (see extlib/makefile-paths)      #
 #                                                                            #
 #   Output: $(MCFLEOBJ)    = the final object(s) / library                   #
 #           $(MCFLEH)      = the .h files to include                         #
@@ -46,11 +49,11 @@
 
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-development/include
+MCFLEINC = -I$(MCFLESDR)/include -I$(Lemon_ROOT)/include
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
-MCFLELIB = -L$(MCFLESDR)/lemon-development/lib -lemon
+MCFLELIB = -L$(Lemon_ROOT)/lib -lemon
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -3,20 +3,6 @@
 # ============================================================
 
 # --- Project-specific ---------------------------------------
-# Local LEMON build & install tree
-lemon-development/build
-lemon-development/bin
-lemon-development/include
-lemon-development/lib
-lemon-development/share
-
-# Locally regenerated formatter configs
-include/.clang-format
-src/.clang-format
-
-# LEMON license file dropped into the tree by their install
-LICENSE
-
 # Data directories
 data/dmx/*.dmx
 data/nc4
