@@ -3,6 +3,8 @@
 # ============================================================
 
 # --- Project-specific ---------------------------------------
+lemon-solver/
+
 # Data directories
 data/dmx/*.dmx
 data/nc4

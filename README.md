@@ -175,29 +175,30 @@ a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 Unlike CMake, the makefiles do not fetch LEMON automatically: you will first
 need to separately download and build the (lightly-patched) LEMON sources from
 the dedicated [lemon-solver](https://gitlab.com/smspp/lemon-solver) repository.
+This is treated exactly as `MCFClass` is for `MCFBlock`: the library lives
+*inside* `LEMONSolver`, in the `lemon-solver` subdirectory (which is gitignored
+and therefore never committed), with no external `*_ROOT` path to configure.
 
-Clone the repository and build/install it into the directory pointed to by the
-`Lemon_ROOT` makefile macro (by default `/opt/lemon` on Linux and
-`/Library/lemon` on macOS, see `extlib/makefile-default-paths-*`):
+Clone the repository and build/install it in place, so that its headers and
+library end up under `LEMONSolver/lemon-solver/{include,lib}` (run the following
+from the `LEMONSolver` directory):
 
 ```sh
 git clone https://gitlab.com/smspp/lemon-solver.git
 cd lemon-solver
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/opt/lemon -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --config Release
 cmake --install . --config Release
 cd ..
 rm -Rf build
 ```
 
-This installs LEMON's headers and library under `/opt/lemon/{include,lib}` (use
-the prefix matching your OS, or any location of your choice). If you install
-LEMON somewhere other than the default `Lemon_ROOT`, point that macro to your
-location by creating `../extlib/makefile-paths` out of the
-`extlib/makefile-default-paths-*` for your OS and editing the `Lemon_ROOT` entry
-(commenting out all the rest), exactly as for any other external library.
+This installs LEMON's headers and library under
+`LEMONSolver/lemon-solver/{include,lib}`, where the makefiles look for them by
+default; no entry in `../extlib/makefile-paths` is needed, since LEMON is no
+longer treated as an external library with its own root path.
 
 Each executable using `LEMONSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all
