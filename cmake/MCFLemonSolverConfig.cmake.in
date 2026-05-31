@@ -19,6 +19,15 @@ include(CMakeFindDependencyMacro)
 # ----- Requirements -------------------------------------------------------- #
 find_dependency(SMS++)
 
+# This is needed to find the custom modules we provide (e.g. FindLEMON).
+list(APPEND CMAKE_MODULE_PATH ${@modName@_CMAKE_DIR})
+
+# Pulled in only when LEMON is consumed as an installed package (otherwise it is
+# exported alongside this package via lemonTargets); empty in the source build.
+@LEMON_FIND_DEPENDENCY@
+
+list(REMOVE_AT CMAKE_MODULE_PATH -1)
+
 # ----- Import target ------------------------------------------------------- #
 if (NOT TARGET @modNamespace@::@modName@)
     include("${@modName@_CMAKE_DIR}/@modName@Targets.cmake")

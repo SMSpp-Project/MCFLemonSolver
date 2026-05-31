@@ -31,10 +31,11 @@
 #           $(MCFBkINC)    = the -I$( source directory ) for MCFBlock        #
 #           $(MCFLESDR)    = the directory where the source is               #
 #                                                                            #
-#   The (lightly-patched) LEMON library is expected to have been built and   #
-#   installed inside $(MCFLESDR)/lemon-solver, i.e., the directory           #
-#   containing its include/ and lib/ subdirectories                          #
-#   (see the README for the build/install procedure).                        #
+#   LEMON is expected to be an installed package (no in-tree clone);         #
+#   override LEMON_ROOT below if it lives elsewhere. Since the packaged      #
+#   LEMON predates C++20, this makefile rewrites the two headers using       #
+#   the removed std::allocator::construct/destroy into a private shim        #
+#   that shadows them (see the README and the rule below).                   #
 #                                                                            #
 #   Output: $(MCFLEOBJ)    = the final object(s) / library                   #
 #           $(MCFLEH)      = the .h files to include                         #
@@ -47,20 +48,39 @@
 #                                                                            #
 ##############################################################################
 
+# LEMON (graph library) paths - - - - - - - - - - - - - - - - - - - - - - - -
+# LEMON is an installed package; override LEMON_ROOT (or LEMON_INCDIR /
+# LEMON_LIBDIR) if it lives outside the default /usr prefix.
+LEMON_ROOT   ?= /usr
+LEMON_INCDIR ?= $(LEMON_ROOT)/include
+LEMON_LIBDIR ?= $(LEMON_ROOT)/lib
+
+# Compatibility shim: the packaged LEMON needs a C++20 fix (array_map.h, path.h
+# still call the removed std::allocator::construct/destroy) and an MSVC fix
+# (adaptors.h LEMON_SCOPE_FIX). We rewrite private copies of those headers (see
+# the rule below) and put $(MCFLESHIM) on the include path *before* $(LEMON_INCDIR)
+# so they shadow the system ones. Mirrors the CMake build; both rewrites are
+# idempotent and harmless on non-matching headers.
+MCFLESHIM = $(MCFLESDR)/lemon-cxx20-shim
+LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
+                  $(MCFLESHIM)/lemon/path.h \
+                  $(MCFLESHIM)/lemon/adaptors.h
+
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESDR)/lemon-solver/include
+MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESHIM) -I$(LEMON_INCDIR)
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
-MCFLELIB = -L$(MCFLESDR)/lemon-solver/lib -lemon
+MCFLELIB = -L$(LEMON_LIBDIR) -llemon
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
 	rm -f $(MCFLEOBJ) $(MCFLESDR)/*~
+	rm -rf $(MCFLESHIM)
 
 # internal macros - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # the value of this macro is passed as SMSpp_which_insert_LEMON when
@@ -74,10 +94,23 @@ clean::
 
 which_insert_LEMON = 3
 
+# Compatibility shim: rewrite the offending LEMON headers into $(MCFLESHIM) —
+# the C++20 "<alloc>.construct(...)"/"<alloc>.destroy(...)" calls into the
+# std::allocator_traits<decltype(<alloc>)>::construct/destroy form, and the MSVC
+# LEMON_SCOPE_FIX definition into its portable form. Each rewrite is idempotent
+# and harmless on non-matching headers, matching the CMake build.
+$(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
+	mkdir -p $(dir $@)
+	sed -E \
+	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.construct\(/std::allocator_traits<decltype(\1)>::construct(\1, /g' \
+	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.destroy\(/std::allocator_traits<decltype(\1)>::destroy(\1, /g' \
+	  -e 's/#define LEMON_SCOPE_FIX\(OUTER, NESTED\) OUTER::NESTED/#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED/' \
+	  $< > $@
+
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
 
 $(MCFLESDR)/obj/MCFLemonSolver.o: $(MCFLESDR)/src/MCFLemonSolver.cpp \
-	$(MCFLEH) $(SMS++OBJ) $(MCFBkOBJ) 
+	$(MCFLEH) $(LEMON_SHIM_HDRS) $(SMS++OBJ) $(MCFBkOBJ)
 	$(CC) -c $(MCFLESDR)/src/MCFLemonSolver.cpp -o $@ $(SW) \
 	$(SMS++INC) $(MCFBkINC) $(MCFLEINC) \
 	-DSMSpp_which_insert_LEMON=$(which_insert_LEMON)

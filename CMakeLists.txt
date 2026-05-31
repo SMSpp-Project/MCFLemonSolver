@@ -90,31 +90,53 @@ if (NOT hasParent)
     find_package(MCFBlock REQUIRED)
 endif ()
 
-# Define a function to wrap add_subdirectory with CMAKE_SUPPRESS_DEVELOPER_WARNINGS, i.e., -Wno-dev, set to TRUE
-function(add_subdirectory_no_dev_warnings dir)
-    set(old_value ${CMAKE_SUPPRESS_DEVELOPER_WARNINGS})
-    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS TRUE CACHE INTERNAL "Suppress developer warnings")
-    add_subdirectory(${dir} ${ARGN})
-    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ${old_value} CACHE INTERNAL "Suppress developer warnings")
-endfunction()
+# ----- LEMON --------------------------------------------------------------- #
+# LEMON is consumed as an installed package; we neither redistribute nor rebuild
+# its sources. It is resolved by our cmake/FindLEMON.cmake module, which defines
+# the imported target LEMON::LEMON.
+find_package(LEMON REQUIRED)
 
-include(FetchContent)
-FetchContent_Declare(
-        lemon
-        GIT_REPOSITORY https://gitlab.com/smspp/lemon-solver.git
-        GIT_TAG main)
+message(STATUS "LEMON: using installed package (${LEMON_INCLUDE_DIRS})")
 
-FetchContent_Populate(lemon)
+# ----- Compatibility shim for an unpatched LEMON --------------------------- #
+# The packaged LEMON needs two compiler-portability fixes that we apply, at
+# configure time, to private copies of the affected headers, shadowing the
+# system ones through an include directory searched first (see
+# target_include_directories below):
+#   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
+#     std::allocator::construct/destroy members removed in C++20;
+#   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does not
+#     compile under MSVC.
+# Both rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
+# on headers that do not match, so they are always safe to apply.
+set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
+foreach (_lemon_hdr bits/array_map.h path.h adaptors.h)
+    unset(_lemon_hdr_src CACHE)
+    find_file(_lemon_hdr_src lemon/${_lemon_hdr}
+            PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
+    if (_lemon_hdr_src)
+        file(READ ${_lemon_hdr_src} _lemon_hdr_content)
+        string(REGEX REPLACE
+                "([A-Za-z_][A-Za-z0-9_]*)\\.construct\\("
+                "std::allocator_traits<decltype(\\1)>::construct(\\1, "
+                _lemon_hdr_content "${_lemon_hdr_content}")
+        string(REGEX REPLACE
+                "([A-Za-z_][A-Za-z0-9_]*)\\.destroy\\("
+                "std::allocator_traits<decltype(\\1)>::destroy(\\1, "
+                _lemon_hdr_content "${_lemon_hdr_content}")
+        string(REGEX REPLACE
+                "#define LEMON_SCOPE_FIX\\(OUTER, NESTED\\) OUTER::NESTED"
+                "#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED"
+                _lemon_hdr_content "${_lemon_hdr_content}")
+        file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
+    endif ()
+endforeach ()
+unset(_lemon_hdr_src CACHE)
 
-# Set the LEMON options in the cache (before adding its subdirectory)
-set(LEMON_ENABLE_GLPK OFF CACHE BOOL "Enable GLPK solver backend.")
-set(LEMON_ENABLE_ILOG OFF CACHE BOOL "Enable ILOG (CPLEX) solver backend.")
-set(LEMON_ENABLE_COIN OFF CACHE BOOL "Enable COIN solver backend.")
-set(LEMON_ENABLE_SOPLEX OFF CACHE BOOL "Enable SoPlex solver backend.")
-
-# Add the fetched LEMON sources to the build (an explicit binary directory is
-# required since the source lives outside this project's tree)
-add_subdirectory_no_dev_warnings(${lemon_SOURCE_DIR} ${lemon_BINARY_DIR})
+# Alias LEMON::LEMON to a plain `lemon` target name used throughout this file.
+if (NOT TARGET lemon)
+    add_library(lemon ALIAS LEMON::LEMON)
+endif ()
 
 # if SMSpp_which_insert_LEMON is *not* given in input as CMake option...
 # (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not `add_compile_definitions( )`)
@@ -162,16 +184,19 @@ target_sources(${modName} PRIVATE src/MCFLemonSolver.cpp)
 # This means that if a target finds this library in its build directory
 # will look into the BUILD_INTERFACE path for its headers, if it finds it
 # installed in the system will look into the INSTALL_INTERFACE path.
+# LEMON's include directories are carried by the `lemon` target itself (see the
+# LEMON section above), whether it comes from an installed package or from the
+# fetched sources, so they no longer need to be repeated here.
 target_include_directories(
         ${modName} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include/${modNamespace}>
-        # LEMON headers (and its generated config.h) are pulled from the fetched
-        # sources, since the lemon target uses the old directory-scoped
-        # INCLUDE_DIRECTORIES() and therefore does not export its own include
-        # directories to the targets that link against it
-        $<BUILD_INTERFACE:${lemon_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${lemon_BINARY_DIR}>)
+        $<INSTALL_INTERFACE:include/${modNamespace}>)
+
+# When using an installed LEMON, the C++20-rewritten headers (see the LEMON
+# section above) must be found before the system ones: prepend the shim dir.
+if (DEFINED LEMON_CXX20_SHIM_DIR)
+    target_include_directories(${modName} BEFORE PRIVATE ${LEMON_CXX20_SHIM_DIR})
+endif ()
 
 # When linking other targets to the library with target_link_libraries(),
 # PRIVATE means that the libraries will be linked only to this library,
@@ -217,21 +242,15 @@ install(DIRECTORY include/
 install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
-# Install the lemon library as well
-install(TARGETS lemon
-        EXPORT lemonTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# LEMON is consumed as an installed (imported) package, so it is neither
+# installed nor exported here: it is already discoverable via find_package(LEMON)
+# (see the find_dependency(LEMON) injected into the package config below).
 
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
 install(EXPORT ${modName}Targets
         NAMESPACE ${modNamespace}::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
-
-install(EXPORT lemonTargets
-        NAMESPACE lemon::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/lemon)
 
 # Generate the package version file, that allows other
 # CMake projects to know the version.
@@ -240,6 +259,11 @@ write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY AnyNewerVersion)
+
+# Downstream projects that do find_package(MCFLemonSolver) must also be able to
+# locate LEMON: inject a find_dependency(LEMON) into the generated config, which
+# is resolved there by the FindLEMON module we install alongside it (see below).
+set(LEMON_FIND_DEPENDENCY "find_dependency(LEMON)")
 
 # Generate the package configuration file, that allows other
 # CMake projects to find the library with find_package().
@@ -252,6 +276,12 @@ configure_package_config_file(
 install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}Config.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
+
+# Install the custom find modules (e.g. FindLEMON) so that downstream projects
+# can resolve the find_dependency() calls emitted in the package config above.
+file(GLOB findMods ${CMAKE_CURRENT_LIST_DIR}/cmake/Find*)
+install(FILES ${findMods}
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # Install the README and LICENSE files.

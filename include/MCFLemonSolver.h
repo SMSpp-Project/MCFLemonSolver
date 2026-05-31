@@ -146,7 +146,7 @@ class MCFListDigraph : public ListDigraph
 
  /// return true if the arc is closed
 
- bool isClosed( int n ) { return( _arcs[ n ].source < 0 ); }
+ bool isClosed( int n ) { return( arcs[ n ].source < 0 ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
  /// add a new arc with given endpoints
@@ -156,59 +156,59 @@ class MCFListDigraph : public ListDigraph
   int n;
 
   if( first_free_arc == -1 ) {  // no previously deleted arcs
-   n = _arcs.size();            // just add at the end
-   _arcs.push_back( ArcT() );
+   n = arcs.size();            // just add at the end
+   arcs.push_back( ArcT() );
    }
   else {                        // there are previously deleted arcs
    // look for the min-index arc in the deleted arc list
    int minidx = first_free_arc;
    int idx = first_free_arc;
    int prevmin = -1;
-   for( auto nextidx = _arcs[ idx ].next_in ; nextidx != -1 ;
-	       idx = nextidx , nextidx = _arcs[ idx ].next_in )
+   for( auto nextidx = arcs[ idx ].next_in ; nextidx != -1 ;
+	       idx = nextidx , nextidx = arcs[ idx ].next_in )
     if( nextidx < minidx ) {
      minidx = nextidx;
      prevmin = idx;
      }
 
    if( prevmin == -1 )
-    first_free_arc = _arcs[ first_free_arc ].next_in;
+    first_free_arc = arcs[ first_free_arc ].next_in;
    else
-    _arcs[ prevmin ].next_in = _arcs[ minidx ].next_in;
+    arcs[ prevmin ].next_in = arcs[ minidx ].next_in;
 
-   _arcs[ minidx ].source = u;
-   _arcs[ minidx ].target = v;
+   arcs[ minidx ].source = u;
+   arcs[ minidx ].target = v;
 
-   _arcs[ minidx ].next_out = _nodes[ u ].first_out;
-   if( _nodes[ u ].first_out != -1 )
-    _arcs[ _nodes[ u ].first_out ].prev_out = minidx;
+   arcs[ minidx ].next_out = nodes[ u ].first_out;
+   if( nodes[ u ].first_out != -1 )
+    arcs[ nodes[ u ].first_out ].prev_out = minidx;
 
-   _arcs[ minidx ].next_in = _nodes[ v ].first_in;
-   if( _nodes[ v ].first_in != -1 )
-    _arcs[ _nodes[ v ].first_in ].prev_in = minidx;
+   arcs[ minidx ].next_in = nodes[ v ].first_in;
+   if( nodes[ v ].first_in != -1 )
+    arcs[ nodes[ v ].first_in ].prev_in = minidx;
 
-   _arcs[ minidx ].prev_in = _arcs[ minidx ].prev_out = -1;
+   arcs[ minidx ].prev_in = arcs[ minidx ].prev_out = -1;
 
-   _nodes[ u ].first_out = _nodes[ v ].first_in = minidx;
+   nodes[ u ].first_out = nodes[ v ].first_in = minidx;
 
    return( MCFArc( minidx ) );
    }
 
   // otherwise add to the last position
-  _arcs[ n ].source = u;
-  _arcs[ n ].target = v;
+  arcs[ n ].source = u;
+  arcs[ n ].target = v;
 
-  _arcs[ n ].next_out = _nodes[ u ].first_out;
-  if( _nodes[ u ].first_out != -1 )
-   _arcs[ _nodes[ u ].first_out ].prev_out = n;
+  arcs[ n ].next_out = nodes[ u ].first_out;
+  if( nodes[ u ].first_out != -1 )
+   arcs[ nodes[ u ].first_out ].prev_out = n;
 
-  _arcs[ n ].next_in = _nodes[ v ].first_in;
-  if( _nodes[ v ].first_in != -1 )
-   _arcs[ _nodes[ v ].first_in ].prev_in = n;
+  arcs[ n ].next_in = nodes[ v ].first_in;
+  if( nodes[ v ].first_in != -1 )
+   arcs[ nodes[ v ].first_in ].prev_in = n;
 
-  _arcs[ n ].prev_in = _arcs[ n ].prev_out = -1;
+  arcs[ n ].prev_in = arcs[ n ].prev_out = -1;
 
-  _nodes[ u ].first_out = _nodes[ v ].first_in = n;
+  nodes[ u ].first_out = nodes[ v ].first_in = n;
 
   return( MCFArc( n ) );
   }
@@ -219,24 +219,24 @@ class MCFListDigraph : public ListDigraph
  void closeArc( int n )
  {
   // like in delete, remove from FS and BS lists
-  if( _arcs[ n ].next_in != -1 )
-   _arcs[ _arcs[ n ].next_in ].prev_in = _arcs[ n ].prev_in;
+  if( arcs[ n ].next_in != -1 )
+   arcs[ arcs[ n ].next_in ].prev_in = arcs[ n ].prev_in;
 
-  if( _arcs[ n ].prev_in != -1 )
-   _arcs[ _arcs[ n ].prev_in ].next_in = _arcs[ n ].next_in;
+  if( arcs[ n ].prev_in != -1 )
+   arcs[ arcs[ n ].prev_in ].next_in = arcs[ n ].next_in;
   else
-   _nodes[ _arcs[ n ].target ].first_in = _arcs[ n ].next_in;
+   nodes[ arcs[ n ].target ].first_in = arcs[ n ].next_in;
 
-  if( _arcs[ n ].next_out != -1 )
-   _arcs[ _arcs[ n ].next_out ].prev_out = _arcs[ n ].prev_out;
+  if( arcs[ n ].next_out != -1 )
+   arcs[ arcs[ n ].next_out ].prev_out = arcs[ n ].prev_out;
 
-  if( _arcs[ n ].prev_out != -1 )
-   _arcs[ _arcs[ n ].prev_out ].next_out = _arcs[ n ].next_out;
+  if( arcs[ n ].prev_out != -1 )
+   arcs[ arcs[ n ].prev_out ].next_out = arcs[ n ].next_out;
   else
-   _nodes[ _arcs[ n ].source ].first_out = _arcs[ n ].next_out;
+   nodes[ arcs[ n ].source ].first_out = arcs[ n ].next_out;
 
   // now just make the source negative
-  _arcs[ n ].source = -( _arcs[ n ].source + 1 );
+  arcs[ n ].source = -( arcs[ n ].source + 1 );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -245,22 +245,22 @@ class MCFListDigraph : public ListDigraph
  void openArc( int n )
  {
   // restore the original source
-  _arcs[ n ].source = -( _arcs[ n ].source + 1 );
-  auto uid = _arcs[ n ].source;
-  auto vid = _arcs[ n ].target;
+  arcs[ n ].source = -( arcs[ n ].source + 1 );
+  auto uid = arcs[ n ].source;
+  auto vid = arcs[ n ].target;
 
   // put it back into the FS and BS lists
-  _arcs[ n ].next_out = _nodes[ uid ].first_out;
-  if( _nodes[ uid ].first_out != -1 )
-   _arcs[ _nodes[ uid ].first_out ].prev_out = n;
+  arcs[ n ].next_out = nodes[ uid ].first_out;
+  if( nodes[ uid ].first_out != -1 )
+   arcs[ nodes[ uid ].first_out ].prev_out = n;
 
-  _arcs[ n ].next_in = _nodes[ vid ].first_in;
-  if( _nodes[ vid ].first_in != -1 )
-   _arcs[ _nodes[ vid ].first_in ].prev_in = n;
+  arcs[ n ].next_in = nodes[ vid ].first_in;
+  if( nodes[ vid ].first_in != -1 )
+   arcs[ nodes[ vid ].first_in ].prev_in = n;
 
-  _arcs[ n ].prev_in = _arcs[ n ].prev_out = -1;
+  arcs[ n ].prev_in = arcs[ n ].prev_out = -1;
 
-  _nodes[ uid ].first_out = _nodes[ vid ].first_in = n;
+  nodes[ uid ].first_out = nodes[ vid ].first_in = n;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -269,9 +269,9 @@ class MCFListDigraph : public ListDigraph
  void eraseClosed( int n )
  {
   // just do the little that closeArc() did not
-  _arcs[ n ].next_in = first_free_arc;
+  arcs[ n ].next_in = first_free_arc;
   first_free_arc = n;
-  _arcs[ n ].prev_in = -2;
+  arcs[ n ].prev_in = -2;
   }
 
  };  // end( class( MCFListDigraph ) )

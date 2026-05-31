@@ -3,7 +3,8 @@
 # ============================================================
 
 # --- Project-specific ---------------------------------------
-lemon-solver/
+# C++20 shim headers generated in-source by the makefile build
+lemon-cxx20-shim/
 
 # Data directories
 data/dmx/*.dmx
