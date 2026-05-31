@@ -39,7 +39,7 @@ include(FindPackageHandleStandardArgs)
 find_package(Threads QUIET)
 
 # Check if already in cache
-if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_VERSION)
+if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG AND LEMON_VERSION)
     set(LEMON_FOUND TRUE)
 endif ()
 
@@ -53,12 +53,32 @@ if (NOT LEMON_FOUND)
             DOC "LEMON include directory.")
 
     # ----- Find the LEMON library ------------------------------------------ #
-    # The library is named "lemon" on Debian (liblemon) but "emon" upstream
-    # (libemon, the historical COIN-OR output name): look for both.
-    find_library(LEMON_LIBRARY
-            NAMES lemon emon
-            PATHS ${LEMON_ROOT}/lib
-            DOC "LEMON library.")
+    if (UNIX)
+        find_library(LEMON_LIBRARY
+                NAMES lemon emon
+                PATHS ${LEMON_ROOT}/lib
+                DOC "LEMON library.")
+
+        set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
+                CACHE FILEPATH "LEMON debug library." FORCE)
+    elseif (WIN32)
+        find_library(LEMON_LIBRARY
+                NAMES lemon emon
+                PATHS
+                ${LEMON_ROOT}/lib
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
+                $ENV{LIBRARY_LIB}
+                NO_DEFAULT_PATH
+                DOC "LEMON library.")
+
+        find_library(LEMON_LIBRARY_DEBUG
+                NAMES lemon emon
+                PATHS
+                ${LEMON_ROOT}/debug/lib
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
+                NO_DEFAULT_PATH
+                DOC "LEMON debug library.")
+    endif ()
 
     # ----- Parse the version ----------------------------------------------- #
     # lemon/config.h carries a single string macro: #define LEMON_VERSION "1.3.1"
@@ -78,10 +98,17 @@ if (NOT LEMON_FOUND)
     # REQUIRED_VARS are set.
     # REQUIRED_VARS should be cache entries and not output variables. See:
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
-    find_package_handle_standard_args(
-            LEMON
-            REQUIRED_VARS LEMON_LIBRARY LEMON_INCLUDE_DIR
-            VERSION_VAR LEMON_VERSION)
+    if (WIN32)
+        find_package_handle_standard_args(
+                LEMON
+                REQUIRED_VARS LEMON_LIBRARY LEMON_LIBRARY_DEBUG LEMON_INCLUDE_DIR
+                VERSION_VAR LEMON_VERSION)
+    else ()
+        find_package_handle_standard_args(
+                LEMON
+                REQUIRED_VARS LEMON_LIBRARY LEMON_INCLUDE_DIR
+                VERSION_VAR LEMON_VERSION)
+    endif ()
 endif ()
 
 # ----- Export the target --------------------------------------------------- #
@@ -98,6 +125,7 @@ if (LEMON_FOUND)
         set_target_properties(
                 LEMON::LEMON PROPERTIES
                 IMPORTED_LOCATION "${LEMON_LIBRARY}"
+                IMPORTED_LOCATION_DEBUG "${LEMON_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${LEMON_INCLUDE_DIRS}"
                 INTERFACE_LINK_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
     endif ()
@@ -107,6 +135,7 @@ endif ()
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
 mark_as_advanced(LEMON_INCLUDE_DIR
         LEMON_LIBRARY
+        LEMON_LIBRARY_DEBUG
         LEMON_VERSION)
 
 # --------------------------------------------------------------------------- #
