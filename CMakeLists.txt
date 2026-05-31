@@ -96,8 +96,6 @@ endif ()
 # the imported target LEMON::LEMON.
 find_package(LEMON REQUIRED)
 
-message(STATUS "LEMON: using installed package (${LEMON_INCLUDE_DIRS})")
-
 # ----- Compatibility shim for an unpatched LEMON --------------------------- #
 # The packaged LEMON needs three compiler-portability fixes that we apply, at
 # configure time, to private copies of the affected headers, shadowing the

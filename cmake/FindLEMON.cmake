@@ -81,14 +81,16 @@ if (NOT LEMON_FOUND)
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
-    # lemon/config.h carries a single string macro: #define LEMON_VERSION "1.3.1"
+    # lemon/config.h carries a single string macro: #define LEMON_VERSION "1.3.1".
     if (LEMON_INCLUDE_DIR AND EXISTS "${LEMON_INCLUDE_DIR}/lemon/config.h")
         file(STRINGS
                 "${LEMON_INCLUDE_DIR}/lemon/config.h"
-                _LEMON_version_line REGEX "#define[ \t]+LEMON_VERSION[ \t]+\"")
+                _LEMON_version_line REGEX "#define[ \t]+LEMON_VERSION[ \t]+\"[^\"]")
 
-        string(REGEX REPLACE ".*#define[ \t]+LEMON_VERSION[ \t]+\"([^\"]+)\".*" "\\1"
-                LEMON_VERSION "${_LEMON_version_line}")
+        if (_LEMON_version_line)
+            string(REGEX REPLACE ".*\"([^\"]+)\".*" "\\1"
+                    LEMON_VERSION "${_LEMON_version_line}")
+        endif ()
         unset(_LEMON_version_line)
     endif ()
 
