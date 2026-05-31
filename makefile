@@ -105,10 +105,12 @@ which_insert_LEMON = 3
 # std::allocator_traits<decltype(<alloc>)>::construct/destroy form, and the MSVC
 # LEMON_SCOPE_FIX definition into its portable form. Each rewrite is idempotent
 # and harmless on non-matching headers, matching the CMake build.
+# NOTE: '#' is escaped as '\#' because this is a make *variable* (unlike a recipe
+# line, an unescaped '#' would start a make comment and truncate the value).
 LEMON_SHIM_SED = \
 	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.construct\(/std::allocator_traits<decltype(\1)>::construct(\1, /g' \
 	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.destroy\(/std::allocator_traits<decltype(\1)>::destroy(\1, /g' \
-	  -e 's/#define LEMON_SCOPE_FIX\(OUTER, NESTED\) OUTER::NESTED/#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED/'
+	  -e 's/\#define LEMON_SCOPE_FIX\(OUTER, NESTED\) OUTER::NESTED/\#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED/'
 
 $(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
 	mkdir -p $(dir $@)
