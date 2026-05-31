@@ -31,11 +31,11 @@
 #           $(MCFBkINC)    = the -I$( source directory ) for MCFBlock        #
 #           $(MCFLESDR)    = the directory where the source is               #
 #                                                                            #
-#   LEMON is expected to be an installed package (no in-tree clone);         #
-#   override LEMON_ROOT below if it lives elsewhere. Since the packaged      #
-#   LEMON predates C++20, this makefile rewrites the two headers using       #
-#   the removed std::allocator::construct/destroy into a private shim        #
-#   that shadows them (see the README and the rule below).                   #
+#   LEMON is expected to be an installed package; its paths come from        #
+#   extlib (LEMON_ROOT in extlib/makefile-default-paths-*). The packaged     #
+#   LEMON needs C++20 and MSVC portability fixes, so this makefile rewrites  #
+#   the affected headers into a private shim that shadows them (see the      #
+#   README and the rule below).                                              #
 #                                                                            #
 #   Output: $(MCFLEOBJ)    = the final object(s) / library                   #
 #           $(MCFLEH)      = the .h files to include                         #
@@ -48,12 +48,15 @@
 #                                                                            #
 ##############################################################################
 
-# LEMON (graph library) paths - - - - - - - - - - - - - - - - - - - - - - - -
-# LEMON is an installed package; override LEMON_ROOT (or LEMON_INCDIR /
-# LEMON_LIBDIR) if it lives outside the default /usr prefix.
-LEMON_ROOT   ?= /usr
-LEMON_INCDIR ?= $(LEMON_ROOT)/include
-LEMON_LIBDIR ?= $(LEMON_ROOT)/lib
+# LEMON (graph library) - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# LEMON paths come from extlib, exactly like the other external libraries:
+# $(LEMON_ROOT) is set in extlib/makefile-default-paths-* (overridable via
+# extlib/makefile-paths) and turned into $(libLEMONINC)/$(libLEMONLIB) here.
+include $(MCFLESDR)/../extlib/makefile-libLEMON
+
+# bare LEMON include dir (no -I, no quotes) used as the source for the shim rule;
+# $(libLEMONBSCDIR) is the unquoted LEMON base dir exported by makefile-libLEMON
+LEMON_INCDIR = $(libLEMONBSCDIR)/include
 
 # Compatibility shim: the packaged LEMON needs a C++20 fix (array_map.h, path.h
 # still call the removed std::allocator::construct/destroy) and an MSVC fix
@@ -70,11 +73,11 @@ LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
 
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESHIM) -I$(LEMON_INCDIR)
+MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESHIM) $(libLEMONINC)
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
-MCFLELIB = -L$(LEMON_LIBDIR) -llemon
+MCFLELIB = $(libLEMONLIB)
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
