@@ -99,18 +99,21 @@ find_package(LEMON REQUIRED)
 message(STATUS "LEMON: using installed package (${LEMON_INCLUDE_DIRS})")
 
 # ----- Compatibility shim for an unpatched LEMON --------------------------- #
-# The packaged LEMON needs two compiler-portability fixes that we apply, at
+# The packaged LEMON needs three compiler-portability fixes that we apply, at
 # configure time, to private copies of the affected headers, shadowing the
 # system ones through an include directory searched first (see
 # target_include_directories below):
 #   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
 #     std::allocator::construct/destroy members removed in C++20;
 #   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does not
-#     compile under MSVC.
-# Both rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
+#     compile under MSVC;
+#   * missing include: lemon/capacity_scaling.h uses RangeMap (from lemon/maps.h)
+#     but some packagings (e.g. MacPorts coinor-liblemon) omit that include, so
+#     it fails to compile under stricter (two-phase lookup) compilers.
+# All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
 set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
-foreach (_lemon_hdr bits/array_map.h path.h adaptors.h)
+foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h)
     unset(_lemon_hdr_src CACHE)
     find_file(_lemon_hdr_src lemon/${_lemon_hdr}
             PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -128,6 +131,17 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h)
                 "#define LEMON_SCOPE_FIX\\(OUTER, NESTED\\) OUTER::NESTED"
                 "#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED"
                 _lemon_hdr_content "${_lemon_hdr_content}")
+        # capacity_scaling.h only: ensure lemon/maps.h (RangeMap) is included.
+        # Scoped because other shimmed headers also include lemon/core.h and
+        # must not gain a (circular) lemon/maps.h include; the MATCHES guard
+        # keeps it a no-op on packagings that already have the include.
+        if (_lemon_hdr STREQUAL "capacity_scaling.h"
+                AND NOT _lemon_hdr_content MATCHES "#include <lemon/maps\\.h>")
+            string(REGEX REPLACE
+                    "#include <lemon/core.h>"
+                    "#include <lemon/core.h>\n#include <lemon/maps.h>"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
         file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
     endif ()
 endforeach ()

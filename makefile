@@ -59,15 +59,18 @@ include $(MCFLESDR)/../extlib/makefile-libLEMON
 LEMON_INCDIR = $(libLEMONBSCDIR)/include
 
 # Compatibility shim: the packaged LEMON needs a C++20 fix (array_map.h, path.h
-# still call the removed std::allocator::construct/destroy) and an MSVC fix
-# (adaptors.h LEMON_SCOPE_FIX). We rewrite private copies of those headers (see
-# the rule below) and put $(MCFLESHIM) on the include path *before* $(LEMON_INCDIR)
-# so they shadow the system ones. Mirrors the CMake build; both rewrites are
-# idempotent and harmless on non-matching headers.
+# still call the removed std::allocator::construct/destroy), an MSVC fix
+# (adaptors.h LEMON_SCOPE_FIX) and a missing-include fix (capacity_scaling.h uses
+# RangeMap but some packagings, e.g. MacPorts, omit #include <lemon/maps.h>). We
+# rewrite private copies of those headers (see the rules below) and put
+# $(MCFLESHIM) on the include path *before* $(LEMON_INCDIR) so they shadow the
+# system ones. Mirrors the CMake build; all rewrites are idempotent and harmless
+# on non-matching headers.
 MCFLESHIM = $(MCFLESDR)/lemon-cxx20-shim
 LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
                   $(MCFLESHIM)/lemon/path.h \
-                  $(MCFLESHIM)/lemon/adaptors.h
+                  $(MCFLESHIM)/lemon/adaptors.h \
+                  $(MCFLESHIM)/lemon/capacity_scaling.h
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -102,12 +105,23 @@ which_insert_LEMON = 3
 # std::allocator_traits<decltype(<alloc>)>::construct/destroy form, and the MSVC
 # LEMON_SCOPE_FIX definition into its portable form. Each rewrite is idempotent
 # and harmless on non-matching headers, matching the CMake build.
-$(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
-	mkdir -p $(dir $@)
-	sed -E \
+LEMON_SHIM_SED = \
 	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.construct\(/std::allocator_traits<decltype(\1)>::construct(\1, /g' \
 	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.destroy\(/std::allocator_traits<decltype(\1)>::destroy(\1, /g' \
-	  -e 's/#define LEMON_SCOPE_FIX\(OUTER, NESTED\) OUTER::NESTED/#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED/' \
+	  -e 's/#define LEMON_SCOPE_FIX\(OUTER, NESTED\) OUTER::NESTED/#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED/'
+
+$(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
+	mkdir -p $(dir $@)
+	sed -E $(LEMON_SHIM_SED) $< > $@
+
+# capacity_scaling.h needs the base rewrites plus the maps.h include (RangeMap);
+# this explicit rule overrides the generic one above for that single header. The
+# extra expression adds #include <lemon/maps.h> right after #include <lemon/core.h>.
+$(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h
+	mkdir -p $(dir $@)
+	sed -E $(LEMON_SHIM_SED) \
+	  -e '/#include <lemon\/maps.h>/d' \
+	  -e 's@(#include <lemon/core.h>)@\1\n#include <lemon/maps.h>@' \
 	  $< > $@
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
