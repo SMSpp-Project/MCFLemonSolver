@@ -78,6 +78,13 @@ if (NOT LEMON_FOUND)
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
                 NO_DEFAULT_PATH
                 DOC "LEMON debug library.")
+
+        # Release-only distributions (e.g. conda-forge) ship no debug build:
+        # fall back to the release library so a Release configure succeeds.
+        if (NOT LEMON_LIBRARY_DEBUG)
+            set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
+                    CACHE FILEPATH "LEMON debug library." FORCE)
+        endif ()
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
@@ -100,17 +107,12 @@ if (NOT LEMON_FOUND)
     # REQUIRED_VARS are set.
     # REQUIRED_VARS should be cache entries and not output variables. See:
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
-    if (WIN32)
-        find_package_handle_standard_args(
-                LEMON
-                REQUIRED_VARS LEMON_LIBRARY LEMON_LIBRARY_DEBUG LEMON_INCLUDE_DIR
-                VERSION_VAR LEMON_VERSION)
-    else ()
-        find_package_handle_standard_args(
-                LEMON
-                REQUIRED_VARS LEMON_LIBRARY LEMON_INCLUDE_DIR
-                VERSION_VAR LEMON_VERSION)
-    endif ()
+    # The debug library is optional (it falls back to the release one above),
+    # so it is deliberately kept out of REQUIRED_VARS.
+    find_package_handle_standard_args(
+            LEMON
+            REQUIRED_VARS LEMON_LIBRARY LEMON_INCLUDE_DIR
+            VERSION_VAR LEMON_VERSION)
 endif ()
 
 # ----- Export the target --------------------------------------------------- #
