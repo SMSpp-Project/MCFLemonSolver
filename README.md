@@ -137,8 +137,8 @@ cmake --install .
 After the library is built, you can use it in your CMake project with:
 
 ```cmake
-find_package(LEMONSolver)
-target_link_libraries(<my_target> SMS++::LEMONSolver)
+find_package(MCFLemonSolver)
+target_link_libraries(<my_target> SMS++::MCFLemonSolver)
 ```
 
 
