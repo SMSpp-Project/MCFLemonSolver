@@ -34,16 +34,16 @@ general form
 
     A<G,C,V>
 
-with A chosen in 
+with A chosen in
 
-	MCFLemonSolverNetworkSimplex ,
-	MCFLemonSolverCycleCanceling ,
-	MCFLemonSolverCostScaling ,
-	MCFLemonSolverCapacityScaling ,
+    MCFLemonSolverNetworkSimplex ,
+    MCFLemonSolverCycleCanceling ,
+    MCFLemonSolverCostScaling ,
+    MCFLemonSolverCapacityScaling ,
 
 G chosen in `SmartDigraph`, `MCFListDigraph`, and C, V chosen in `int`,
 `double` or `long` (the first being the cost type, the second the flows
-type). Since these can be many, the macro `SMSpp\_which\_insert\_LEMON'
+type). Since these can be many, the macro `SMSpp_which_insert_LEMON`
 in `MCFLemonSolver.cpp` allows to restrict them to only a subset of the
 supported cost / flow types. The value is numeric and coded bitwise:
 
@@ -62,12 +62,15 @@ costs (i.e., 72 variants. The macro can be changed in the `makefile`.
 
 The solvers provided by the LEMON project are used through a thin interface in
 `MCFLemonSolver.h`. LEMON has not had a release since 1.3.1 (2014), so its
-headers need two compiler-portability fixes:
+headers need a few portability fixes:
 
 - **C++20**: `lemon/bits/array_map.h` and `lemon/path.h` still call the
   `std::allocator::construct`/`destroy` members that were *removed* in C++20;
 - **MSVC**: `lemon/adaptors.h` selects an `LEMON_SCOPE_FIX` definition that does
-  not compile under MSVC.
+  not compile under MSVC;
+- **missing include**: `lemon/capacity_scaling.h` uses `RangeMap` from
+  `lemon/maps.h`, which some packagings (e.g. MacPorts `coinor-liblemon`) fail
+  to include.
 
 Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
 package provided by your platform (see *Requirements* below) and applies a tiny,
