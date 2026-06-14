@@ -20,7 +20,7 @@ cmake_policy(VERSION 3.15)
 project(MCFLemonSolver
         VERSION 0.1.0
         DESCRIPTION "SMS++ MCFLemonSolver"
-        HOMEPAGE_URL https://gitlab.com/smspp/lemonsolver
+        HOMEPAGE_URL https://gitlab.com/smspp/mcflemonsolver
         LANGUAGES C CXX)
 
 # These variables make the code harder to read but easier to change.

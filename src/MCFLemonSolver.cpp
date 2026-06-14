@@ -179,7 +179,7 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
   else
    dgp->addArc( sn[ i ] - 1 , en[ i ] - 1 );
 
- // new instance of Lemon Algorithm with no arc mixing
+ // new instance of LEMON Algorithm with no arc mixing
  if constexpr( std::is_same< Algo< GR , V , C > ,
 	                     NetworkSimplex< GR , V , C > >::value )
   f_algo = new Algo< GR , V , C >( *dgp , false );
@@ -321,7 +321,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   supply_changed = false;
   }
 
- // using Lemon Digraph Writer for debuggging
+ // using LEMON Digraph Writer for debuggging
  // std::ofstream ProbFile("lmn.txt", ios_base::out | ios_base::trunc);
  // if (!ProbFile.is_open()) {
  //     throw(std::logic_error("cannot open file lmn.txt"));

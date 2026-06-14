@@ -92,7 +92,7 @@ These instructions will let you build `MCFLemonSolver` on your system.
 
 - [MCFBlock](https://gitlab.com/smspp/mcfblock) and its
   requirements (but no actual `MCFSolver` are needed, since
-  `LEMONSolver` provides its own).
+  `MCFLemonSolver` provides its own).
 
 - The [LEMON graph library](https://lemon.cs.elte.hu/trac/lemon), installed as a
   system package — no manual download is needed, and its C++20 incompatibility is

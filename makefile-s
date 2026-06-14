@@ -2,10 +2,10 @@
 ################################ makefile-s ##################################
 ##############################################################################
 #                                                                            #
-#   makefile of MCFLEMONSolver and its dependencies, excluding SMS++         #
+#   makefile of MCFLemonSolver and its dependencies, excluding SMS++         #
 #                                                                            #
 #   The makefile defines internally all external libraries required by       #
-#   MCFLEMONSolver, excluding the SMS++ core ones whose symbols are assumed  #
+#   MCFLemonSolver, excluding the SMS++ core ones whose symbols are assumed  #
 #   to have been defined already (typically by including SMS++/lib/makefile).#
 #   Accordingly, all necessary OBJ, H, -I directives, external libraries  +  #
 #   -L< libdirs > are added to the corresponding MCFLE* macros               #
@@ -14,12 +14,12 @@
 #           $(SW)       = compiler options                                   #
 #           $(SMS++INC) = the -I$( core SMS++ directory )                    #
 #           $(SMS++OBJ) = the core SMS++ library                             #
-#           $(MCFLESDR) = the directory where MCFLEMONSolver source is       #
+#           $(MCFLESDR) = the directory where MCFLemonSolver source is       #
 #                                                                            #
 #   Output: $(MCFLEOBJ) = the final object(s) / library                      #
 #           $(MCFLELIB) = external libraries + -L< libdirs >                 #
-#           $(MCFLEH)   = the .h files to include for MCFLEMONSolver         #
-#           $(MCFLEINC) = the -I$( MCFLEMONSolver directory )                #
+#           $(MCFLEH)   = the .h files to include for MCFLemonSolver         #
+#           $(MCFLEINC) = the -I$( MCFLemonSolver directory )                #
 #                                                                            #
 #                              Antonio Frangioni                             #
 #                         Dipartimento di Informatica                        #

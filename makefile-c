@@ -2,21 +2,21 @@
 ################################ makefile-c ##################################
 ##############################################################################
 #                                                                            #
-#   complete makefile of MCFLEMONSolver                                      #
+#   complete makefile of MCFLemonSolver                                      #
 #                                                                            #
 #   The makefile defines internally all external libraries (comprised the    #
-#   SMS++ one) required by MCFLEMONSolver. Accordingly, all necessary OBJ,   #
+#   SMS++ one) required by MCFLemonSolver. Accordingly, all necessary OBJ,   #
 #   H, -I directives, external libraries + -L< libdirs > are added to the    #
 #   corresponding MCFLE* macros.                                             #
 #                                                                            #
 #   Input:  $(CC)       = compiler command                                   #
 #           $(SW)       = compiler options                                   #
-#           $(MCFLESDR) = the directory where the MCFLEMONSolver source is   #
+#           $(MCFLESDR) = the directory where the MCFLemonSolver source is   #
 #                                                                            #
 #   Output: $(MCFLEOBJ) = the final object(s) / library                      #
 #           $(MCFLELIB) = external libraries + -L< libdirs >                 #
-#           $(MCFLEH)   = the .h files to include for MCFLEMONSolver         #
-#           $(MCFLEINC) = the -I$( MCFLEMONSolver directory )                #
+#           $(MCFLEH)   = the .h files to include for MCFLemonSolver         #
+#           $(MCFLEINC) = the -I$( MCFLemonSolver directory )                #
 #                                                                            #
 #                              Antonio Frangioni                             #
 #                         Dipartimento di Informatica                        #
