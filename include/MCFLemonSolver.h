@@ -521,18 +521,92 @@ class MCFLemonSolver : public CDASolver
 
  void get_var_solution( Configuration* solc = nullptr ) override {
   auto MCFB = static_cast< MCFBlock* >( f_Block );
-  Index i = 0;
-  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
-   MCFB->set_x( i++ , f_algo->flow( a ) );
+
+  /* The arc is identified by its LEMON id, which is the position it was
+   * created in and therefore the index it has in the MCFBlock: ArcIt does
+   * *not* enumerate the arcs in that order, and using the order of the
+   * enumeration would silently give the right flows on the wrong arcs. */
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+   auto i = Index( dgp->id( a ) );
+   if( i < MCFB->get_NArcs() )
+    MCFB->set_x( i , f_algo->flow( a ) );
+   }
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  void get_dual_solution( Configuration* solc = nullptr ) override {
   auto MCFB = static_cast< MCFBlock* >( f_Block );
-  Index i = 0;
-  for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n )
-   MCFB->set_pi( i++ , f_algo->potential( n ) );
+
+  // the node is identified by its LEMON id, see get_var_solution(); the
+  // digraph may also have more nodes than the MCFBlock has
+  for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
+   auto i = Index( dgp->id( n ) );
+   if( i < MCFB->get_NNodes() )    // NB: set_pi() takes the value first
+    MCFB->set_pi( f_algo->potential( n ) , i );
+   }
+  }
+
+/*--------------------------------------------------------------------------*/
+ /// returns the current solution as a MCFSolution, out of the Solver's data
+ /** Returns the current solution as a MCFSolution [see MCFBlock.h], built out
+  * of the data structures of the LEMON algorithm rather than by writing it in
+  * the Variable and the Constraint of the MCFBlock and having it read back
+  * from there: no abstract representation is therefore required to exist, and
+  * the MCFBlock is not written into at all, hence it is not lock()-ed and any
+  * number of Solver attached to it can produce their own Solution at the same
+  * time.
+  *
+  * Which parts of the solution are saved, i.e., the flows, the potentials or
+  * both, is not decided here: the MCFBlock is asked for an empty MCFSolution
+  * with the very same Configuration it would be asked for the full one, and
+  * the shape of what it returns is what says it [see
+  * MCFBlock::get_Solution()]. A part that is asked for but is not available,
+  * as the flows are when the problem is infeasible, is left out rather than
+  * being filled with junk.
+  *
+  * nullptr is returned if neither a solution nor a dual one is available. */
+
+ [[nodiscard]] Solution * get_Solution( Configuration * solc = nullptr )
+  override {
+  if( ! f_Block )
+   return( nullptr );
+
+  if( ( ! has_var_solution() ) && ( ! has_dual_solution() ) )
+   return( nullptr );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc , true ) );
+
+  if( ! sol->get_x().empty() ) {
+   if( has_var_solution() ) {
+    MCFBlock::Vec_FNumber X( MCFB->get_NArcs() );
+    for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+     auto i = Index( dgp->id( a ) );
+     if( i < X.size() )
+      X[ i ] = f_algo->flow( a );
+     }
+    sol->set_x( std::move( X ) );
+    }
+   else
+    sol->set_x( MCFBlock::Vec_FNumber() );
+   }
+
+  if( ! sol->get_pi().empty() ) {
+   if( has_dual_solution() ) {
+    MCFBlock::Vec_CNumber Pi( MCFB->get_NNodes() );
+    for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
+     auto i = Index( dgp->id( n ) );
+     if( i < Pi.size() )
+      Pi[ i ] = f_algo->potential( n );
+     }
+    sol->set_pi( std::move( Pi ) );
+    }
+   else
+    sol->set_pi( MCFBlock::Vec_CNumber() );
+   }
+
+  return( sol );
   }
 
 /*--------------------------------------------------------------------------*/
