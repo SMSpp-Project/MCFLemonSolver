@@ -1,9 +1,0 @@
-digraph "Adaptor Classes for Graphs"
-{
-  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
-  node [fontname="Helvetica",fontsize="10",shape=box];
-  rankdir=LR;
-  Node2 [label="Graph Structures",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__graphs.html",tooltip="Graph structures implemented in LEMON."];
-  Node1 [label="Adaptor Classes for\l Graphs",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip="Adaptor classes for digraphs and graphs."];
-  Node2->Node1 [shape=plaintext, dir="back", style="solid"];
-}

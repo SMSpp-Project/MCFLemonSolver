@@ -111,9 +111,11 @@ namespace SMSpp_di_unipi_it
   * (questionable decision ...), but friendship is not inherited, so it
   * has to be done again. */
 
- class MCFListDigraph : public ListDigraph
- {
+class MCFListDigraph : public ListDigraph
+{
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -144,7 +146,7 @@ namespace SMSpp_di_unipi_it
 
  /// return true if the arc is closed
 
- bool isClosed( int n ) { return( _arcs[ n ].source < 0 ); }
+ bool isClosed( int n ) { return( arcs[ n ].source < 0 ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
  /// add a new arc with given endpoints
@@ -154,59 +156,59 @@ namespace SMSpp_di_unipi_it
   int n;
 
   if( first_free_arc == -1 ) {  // no previously deleted arcs
-   n = _arcs.size();            // just add at the end
-   _arcs.push_back( ArcT() );
+   n = arcs.size();            // just add at the end
+   arcs.push_back( ArcT() );
    }
   else {                        // there are previously deleted arcs
    // look for the min-index arc in the deleted arc list
    int minidx = first_free_arc;
    int idx = first_free_arc;
    int prevmin = -1;
-   for( auto nextidx = _arcs[ idx ].next_in ; nextidx != -1 ;
-	idx = nextidx , nextidx = _arcs[ idx ].next_in )
+   for( auto nextidx = arcs[ idx ].next_in ; nextidx != -1 ;
+	       idx = nextidx , nextidx = arcs[ idx ].next_in )
     if( nextidx < minidx ) {
      minidx = nextidx;
      prevmin = idx;
      }
 
    if( prevmin == -1 )
-    first_free_arc = _arcs[ first_free_arc ].next_in;
+    first_free_arc = arcs[ first_free_arc ].next_in;
    else
-    _arcs[ prevmin ].next_in = _arcs[ minidx ].next_in;
+    arcs[ prevmin ].next_in = arcs[ minidx ].next_in;
 
-   _arcs[ minidx ].source = u;
-   _arcs[ minidx ].target = v;
+   arcs[ minidx ].source = u;
+   arcs[ minidx ].target = v;
 
-   _arcs[ minidx ].next_out = _nodes[ u ].first_out;
-   if( _nodes[ u ].first_out != -1 )
-    _arcs[ _nodes[ u ].first_out ].prev_out = minidx;
+   arcs[ minidx ].next_out = nodes[ u ].first_out;
+   if( nodes[ u ].first_out != -1 )
+    arcs[ nodes[ u ].first_out ].prev_out = minidx;
 
-   _arcs[ minidx ].next_in = _nodes[ v ].first_in;
-   if( _nodes[ v ].first_in != -1 )
-    _arcs[ _nodes[ v ].first_in ].prev_in = minidx;
+   arcs[ minidx ].next_in = nodes[ v ].first_in;
+   if( nodes[ v ].first_in != -1 )
+    arcs[ nodes[ v ].first_in ].prev_in = minidx;
 
-   _arcs[ minidx ].prev_in = _arcs[ minidx ].prev_out = -1;
+   arcs[ minidx ].prev_in = arcs[ minidx ].prev_out = -1;
 
-   _nodes[ u ].first_out = _nodes[ v ].first_in = minidx;
+   nodes[ u ].first_out = nodes[ v ].first_in = minidx;
 
    return( MCFArc( minidx ) );
    }
 
   // otherwise add to the last position
-  _arcs[ n ].source = u;
-  _arcs[ n ].target = v;
+  arcs[ n ].source = u;
+  arcs[ n ].target = v;
 
-  _arcs[ n ].next_out = _nodes[ u ].first_out;
-  if( _nodes[ u ].first_out != -1 )
-   _arcs[ _nodes[ u ].first_out ].prev_out = n;
+  arcs[ n ].next_out = nodes[ u ].first_out;
+  if( nodes[ u ].first_out != -1 )
+   arcs[ nodes[ u ].first_out ].prev_out = n;
 
-  _arcs[ n ].next_in = _nodes[ v ].first_in;
-  if( _nodes[ v ].first_in != -1 )
-   _arcs[ _nodes[ v ].first_in ].prev_in = n;
+  arcs[ n ].next_in = nodes[ v ].first_in;
+  if( nodes[ v ].first_in != -1 )
+   arcs[ nodes[ v ].first_in ].prev_in = n;
 
-  _arcs[ n ].prev_in = _arcs[ n ].prev_out = -1;
+  arcs[ n ].prev_in = arcs[ n ].prev_out = -1;
 
-  _nodes[ u ].first_out = _nodes[ v ].first_in = n;
+  nodes[ u ].first_out = nodes[ v ].first_in = n;
 
   return( MCFArc( n ) );
   }
@@ -217,24 +219,24 @@ namespace SMSpp_di_unipi_it
  void closeArc( int n )
  {
   // like in delete, remove from FS and BS lists
-  if( _arcs[ n ].next_in != -1 )
-   _arcs[ _arcs[ n ].next_in ].prev_in = _arcs[ n ].prev_in;
+  if( arcs[ n ].next_in != -1 )
+   arcs[ arcs[ n ].next_in ].prev_in = arcs[ n ].prev_in;
 
-  if( _arcs[ n ].prev_in != -1 )
-   _arcs[ _arcs[ n ].prev_in ].next_in = _arcs[ n ].next_in;
+  if( arcs[ n ].prev_in != -1 )
+   arcs[ arcs[ n ].prev_in ].next_in = arcs[ n ].next_in;
   else
-   _nodes[ _arcs[ n ].target ].first_in = _arcs[ n ].next_in;
+   nodes[ arcs[ n ].target ].first_in = arcs[ n ].next_in;
 
-  if( _arcs[ n ].next_out != -1 )
-   _arcs[ _arcs[ n ].next_out ].prev_out = _arcs[ n ].prev_out;
+  if( arcs[ n ].next_out != -1 )
+   arcs[ arcs[ n ].next_out ].prev_out = arcs[ n ].prev_out;
 
-  if( _arcs[ n ].prev_out != -1 )
-   _arcs[ _arcs[ n ].prev_out ].next_out = _arcs[ n ].next_out;
+  if( arcs[ n ].prev_out != -1 )
+   arcs[ arcs[ n ].prev_out ].next_out = arcs[ n ].next_out;
   else
-   _nodes[ _arcs[ n ].source ].first_out = _arcs[ n ].next_out;
+   nodes[ arcs[ n ].source ].first_out = arcs[ n ].next_out;
 
   // now just make the source negative
-  _arcs[ n ].source = -( _arcs[ n ].source + 1 );
+  arcs[ n ].source = -( arcs[ n ].source + 1 );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -243,22 +245,22 @@ namespace SMSpp_di_unipi_it
  void openArc( int n )
  {
   // restore the original source
-  _arcs[ n ].source = -( _arcs[ n ].source + 1 );
-  auto uid = _arcs[ n ].source;
-  auto vid = _arcs[ n ].target;
+  arcs[ n ].source = -( arcs[ n ].source + 1 );
+  auto uid = arcs[ n ].source;
+  auto vid = arcs[ n ].target;
 
   // put it back into the FS and BS lists
-  _arcs[ n ].next_out = _nodes[ uid ].first_out;
-  if( _nodes[ uid ].first_out != -1 )
-   _arcs[ _nodes[ uid ].first_out ].prev_out = n;
+  arcs[ n ].next_out = nodes[ uid ].first_out;
+  if( nodes[ uid ].first_out != -1 )
+   arcs[ nodes[ uid ].first_out ].prev_out = n;
 
-  _arcs[ n ].next_in = _nodes[ vid ].first_in;
-  if( _nodes[ vid ].first_in != -1 )
-   _arcs[ _nodes[ vid ].first_in ].prev_in = n;
+  arcs[ n ].next_in = nodes[ vid ].first_in;
+  if( nodes[ vid ].first_in != -1 )
+   arcs[ nodes[ vid ].first_in ].prev_in = n;
 
-  _arcs[ n ].prev_in = _arcs[ n ].prev_out = -1;
+  arcs[ n ].prev_in = arcs[ n ].prev_out = -1;
 
-  _nodes[ uid ].first_out = _nodes[ vid ].first_in = n;
+  nodes[ uid ].first_out = nodes[ vid ].first_in = n;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -267,9 +269,9 @@ namespace SMSpp_di_unipi_it
  void eraseClosed( int n )
  {
   // just do the little that closeArc() did not
-  _arcs[ n ].next_in = first_free_arc;
+  arcs[ n ].next_in = first_free_arc;
   first_free_arc = n;
-  _arcs[ n ].prev_in = -2;
+  arcs[ n ].prev_in = -2;
   }
 
  };  // end( class( MCFListDigraph ) )
@@ -411,7 +413,7 @@ namespace SMSpp_di_unipi_it
   *   < GR , V , C >) that are meant to be used instead of the original
   *   CapacityScaling and CostScaling. */
 
-template< template< typename , typename , typename> class Algo ,
+template< template< typename , typename , typename > class Algo ,
            LEMONGraph GR, typename V , typename C >
 class MCFLemonSolver : public CDASolver
 {
@@ -519,21 +521,102 @@ class MCFLemonSolver : public CDASolver
 
  void get_var_solution( Configuration* solc = nullptr ) override {
   auto MCFB = static_cast< MCFBlock* >( f_Block );
-  Index i = 0;
-  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
-   MCFB->set_x( i++ , f_algo->flow( a ) );
+
+  /* The arc is identified by its LEMON id, which is the position it was
+   * created in and therefore the index it has in the MCFBlock: ArcIt does
+   * *not* enumerate the arcs in that order, and using the order of the
+   * enumeration would silently give the right flows on the wrong arcs. */
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+   auto i = Index( dgp->id( a ) );
+   if( i < MCFB->get_NArcs() )
+    MCFB->set_x( i , f_algo->flow( a ) );
+   }
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  void get_dual_solution( Configuration* solc = nullptr ) override {
   auto MCFB = static_cast< MCFBlock* >( f_Block );
-  Index i = 0;
-  for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n )
-   MCFB->set_pi( i++ , f_algo->potential( n ) );
+
+  // the node is identified by its LEMON id, see get_var_solution(); the
+  // digraph may also have more nodes than the MCFBlock has
+  for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
+   auto i = Index( dgp->id( n ) );
+   if( i < MCFB->get_NNodes() )    // NB: set_pi() takes the value first
+    MCFB->set_pi( f_algo->potential( n ) , i );
+   }
   }
 
 /*--------------------------------------------------------------------------*/
+ /// returns the current solution as a MCFSolution, out of the Solver's data
+ /** Returns the current solution as a MCFSolution [see MCFBlock.h], built out
+  * of the data structures of the LEMON algorithm rather than by writing it in
+  * the Variable and the Constraint of the MCFBlock and having it read back
+  * from there: no abstract representation is therefore required to exist, and
+  * the MCFBlock is not written into at all, hence it is not lock()-ed and any
+  * number of Solver attached to it can produce their own Solution at the same
+  * time.
+  *
+  * Which parts of the solution are saved, i.e., the flows, the potentials or
+  * both, is not decided here: the MCFBlock is asked for an empty MCFSolution
+  * with the very same Configuration it would be asked for the full one, and
+  * the shape of what it returns is what says it [see
+  * MCFBlock::get_Solution()]. A part that is asked for but is not available,
+  * as the flows are when the problem is infeasible, is left out rather than
+  * being filled with junk.
+  *
+  * nullptr is returned if neither a solution nor a dual one is available. */
+
+ [[nodiscard]] Solution * get_Solution( Configuration * solc = nullptr )
+  override {
+  if( ! f_Block )
+   return( nullptr );
+
+  if( ( ! has_var_solution() ) && ( ! has_dual_solution() ) )
+   return( nullptr );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc , true ) );
+
+  if( ! sol->get_x().empty() ) {
+   if( has_var_solution() ) {
+    MCFBlock::Vec_FNumber X( MCFB->get_NArcs() );
+    for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+     auto i = Index( dgp->id( a ) );
+     if( i < X.size() )
+      X[ i ] = f_algo->flow( a );
+     }
+    sol->set_x( std::move( X ) );
+    }
+   else
+    sol->set_x( MCFBlock::Vec_FNumber() );
+   }
+
+  if( ! sol->get_pi().empty() ) {
+   if( has_dual_solution() ) {
+    MCFBlock::Vec_CNumber Pi( MCFB->get_NNodes() );
+    for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
+     auto i = Index( dgp->id( n ) );
+     if( i < Pi.size() )
+      Pi[ i ] = f_algo->potential( n );
+     }
+    sol->set_pi( std::move( Pi ) );
+    }
+   else
+    sol->set_pi( MCFBlock::Vec_CNumber() );
+   }
+
+  return( sol );
+  }
+
+/*--------------------------------------------------------------------------*/
+ /// the Solution is filled from the data of the LEMON algorithm, not from
+ /// the Variable
+
+ [[nodiscard]] bool is_get_Solution_physical( void ) const override {
+  return( true );
+  }
+
  /// returns false until we understand if and how LEMON does is
 
  bool has_var_direction( void ) override { return( false ); }
@@ -702,9 +785,7 @@ class MCFLemonSolver : public CDASolver
 
  private:
 
-/*--------------------------------------------------------------------------*/
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
-/*--------------------------------------------------------------------------*/
 
   double ticks;  ///< Elapsed time in ticks for compute() method
 
@@ -733,7 +814,9 @@ template< typename GR , typename V , typename C >
 class MCFLemonSolverNetworkSimplex : public
  MCFLemonSolver< NetworkSimplex , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -863,7 +946,9 @@ class MCFLemonSolverNetworkSimplex : public
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -877,7 +962,9 @@ class MCFLemonSolverNetworkSimplex : public
 
   NSPivotRule f_pivot_rule;
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -904,7 +991,9 @@ template< typename GR , typename V , typename C >
 class MCFLemonSolverCycleCanceling : public
  MCFLemonSolver< CycleCanceling , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -1029,7 +1118,9 @@ class MCFLemonSolverCycleCanceling : public
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -1039,7 +1130,9 @@ class MCFLemonSolverCycleCanceling : public
   status = f_algo->run( CCMethod( f_method ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -1047,7 +1140,7 @@ class MCFLemonSolverCycleCanceling : public
 
  SMSpp_insert_in_factory_h;
 
-/*-------------------------- PRIVATE FIELDS -------------------------------*/
+/*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  CCMethod f_method;
 
@@ -1068,7 +1161,9 @@ template< typename GR , typename V , typename C >
  class MCFLemonSolverCapacityScaling : public
  MCFLemonSolver< SMSppCapacityScaling , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -1111,7 +1206,9 @@ template< typename GR , typename V , typename C >
   BaseClass::guts_of_destructor();
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -1119,7 +1216,9 @@ template< typename GR , typename V , typename C >
 
  void guts_of_compute( void ) override { status = f_algo->run(); }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -1146,7 +1245,9 @@ template< typename GR , typename V , typename C >
 class MCFLemonSolverCostScaling : public
  MCFLemonSolver< SMSppCostScaling , GR , V , C >
 {
+/*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
  public:
 
@@ -1266,7 +1367,9 @@ class MCFLemonSolverCostScaling : public
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 
  protected:
 
@@ -1276,7 +1379,9 @@ class MCFLemonSolverCostScaling : public
   status = f_algo->run( CSMethod( f_method ) );
   }
 
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
  private:
 
@@ -1284,7 +1389,7 @@ class MCFLemonSolverCostScaling : public
 
  SMSpp_insert_in_factory_h;
 
-/*-------------------------- PRIVATE FIELDS -------------------------------*/
+/*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  CSMethod f_method;
 

@@ -34,16 +34,16 @@ general form
 
     A<G,C,V>
 
-with A chosen in 
+with A chosen in
 
-	MCFLemonSolverNetworkSimplex ,
-	MCFLemonSolverCycleCanceling ,
-	MCFLemonSolverCostScaling ,
-	MCFLemonSolverCapacityScaling ,
+    MCFLemonSolverNetworkSimplex ,
+    MCFLemonSolverCycleCanceling ,
+    MCFLemonSolverCostScaling ,
+    MCFLemonSolverCapacityScaling ,
 
 G chosen in `SmartDigraph`, `MCFListDigraph`, and C, V chosen in `int`,
 `double` or `long` (the first being the cost type, the second the flows
-type). Since these can be many, the macro `SMSpp\_which\_insert\_LEMON'
+type). Since these can be many, the macro `SMSpp_which_insert_LEMON`
 in `MCFLemonSolver.cpp` allows to restrict them to only a subset of the
 supported cost / flow types. The value is numeric and coded bitwise:
 
@@ -60,41 +60,26 @@ each of the 4 possible combinations of the two types as flows and costs
 for each of the 9 possible combinations of the three types as flows and
 costs (i.e., 72 variants. The macro can be changed in the `makefile`.
 
-The interface with the solvers provided by the LEMON project works thanks to the
-changes made to the `include/lemon/bits/array_map.h` file. Since it has not been
-updated for some time, it was not compatible with C++20 versions, causing
-problems, especially with the compilation of Concepts. This file is provided
-within the include/lemon directory, modified to ensure correctness, and a patch
-has been proposed to the LEMON developers, who may one day modify this file to
-make it available in their repositories.
+The solvers provided by the LEMON project are used through a thin interface in
+`MCFLemonSolver.h`. LEMON has not had a release since 1.3.1 (2014), so its
+headers need a few portability fixes:
 
-The files are provided "working", so the user does not need to download LEMON
-themselves. If they did, the `array_map.h` file downloaded from LEMON might not
-have been updated yet, potentially compromising the compilation of
-`MCFLemonSolver`.
+- **C++20**: `lemon/bits/array_map.h` and `lemon/path.h` still call the
+  `std::allocator::construct`/`destroy` members that were *removed* in C++20;
+- **MSVC**: `lemon/adaptors.h` selects an `LEMON_SCOPE_FIX` definition that does
+  not compile under MSVC;
+- **missing include**: `lemon/capacity_scaling.h` uses `RangeMap` from
+  `lemon/maps.h`, which some packagings (e.g. MacPorts `coinor-liblemon`) fail
+  to include.
 
-If LEMON provides a new release and the user wants to update, it is necessary
-to check the correctness of the `include/lemon/bits/array_map.h` file,
-particularly the correct use of `std::allocator`.
-
-It is also necessary to fix the following line of code in the
-`include/lemon/adaptors.h` file:
-
-```c++
-#ifdef _MSC_VER
-#define LEMON_SCOPE_FIX(OUTER, NESTED) OUTER::NESTED
-#else
-#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED
-#endif
-```
-
-and change it to:
-
-```c++
-#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED
-```
-
-otherwise it will not compile on Windows with MSVC.
+Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
+package provided by your platform (see *Requirements* below) and applies a tiny,
+self-contained **compatibility shim** at build time: it rewrites private copies
+of just those headers and puts them on the include path *before* the system ones
+so they shadow them. The rewrites are idempotent (no-ops on an already-patched
+LEMON) and are applied identically by both the CMake build and the makefiles, so
+nothing has to be done by hand on any platform — no manual download of LEMON,
+and no manual edit of its headers.
 
 ## Getting started
 
@@ -107,12 +92,16 @@ These instructions will let you build `MCFLemonSolver` on your system.
 
 - [MCFBlock](https://gitlab.com/smspp/mcfblock) and its
   requirements (but no actual `MCFSolver` are needed, since
-  `LEMONSolver` provides its own).
+  `MCFLemonSolver` provides its own).
 
-- The [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), currently contained
-  in this repository: do not download the LEMON Project from their site if there
-  aren't new releases, for the reasons discussed above, but use what is provided
-  as "functional" in this repository.
+- The [LEMON graph library](https://lemon.cs.elte.hu/trac/lemon), installed as a
+  system package — no manual download is needed, and its C++20 incompatibility is
+  handled automatically by the build (see above):
+  - **Linux** (apt): `liblemon-dev`
+  - **macOS** (MacPorts): `coinor-liblemon` — note that Homebrew's `lemon` is the
+    unrelated LALR parser generator; the community tap
+    `donn/lemon-graph/lemon-graph` also exists but is unmaintained
+  - **Windows** (vcpkg): `liblemon` (already listed in the project `vcpkg.json`)
 
 ### Build and install with CMake
 
@@ -151,8 +140,8 @@ cmake --install .
 After the library is built, you can use it in your CMake project with:
 
 ```cmake
-find_package(LEMONSolver)
-target_link_libraries(<my_target> SMS++::LEMONSolver)
+find_package(MCFLemonSolver)
+target_link_libraries(<my_target> SMS++::MCFLemonSolver)
 ```
 
 
@@ -165,28 +154,22 @@ directory tree constructed in the build/ folder) and therefore it is more
 convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
-To build code with LEMONSolver dependencies you will first need to separately
-build LEMON with:
+Like CMake, the makefiles use the installed LEMON package directly (no manual
+download) and generate the same C++20 shim. By default they look for LEMON under
+the `/usr` prefix; for other locations override `LEMON_ROOT` — or, more finely,
+`LEMON_INCDIR`/`LEMON_LIBDIR` — on the `make` command line or in the environment,
+for example:
 
 ```sh
-cd lemon-development
-mkdir build
-cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --config Release
-cmake --install . --config Release
-cd ..
-rm -Rf build
+make -f makefile LEMON_ROOT=/opt/local
 ```
-
-This will build a LEMON instance in `lemon-development` (getting rid of the build folder).
 
 Each executable using `LEMONSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all
 necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
-modules that already include them). One relevant case is the `test/MCF_MILP`
+modules that already include them). One relevant case is the `test/MCFBlock`
 tester that compares different solvers for `MCFBlock` (be them specialised
 or general-purpose). The makefiles in turn recursively include all the
 required other makefiles, hence one should only need to edit the "main
@@ -234,12 +217,10 @@ conduct, and the process for submitting merge requests to us.
 
 The SMS++ code is provided free of charge under the [GNU Lesser General Public
 License version 3.0](https://opensource.org/licenses/lgpl-3.0.html) -
-see the [LICENSE](LICENSE) file for details. Due to the above-mentioned
-issues we are also redistributing a (lightly patched) version of the latest
-LEMON version available at the time of released, which is separately
-available under the (more permissive) Boost Software License, Version 1.0;
-see the [LICENSE](lemon-development/LICENSE) file in the
-[lemon-development](lemon-development/) folder.
+see the [LICENSE](LICENSE) file for details. LEMON itself is not redistributed:
+it is consumed as an external system package (available under the Boost Software
+License, Version 1.0), and the build only rewrites a private copy of two of its
+headers in-place for C++20 compatibility, as described above.
 
 
 ## Disclaimer

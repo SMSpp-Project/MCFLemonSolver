@@ -1,9 +1,0 @@
-digraph "Tools for Lp and Mip Solvers"
-{
-  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
-  node [fontname="Helvetica",fontsize="10",shape=box];
-  rankdir=LR;
-  Node1 [label="Tools for Lp and Mip\l Solvers",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip="Helper tools to the Lp and Mip solvers."];
-  Node2 [label="LP and MIP Solvers",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$group__lp__group.html",tooltip="LP and MIP solver interfaces for LEMON."];
-  Node2->Node1 [shape=plaintext, dir="back", style="solid"];
-}

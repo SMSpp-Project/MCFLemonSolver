@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------- #
-#    Main CMake file for SMS++ LEMONSolver                                    #
+#    Main CMake file for SMS++ MCFLemonSolver                                 #
 #                                                                             #
 #    This file allows one to build the library using CMake.                   #
 #    To do so, you can use the following commands:                            #
@@ -15,16 +15,22 @@
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 cmake_policy(VERSION 3.15)
-project(LEMONSolver
-        VERSION 0.1.0
-        DESCRIPTION "SMS++ LEMONSolver"
-        HOMEPAGE_URL https://gitlab.com/smspp/lemonsolver
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DeriveVersion.cmake)
+smspp_derive_version(SMSPP_MODULE_VERSION)
+
+project(MCFLemonSolver
+        VERSION ${SMSPP_MODULE_VERSION}
+        DESCRIPTION "SMS++ MCFLemonSolver"
+        HOMEPAGE_URL https://gitlab.com/smspp/mcflemonsolver
         LANGUAGES C CXX)
 
 # These variables make the code harder to read but easier to change.
 set(modName ${PROJECT_NAME})
+
+# C-safe form of modName for the preprocessor macros in <modName>Config.h
+string(MAKE_C_IDENTIFIER "${modName}" modMacro)
 set(modNamespace "SMS++")
 
 # Find out if it's being called by the umbrella.
@@ -56,16 +62,16 @@ if (WIN32)
     if (NOT PThreads4W_FOUND)
 
         find_path(PThreads4W_INCLUDE_DIR
-                  NAMES pthread.h
-                  PATHS $ENV{LIBRARY_INC}
-                  NO_DEFAULT_PATH
-                  DOC "PThreads4W include directory.")
+                NAMES pthread.h
+                PATHS $ENV{LIBRARY_INC}
+                NO_DEFAULT_PATH
+                DOC "PThreads4W include directory.")
 
         find_library(PThreads4W_LIBRARY
-                     NAMES pthreadVC2 pthreadVC3 pthread
-                     PATHS $ENV{LIBRARY_LIB}
-                     NO_DEFAULT_PATH
-                     DOC "PThreads4W library.")
+                NAMES pthreadVC2 pthreadVC3 pthread
+                PATHS $ENV{LIBRARY_LIB}
+                NO_DEFAULT_PATH
+                DOC "PThreads4W library.")
 
         find_package_handle_standard_args(
                 PThreads4W
@@ -90,27 +96,70 @@ if (NOT hasParent)
     find_package(MCFBlock REQUIRED)
 endif ()
 
-# Define a function to wrap add_subdirectory with CMAKE_SUPPRESS_DEVELOPER_WARNINGS, i.e., -Wno-dev, set to TRUE
-function(add_subdirectory_no_dev_warnings dir)
-    set(old_value ${CMAKE_SUPPRESS_DEVELOPER_WARNINGS})
-    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS TRUE CACHE INTERNAL "Suppress developer warnings")
-    add_subdirectory(${dir})
-    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ${old_value} CACHE INTERNAL "Suppress developer warnings")
-endfunction()
+# ----- LEMON --------------------------------------------------------------- #
+# LEMON is consumed as an installed package; we neither redistribute nor rebuild
+# its sources. It is resolved by our cmake/FindLEMON.cmake module, which defines
+# the imported target LEMON::LEMON.
+find_package(LEMON REQUIRED)
 
-# Set the lemon-development options in the cache
-set(LEMON_ENABLE_GLPK OFF CACHE BOOL "Enable GLPK solver backend.")
-set(LEMON_ENABLE_ILOG OFF CACHE BOOL "Enable ILOG (CPLEX) solver backend.")
-set(LEMON_ENABLE_COIN OFF CACHE BOOL "Enable COIN solver backend.")
-set(LEMON_ENABLE_SOPLEX OFF CACHE BOOL "Enable SoPlex solver backend.")
+# ----- Compatibility shim for an unpatched LEMON --------------------------- #
+# The packaged LEMON needs three compiler-portability fixes that we apply, at
+# configure time, to private copies of the affected headers, shadowing the
+# system ones through an include directory searched first (see
+# target_include_directories below):
+#   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
+#     std::allocator::construct/destroy members removed in C++20;
+#   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does not
+#     compile under MSVC;
+#   * missing include: lemon/capacity_scaling.h uses RangeMap (from lemon/maps.h)
+#     but some packagings (e.g. MacPorts coinor-liblemon) omit that include, so
+#     it fails to compile under stricter (two-phase lookup) compilers.
+# All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
+# on headers that do not match, so they are always safe to apply.
+set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
+foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h)
+    unset(_lemon_hdr_src CACHE)
+    find_file(_lemon_hdr_src lemon/${_lemon_hdr}
+            PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
+    if (_lemon_hdr_src)
+        file(READ ${_lemon_hdr_src} _lemon_hdr_content)
+        string(REGEX REPLACE
+                "([A-Za-z_][A-Za-z0-9_]*)\\.construct\\("
+                "std::allocator_traits<decltype(\\1)>::construct(\\1, "
+                _lemon_hdr_content "${_lemon_hdr_content}")
+        string(REGEX REPLACE
+                "([A-Za-z_][A-Za-z0-9_]*)\\.destroy\\("
+                "std::allocator_traits<decltype(\\1)>::destroy(\\1, "
+                _lemon_hdr_content "${_lemon_hdr_content}")
+        string(REGEX REPLACE
+                "#define LEMON_SCOPE_FIX\\(OUTER, NESTED\\) OUTER::NESTED"
+                "#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED"
+                _lemon_hdr_content "${_lemon_hdr_content}")
+        # capacity_scaling.h only: ensure lemon/maps.h (RangeMap) is included.
+        # Scoped because other shimmed headers also include lemon/core.h and
+        # must not gain a (circular) lemon/maps.h include; the MATCHES guard
+        # keeps it a no-op on packagings that already have the include.
+        if (_lemon_hdr STREQUAL "capacity_scaling.h"
+                AND NOT _lemon_hdr_content MATCHES "#include <lemon/maps\\.h>")
+            string(REGEX REPLACE
+                    "#include <lemon/core.h>"
+                    "#include <lemon/core.h>\n#include <lemon/maps.h>"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
+    endif ()
+endforeach ()
+unset(_lemon_hdr_src CACHE)
 
-# Use the function to add the subdirectory
-add_subdirectory_no_dev_warnings(lemon-development)
+# Alias LEMON::LEMON to a plain `lemon` target name used throughout this file.
+if (NOT TARGET lemon)
+    add_library(lemon ALIAS LEMON::LEMON)
+endif ()
 
 # if SMSpp_which_insert_LEMON is *not* given in input as CMake option...
 # (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not `add_compile_definitions( )`)
 if (NOT DEFINED SMSpp_which_insert_LEMON)
-    # ... then use 3 in LEMONSolver
+    # ... then use 3 in MCFLemonSolver
     add_compile_definitions(SMSpp_which_insert_LEMON=3)
 else ()
     add_compile_definitions(SMSpp_which_insert_LEMON=${SMSpp_which_insert_LEMON})
@@ -120,13 +169,46 @@ endif ()
 # This will generate a *Config.h header in the build directory.
 configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 
+# ----- RPATH --------------------------------------------------------------- #
+# The installed libraries and executables look for the libraries of the same
+# installation relative to their own location, so that the installed tree can
+# be moved as a whole; the directories of the external libraries are kept.
+include(GNUInstallDirs)
+if (NOT CMAKE_INSTALL_RPATH)
+    if (APPLE)
+        set(rpathOrigin "@loader_path")
+    else ()
+        set(rpathOrigin "$ORIGIN")
+    endif ()
+    file(RELATIVE_PATH binToLib ${CMAKE_INSTALL_FULL_BINDIR}
+            ${CMAKE_INSTALL_FULL_LIBDIR})
+    set(CMAKE_INSTALL_RPATH "${rpathOrigin}" "${rpathOrigin}/${binToLib}")
+endif ()
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
 # be STATIC or SHARED, so no reason to do it now.
 add_library(${modName})
 target_compile_features(${modName} PUBLIC cxx_std_20)
 
-# Add the /bigobj flag for lemon-development
+# The name of the shared library carries the version of its binary interface,
+# which any minor release may change while the major version is 0, and then
+# any major release.
+if (PROJECT_VERSION_MAJOR EQUAL 0)
+    set(soVersion ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR})
+else ()
+    set(soVersion ${PROJECT_VERSION_MAJOR})
+endif ()
+set_target_properties(${modName} PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${soVersion})
+
+if (MSVC AND BUILD_SHARED_LIBS)
+    target_link_options(${modName} INTERFACE "/INCLUDE:SMSpp_force_load_${modName}")
+endif ()
+
+# Add the /bigobj flag for LEMON
 if (MSVC)
     target_compile_options(${modName} PRIVATE /bigobj)
 endif ()
@@ -149,10 +231,20 @@ target_sources(${modName} PRIVATE src/MCFLemonSolver.cpp)
 # This means that if a target finds this library in its build directory
 # will look into the BUILD_INTERFACE path for its headers, if it finds it
 # installed in the system will look into the INSTALL_INTERFACE path.
+# LEMON's include directories are carried by the `lemon` target itself (see the
+# LEMON section above), whether it comes from an installed package or from the
+# fetched sources, so they no longer need to be repeated here.
 target_include_directories(
         ${modName} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<INSTALL_INTERFACE:include/${modNamespace}>)
+
+# When using an installed LEMON, the C++20-rewritten headers (see the LEMON
+# section above) must be found before the system ones: prepend the shim dir.
+if (DEFINED LEMON_CXX20_SHIM_DIR)
+    target_include_directories(${modName} BEFORE PRIVATE ${LEMON_CXX20_SHIM_DIR})
+endif ()
 
 # When linking other targets to the library with target_link_libraries(),
 # PRIVATE means that the libraries will be linked only to this library,
@@ -160,8 +252,8 @@ target_include_directories(
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
 target_link_libraries(${modName} PUBLIC
-                      ${modNamespace}::MCFBlock
-                      lemon)
+        ${modNamespace}::MCFBlock
+        lemon)
 
 if (WIN32)
     target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
@@ -198,21 +290,15 @@ install(DIRECTORY include/
 install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
-# Install the lemon library as well
-install(TARGETS lemon
-        EXPORT lemonTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# LEMON is consumed as an installed (imported) package, so it is neither
+# installed nor exported here: it is already discoverable via find_package(LEMON)
+# (see the find_dependency(LEMON) injected into the package config below).
 
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
 install(EXPORT ${modName}Targets
         NAMESPACE ${modNamespace}::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
-
-install(EXPORT lemonTargets
-        NAMESPACE lemon::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/lemon)
 
 # Generate the package version file, that allows other
 # CMake projects to know the version.
@@ -221,6 +307,11 @@ write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY AnyNewerVersion)
+
+# Downstream projects that do find_package(MCFLemonSolver) must also be able to
+# locate LEMON: inject a find_dependency(LEMON) into the generated config, which
+# is resolved there by the FindLEMON module we install alongside it (see below).
+set(LEMON_FIND_DEPENDENCY "find_dependency(LEMON)")
 
 # Generate the package configuration file, that allows other
 # CMake projects to find the library with find_package().
@@ -233,6 +324,12 @@ configure_package_config_file(
 install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}Config.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
+
+# Install the custom find modules (e.g. FindLEMON) so that downstream projects
+# can resolve the find_dependency() calls emitted in the package config above.
+file(GLOB findMods ${CMAKE_CURRENT_LIST_DIR}/cmake/Find*)
+install(FILES ${findMods}
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # Install the README and LICENSE files.
