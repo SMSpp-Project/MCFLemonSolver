@@ -18,6 +18,7 @@ include(CMakeFindDependencyMacro)
 
 # ----- Requirements -------------------------------------------------------- #
 find_dependency(SMS++)
+find_dependency(MCFBlock)
 
 # This is needed to find the custom modules we provide (e.g. FindLEMON).
 list(APPEND CMAKE_MODULE_PATH ${@modName@_CMAKE_DIR})
