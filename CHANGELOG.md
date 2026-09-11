@@ -9,9 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.2.0] - 2026-09-12
+
+### Added
+
 - `MCFLemonSolver::get_Solution()`, which builds the MCFSolution out of the
   data structures of the LEMON algorithm, without writing anything into the
   MCFBlock and therefore without requiring any Variable to exist
+
+### Changed
+
+- the version of the module is the git tag of its repository, or the
+  VERSION.txt of a release tarball, and the shared library carries it: its
+  SONAME is major.minor while the major is 0, and it is installed with an
+  RPATH relative to itself, so that an installed tree keeps working wherever
+  it is moved
 
 ### Fixed
 
@@ -23,4 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `get_dual_solution()` called `set_pi()` with the arguments the other way
   round, the node index as the potential and the potential as the node index,
   which threw "invalid node name"
+
+- the package configuration file finds the libraries the module links, so that
+  a project using the installed module needs nothing more than find_package(),
+  LEMON comprised
+
+[Unreleased]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.2.0...develop
+[0.2.0]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.1.0...0.2.0
 
