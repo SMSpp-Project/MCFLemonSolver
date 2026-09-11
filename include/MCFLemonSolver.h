@@ -610,6 +610,13 @@ class MCFLemonSolver : public CDASolver
   }
 
 /*--------------------------------------------------------------------------*/
+ /// the Solution is filled from the data of the LEMON algorithm, not from
+ /// the Variable
+
+ [[nodiscard]] bool is_get_Solution_physical( void ) const override {
+  return( true );
+  }
+
  /// returns false until we understand if and how LEMON does is
 
  bool has_var_direction( void ) override { return( false ); }
