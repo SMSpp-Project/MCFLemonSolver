@@ -60,8 +60,11 @@ LEMON_INCDIR = $(libLEMONBSCDIR)/include
 
 # Compatibility shim: the packaged LEMON needs a C++20 fix (array_map.h, path.h
 # still call the removed std::allocator::construct/destroy), an MSVC fix
-# (adaptors.h LEMON_SCOPE_FIX) and a missing-include fix (capacity_scaling.h uses
-# RangeMap but some packagings, e.g. MacPorts, omit #include <lemon/maps.h>). We
+# (adaptors.h LEMON_SCOPE_FIX), a missing-include fix (capacity_scaling.h uses
+# RangeMap but some packagings, e.g. MacPorts, omit #include <lemon/maps.h>) and
+# a numerical one (network_simplex.h takes the sign of a reduced cost, and the
+# flow left on its artificial arcs, exactly, which with fractional costs makes
+# it pivot for ever or report infeasibility). We
 # rewrite private copies of those headers (see the rules below) and put
 # $(MCFLESHIM) on the include path *before* $(LEMON_INCDIR) so they shadow the
 # system ones. Mirrors the CMake build; all rewrites are idempotent and harmless
@@ -70,7 +73,8 @@ MCFLESHIM = $(MCFLESDR)/lemon-cxx20-shim
 LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
                   $(MCFLESHIM)/lemon/path.h \
                   $(MCFLESHIM)/lemon/adaptors.h \
-                  $(MCFLESHIM)/lemon/capacity_scaling.h
+                  $(MCFLESHIM)/lemon/capacity_scaling.h \
+                  $(MCFLESHIM)/lemon/network_simplex.h
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -124,6 +128,35 @@ $(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h
 	sed -E $(LEMON_SHIM_SED) \
 	  -e '/#include <lemon\/maps.h>/d' \
 	  -e 's@(#include <lemon/core.h>)@\1\n#include <lemon/maps.h>@' \
+	  $< > $@
+
+# network_simplex.h needs the base rewrites plus the tolerances of the pivot
+# rules and of the feasibility check, the same rewrite as the CMake build: the
+# tolerance is zero for an exact type, so that on integer data the algorithm is
+# unchanged, and otherwise relative to the largest cost (supply). The two
+# functions computing it are defined right after "namespace lemon {".
+LEMON_NS_EPS = \
+	template <typename C> inline C ns_pivot_eps(const std::vector<C>\& c, \
+	int n) { if (std::numeric_limits<C>::is_exact) return C(0); C m(1); \
+	for (int i = 0; i != n; ++i) m = std::max(m, c[i] < 0 ? C(-c[i]) : c[i]); \
+	return m * std::numeric_limits<C>::epsilon() * C(1e6); } \
+	template <typename V> inline V ns_flow_eps(const std::vector<V>\& s, \
+	int n) { if (std::numeric_limits<V>::is_exact) return V(0); V m(1); \
+	for (int i = 0; i != n; ++i) m = std::max(m, s[i] < 0 ? V(-s[i]) : s[i]); \
+	return m * std::numeric_limits<V>::epsilon() * V(1e6); }
+
+$(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h
+	mkdir -p $(dir $@)
+	sed -E $(LEMON_SHIM_SED) \
+	  -e 's/^namespace lemon \{/namespace lemon { $(LEMON_NS_EPS)/' \
+	  -e 's/^      int _search_arc_num;$$/      int _search_arc_num; Cost _eps;/' \
+	  -e 's/_search_arc_num\(ns\._search_arc_num\)/&, _eps(ns_pivot_eps(ns._cost, ns._arc_num))/' \
+	  -e 's/if \(c < 0\)/if (c < -_eps)/g' \
+	  -e 's/min < 0/min < -_eps/g' \
+	  -e 's/if \(min >= 0\) return/if (min >= -_eps) return/' \
+	  -e 's/else if \(c >= 0\) \{/else if (c >= -_eps) {/' \
+	  -e 's@^      // Check feasibility@      const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
+	  -e 's/if \(_flow\[e\] != 0\) return/if (_flow[e] > feps || _flow[e] < -feps) return/' \
 	  $< > $@
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -

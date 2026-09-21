@@ -63,7 +63,7 @@ same name, or by `which_insert_LEMON` in the `makefile`.
 
 The solvers provided by the LEMON project are used through a thin interface in
 `MCFLemonSolver.h`. LEMON has not had a release since 1.3.1 (2014), so its
-headers need a few portability fixes:
+headers need a few portability fixes, and a numerical one:
 
 - **C++20**: `lemon/bits/array_map.h` and `lemon/path.h` still call the
   `std::allocator::construct`/`destroy` members that were *removed* in C++20;
@@ -71,16 +71,22 @@ headers need a few portability fixes:
   not compile under MSVC;
 - **missing include**: `lemon/capacity_scaling.h` uses `RangeMap` from
   `lemon/maps.h`, which some packagings (e.g. MacPorts `coinor-liblemon`) fail
-  to include.
+  to include;
+- **floating-point data**: `lemon/network_simplex.h` takes the sign of a
+  reduced cost, and the flow left on its artificial arcs, exactly, so that with
+  fractional costs it can make degenerate pivots for ever, or report as
+  infeasible a problem that is not; the rewrite compares them against a
+  tolerance relative to the largest cost and the largest supply, which is zero
+  for integer types, so that on integer data the algorithm is unchanged.
 
 Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
-package provided by your platform (see *Requirements* below) and applies a tiny,
-self-contained compatibility shim at build time: it rewrites private copies
-of just those headers and puts them on the include path *before* the system ones
-so they shadow them. The rewrites are idempotent (no-ops on an already-patched
-LEMON) and are applied identically by both the CMake build and the makefiles, so
-nothing has to be done by hand on any platform (no manual download of LEMON,
-and no manual edit of its headers).
+package provided by your platform (see *Requirements* below) and applies a
+small, self-contained compatibility shim at build time: it rewrites private
+copies of just those headers and puts them on the include path *before* the
+system ones so they shadow them. The rewrites are idempotent (no-ops on an
+already-patched LEMON) and are applied identically by both the CMake build and
+the makefiles, so nothing has to be done by hand on any platform (no manual
+download of LEMON, and no manual edit of its headers).
 
 ## Getting started
 

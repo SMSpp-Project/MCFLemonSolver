@@ -30,6 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the network simplex of LEMON could pivot for ever on fractional costs, a
+  reduced cost that is zero being computed a few ulp below it, and could report
+  as infeasible a problem that is not, a few ulp of flow being left on its
+  artificial arcs: the shim of the build compiles it with tolerances on both,
+  zero for integer types. The multicommodity Lagrangian dual, whose costs are
+  fractional, and the flow relaxation of the capacitated facility location,
+  whose supplies are, are now solved by it
+
 - adding an arc to the MCFListDigraph did not grow the maps of the costs and
   of the capacities, which were then written past their end: the heap was
   corrupted as soon as an arc was added, and the run crashed later

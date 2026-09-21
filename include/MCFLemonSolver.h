@@ -425,7 +425,13 @@ class MCFListDigraph : public ListDigraph
   * LEMON requires the data to be integer even when V and C are double: all
   * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities
   * and supplies for CapacityScaling, which is the one that actually gives
-  * wrong values on fractional capacities and supplies. Besides,
+  * wrong values on fractional capacities and supplies. NetworkSimplex is the
+  * exception in practice, since the build compiles it with tolerances on the
+  * sign of the reduced costs and on the flow left on its artificial arcs
+  * (see the shim in CMakeLists.txt), without which fractional costs make it
+  * pivot for ever or report infeasibility; CostScaling and CycleCanceling
+  * have no such fix, and on fractional costs the former reads out of its
+  * vectors and the latter ends away from the optimum. Besides,
   * CycleCanceling and CapacityScaling do not support negative costs on arcs
   * with infinite capacity. The deficits of a MCFBlock that sum to zero only
   * up to the rounding of their computation are balanced before each run,

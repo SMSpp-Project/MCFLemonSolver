@@ -103,9 +103,9 @@ endif ()
 find_package(LEMON REQUIRED)
 
 # ----- Compatibility shim for an unpatched LEMON --------------------------- #
-# The packaged LEMON needs three compiler-portability fixes that we apply, at
-# configure time, to private copies of the affected headers, shadowing the
-# system ones through an include directory searched first (see
+# The packaged LEMON needs three compiler-portability fixes and a numerical one
+# that we apply, at configure time, to private copies of the affected headers,
+# shadowing the system ones through an include directory searched first (see
 # target_include_directories below):
 #   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
 #     std::allocator::construct/destroy members removed in C++20;
@@ -113,11 +113,22 @@ find_package(LEMON REQUIRED)
 #     compile under MSVC;
 #   * missing include: lemon/capacity_scaling.h uses RangeMap (from lemon/maps.h)
 #     but some packagings (e.g. MacPorts coinor-liblemon) omit that include, so
-#     it fails to compile under stricter (two-phase lookup) compilers.
+#     it fails to compile under stricter (two-phase lookup) compilers;
+#   * floating-point data: lemon/network_simplex.h takes the sign of a reduced
+#     cost, and the flow left on its artificial arcs, exactly, so that with
+#     fractional costs a reduced cost that is zero but computed a few ulp below
+#     it makes a degenerate pivot for ever, and a few ulp of flow on an
+#     artificial arc make the problem infeasible; the rewrite compares them
+#     against a tolerance relative to the largest cost, and to the largest
+#     supply, which is zero when the type is exact, so that on integer data the
+#     algorithm is unchanged. Only the pivot rules and start() change, and they
+#     are instantiated only in this library, while the layout of the class is
+#     the same as the one the users of MCFLemonSolver.h see.
 # All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
 set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
-foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h)
+foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
+                    network_simplex.h)
     unset(_lemon_hdr_src CACHE)
     find_file(_lemon_hdr_src lemon/${_lemon_hdr}
             PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -144,6 +155,57 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h)
             string(REGEX REPLACE
                     "#include <lemon/core.h>"
                     "#include <lemon/core.h>\n#include <lemon/maps.h>"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        # network_simplex.h only: the tolerances of the pivot rules and of the
+        # feasibility check, the same rewrite as the sed of the makefile
+        if (_lemon_hdr STREQUAL "network_simplex.h"
+                AND NOT _lemon_hdr_content MATCHES "ns_pivot_eps")
+            set(_ns_eps [=[namespace lemon {
+
+  // the tolerance of the pivot rules of NetworkSimplex: zero for an exact
+  // cost type, otherwise relative to the largest of the n costs
+  template <typename C>
+  inline C ns_pivot_eps(const std::vector<C>& c, int n) {
+    if (std::numeric_limits<C>::is_exact) return C(0);
+    C m(1);
+    for (int i = 0; i != n; ++i) m = std::max(m, c[i] < 0 ? C(-c[i]) : c[i]);
+    return m * std::numeric_limits<C>::epsilon() * C(1e6);
+  }
+
+  // the tolerance of the flow left on the artificial arcs: zero for an exact
+  // flow type, otherwise relative to the largest of the n supplies
+  template <typename V>
+  inline V ns_flow_eps(const std::vector<V>& s, int n) {
+    if (std::numeric_limits<V>::is_exact) return V(0);
+    V m(1);
+    for (int i = 0; i != n; ++i) m = std::max(m, s[i] < 0 ? V(-s[i]) : s[i]);
+    return m * std::numeric_limits<V>::epsilon() * V(1e6);
+  }
+]=])
+            set(_ns_ctor [=[_search_arc_num(ns._search_arc_num),
+        _eps(ns_pivot_eps(ns._cost, ns._arc_num))]=])
+            set(_ns_chk [=[      const Value feps = ns_flow_eps(_supply, _node_num);
+      // Check feasibility]=])
+            set(_ns_flow [=[if (_flow[e] > feps || _flow[e] < -feps) return]=])
+            string(REPLACE "namespace lemon {" "${_ns_eps}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      int _search_arc_num;"
+                    "      int _search_arc_num; Cost _eps;"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "_search_arc_num(ns._search_arc_num)" "${_ns_ctor}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (c < 0)" "if (c < -_eps)"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "min < 0" "min < -_eps"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (min >= 0) return" "if (min >= -_eps) return"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "else if (c >= 0) {" "else if (c >= -_eps) {"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      // Check feasibility" "${_ns_chk}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (_flow[e] != 0) return" "${_ns_flow}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
         file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
