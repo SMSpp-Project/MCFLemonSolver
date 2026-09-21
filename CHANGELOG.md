@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- CostScaling could read out of its own vectors, and CycleCanceling end away
+  from the optimum, on fractional costs: both are given the costs scaled by a
+  power of 2 and rounded, which are integer, CostScaling with an integer large
+  cost type, and the value and the potentials are those of the true costs
+
 - the network simplex of LEMON could pivot for ever on fractional costs, a
   reduced cost that is zero being computed a few ulp below it, and could report
   as infeasible a problem that is not, a few ulp of flow being left on its

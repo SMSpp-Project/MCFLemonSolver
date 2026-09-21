@@ -79,6 +79,11 @@ headers need a few portability fixes, and a numerical one:
   tolerance relative to the largest cost and the largest supply, which is zero
   for integer types, so that on integer data the algorithm is unchanged.
 
+CostScaling and CycleCanceling are exact only on integer costs too, and for
+them no header is rewritten: `MCFLemonSolver` gives them the costs scaled by a
+power of 2 and rounded, which are integer, with an integer large cost type for
+CostScaling, and gives back the value and the potentials of the true costs.
+
 Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
 package provided by your platform (see *Requirements* below) and applies a
 small, self-contained compatibility shim at build time: it rewrites private

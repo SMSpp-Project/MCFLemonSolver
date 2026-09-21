@@ -14,8 +14,8 @@ which has to build its graph with the arcs closed and deleted as they are.
 The cases that the solution of an instance does not reach are checked on their
 own: a `Solver` destroyed without having ever been attached to a `MCFBlock`, an
 instance with no capacities and no costs that a `Modification` provides later,
-deficits that sum to zero only up to rounding and deficits that do not, the
-parameters looked up by their name, the invalid values of the parameters of
+fractional costs, deficits that sum to zero only up to rounding and deficits
+that do not, the parameters looked up by their name, the invalid values of the parameters of
 the algorithms, and the DMX file of the instance.
 
 The exit code is the number of failed checks, zero printing

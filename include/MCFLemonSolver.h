@@ -339,12 +339,21 @@ class MCFListDigraph : public ListDigraph
   ~SMSppCapacityScaling() = default;
   };
 
- /// CostScaling algorithm using the default trait
+ /// CostScaling algorithm using the trait of integer costs
+ /** The trait of integer costs is the default one when C is integer; when C
+  * is floating-point it makes the large cost type of the algorithm integer
+  * as well, which is what keeps it exact, MCFLemonSolver giving it costs
+  * that are integer [see MCFLemonSolver::pass_costs()]: with the default
+  * trait the large costs would be double, and the rounding of the potentials
+  * can make the algorithm read out of its own vectors. */
  template< LEMONGraph GR, typename V , typename C >
- class SMSppCostScaling : public CostScaling< GR , V , C >
+ class SMSppCostScaling : public CostScaling< GR , V , C ,
+				  CostScalingDefaultTraits< GR , V , C , true > >
  {
   public:
-  SMSppCostScaling( const GR& dgp ) : CostScaling< GR , V , C >( dgp ) {}
+  SMSppCostScaling( const GR& dgp )
+   : CostScaling< GR , V , C ,
+		  CostScalingDefaultTraits< GR , V , C , true > >( dgp ) {}
 
   ~SMSppCostScaling() = default;
   };
@@ -425,13 +434,15 @@ class MCFListDigraph : public ListDigraph
   * LEMON requires the data to be integer even when V and C are double: all
   * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities
   * and supplies for CapacityScaling, which is the one that actually gives
-  * wrong values on fractional capacities and supplies. NetworkSimplex is the
-  * exception in practice, since the build compiles it with tolerances on the
-  * sign of the reduced costs and on the flow left on its artificial arcs
-  * (see the shim in CMakeLists.txt), without which fractional costs make it
-  * pivot for ever or report infeasibility; CostScaling and CycleCanceling
-  * have no such fix, and on fractional costs the former reads out of its
-  * vectors and the latter ends away from the optimum. Besides,
+  * wrong values on fractional capacities and supplies. Fractional costs are
+  * taken care of all the same: the build compiles NetworkSimplex with
+  * tolerances on the sign of the reduced costs and on the flow left on its
+  * artificial arcs (see the shim in CMakeLists.txt), without which it may
+  * pivot for ever or report infeasibility, and CostScaling and
+  * CycleCanceling are given the costs scaled by a power of 2 and rounded,
+  * which are integer [see pass_costs()], without which the former may read
+  * out of its own vectors and the latter end away from the optimum; the
+  * value and the potentials are those of the true costs. Besides,
   * CycleCanceling and CapacityScaling do not support negative costs on arcs
   * with infinite capacity. The deficits of a MCFBlock that sum to zero only
   * up to the rounding of their computation are balanced before each run,
@@ -518,6 +529,14 @@ class MCFLemonSolver : public CDASolver
  OFValue get_ub( void ) override {
   switch( this->get_status() ) {
    case( ThisAlgo::ProblemType::OPTIMAL ) :
+    if( f_cost_scale != 1 ) {
+     // the Algo saw the costs scaled and rounded [see pass_costs()]: the
+     // value is taken with the true ones
+     OFValue v = 0;
+     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+      v += OFValue( f_algo->flow( a ) ) * (*cm)[ a ];
+     return( v );
+     }
     return( OFValue( f_algo->totalCost() ) );
    case( ThisAlgo::ProblemType::UNBOUNDED ) :
     return( -Inf< OFValue >() );
@@ -572,7 +591,7 @@ class MCFLemonSolver : public CDASolver
   for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
    auto i = Index( dgp->id( n ) );
    if( i < MCFB->get_NNodes() )    // NB: set_pi() takes the value first
-    MCFB->set_pi( f_algo->potential( n ) , i );
+    MCFB->set_pi( f_algo->potential( n ) / f_cost_scale , i );
    }
   }
 
@@ -627,7 +646,7 @@ class MCFLemonSolver : public CDASolver
     for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
      auto i = Index( dgp->id( n ) );
      if( i < Pi.size() )
-      Pi[ i ] = f_algo->potential( n );
+      Pi[ i ] = f_algo->potential( n ) / f_cost_scale;
      }
     sol->set_pi( std::move( Pi ) );
     }
@@ -787,6 +806,9 @@ class MCFLemonSolver : public CDASolver
   um = nullptr;
   delete cm;
   cm = nullptr;
+  delete icm;
+  icm = nullptr;
+  f_cost_scale = 1;
   delete bm;
   bm = nullptr;
   delete dgp;
@@ -800,6 +822,8 @@ class MCFLemonSolver : public CDASolver
  void guts_of_poM( c_p_Mod mod );
 
  void guts_of_set_Block( MCFBlock* MCFB );
+
+ void pass_costs( void );
 
  /*--------------------------------------------------------------------------*/
 
@@ -842,6 +866,11 @@ class MCFLemonSolver : public CDASolver
   MCFArcMapV * um;   ///< ArcMap that contains the capacity of each arc
   MCFArcMapV * cm;   ///< ArcMap that contains the cost of each arc
   MCFNodeMapV * bm;  /// NodeMap that contains the supply of each node
+
+  MCFArcMapV * icm = nullptr;
+  ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
+  double f_cost_scale = 1;
+  ///< the scale of icm, 1 when the Algo is given the costs as they are
 
 /*--------------------------------------------------------------------------*/
 

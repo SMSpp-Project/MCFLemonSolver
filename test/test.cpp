@@ -14,10 +14,10 @@
  * Besides, the cases that do not come up when an instance is simply solved
  * are checked on their own: a Solver destroyed without ever having been
  * attached to a MCFBlock, a MCFBlock that has no capacities and no costs to
- * begin with and is given them by a Modification, deficits that sum to zero
- * only up to rounding and deficits that do not, the parameters looked up by
- * their name, the invalid values of the parameters of the algorithms, and
- * the DMX file of the instance.
+ * begin with and is given them by a Modification, fractional costs, deficits
+ * that sum to zero only up to rounding and deficits that do not, the
+ * parameters looked up by their name, the invalid values of the parameters
+ * of the algorithms, and the DMX file of the instance.
  *
  * The exit code is the number of failed checks.
  *
@@ -132,12 +132,12 @@ static void check_all( MCFBlock & mcf , double expected ,
  * load() generates the flow Variable, whose fixing closes an arc. */
 
 static void load( MCFBlock & mcf , bool withdata ,
-		  const MCFBlock::Vec_FNumber & b = { -4 , 0 , 0 , 4 } )
+		  const MCFBlock::Vec_FNumber & b = { -4 , 0 , 0 , 4 } ,
+		  const MCFBlock::Vec_CNumber & c = { 1 , 4 , 1 , 5 , 1 } )
 {
  const MCFBlock::Subset sn = { 1 , 1 , 2 , 2 , 3 };
  const MCFBlock::Subset en = { 2 , 3 , 3 , 4 , 4 };
  const MCFBlock::Vec_FNumber u = { 3 , 5 , 2 , 3 , 5 };
- const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
 
  if( withdata )
   mcf.load( 4 , 5 , en , sn , u , c , b , 0 , 0 , 0 , 2 );
@@ -235,6 +235,24 @@ static void test_balance( void )
  }
 
 /*--------------------------------------------------------------------------*/
+/* The costs of the instance divided by 10, i.e., fractional and not exact in
+ * binary: the optimum is the same flow, and its value 1.6. LEMON is exact
+ * only on integer costs, which is why MCFLemonSolver compiles the network
+ * simplex with tolerances and gives CostScaling and CycleCanceling the costs
+ * scaled and rounded; every algorithm has to give the value of the true
+ * costs. */
+
+static void test_fractional_costs( void )
+{
+ MCFBlock mcf;
+ load( mcf , true , { -4 , 0 , 0 , 4 } , { 0.1 , 0.4 , 0.1 , 0.5 , 0.1 } );
+ check_all( mcf , 1.6 , "fractional costs" );
+
+ mcf.chg_cost( 1.0 , 2 );  // 2 -> 3 now costs 1: 4 units along 1-3-4
+ check_all( mcf , 2 , "fractional costs changed" );
+ }
+
+/*--------------------------------------------------------------------------*/
 /// a Solver that never saw a MCFBlock is destroyed, of every kind
 
 static void test_unattached( void )
@@ -320,6 +338,7 @@ int main( void )
  test_changes();
  test_empty_data();
  test_balance();
+ test_fractional_costs();
  test_dmx();
 
  if( failures )

@@ -21,6 +21,8 @@
 
 #include "MCFLemonSolver.h"
 
+#include <cmath>
+
 /*--------------------------------------------------------------------------*/
 /*------------------------------- MACROS -----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -244,9 +246,56 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
   f_algo = new Algo< GR , V , C >( *dgp );
 
  f_algo->upperMap( *um );   // pass the maps to the Algo
- f_algo->costMap( *cm );
+ pass_costs();
  f_algo->supplyMap( *bm );
  }  // end( guts_of_set_Block )
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename > class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
+{
+ /* CostScaling and CycleCanceling are exact only on integer costs: on
+  * fractional ones the former may read out of its own vectors and the
+  * latter end away from the optimum. They are therefore given the costs
+  * scaled by a power of 2 and rounded, which are integer in C as long as
+  * they stay below 2^52. CostScaling multiplies them by ( n + 1 ) * 16, its
+  * default factor, in an integer large cost type [see SMSppCostScaling],
+  * and its potentials grow up to about n times that, hence the scale also
+  * keeps max |c| * 16 * n^2 below 2^62; CycleCanceling sums them along
+  * cycles of at most n arcs, hence the scale keeps max |c| * 16 * n below
+  * 2^52. The value and the potentials are brought back to the true costs
+  * [see get_ub()]. */
+ constexpr bool scaled = std::is_floating_point< C >::value &&
+  ( std::is_same< Algo< GR , V , C > , SMSppCostScaling< GR , V , C > >::value
+    || std::is_same< Algo< GR , V , C > ,
+                     CycleCanceling< GR , V , C > >::value );
+
+ if constexpr( ! scaled )
+  f_algo->costMap( *cm );
+ else {
+  double max = 1;
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+   max = std::max( max , std::abs( double( (*cm)[ a ] ) ) );
+
+  const double n = countNodes( *dgp ) + 1;
+  double bound;
+  if constexpr( std::is_same< Algo< GR , V , C > ,
+		              SMSppCostScaling< GR , V , C > >::value )
+   bound = std::min( std::exp2( 52 ) / max ,
+		     std::exp2( 62 ) / ( max * 16 * n * n ) );
+  else
+   bound = std::exp2( 52 ) / ( max * n * 16 );
+  f_cost_scale = std::exp2( std::floor( std::log2( bound ) ) );
+  if( ! icm )
+   icm = new typename GR::template ArcMap< V >( *dgp , 0 );
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+   icm->set( a , std::round( (*cm)[ a ] * f_cost_scale ) );
+
+  f_algo->costMap( *icm );
+  }
+ }  // end( pass_costs )
 
 /*--------------------------------------------------------------------------*/
 
@@ -339,7 +388,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   }
 
  if( cost_changed ) {
-  f_algo->costMap( *cm );
+  pass_costs();
   cost_changed = false;
   }
 
