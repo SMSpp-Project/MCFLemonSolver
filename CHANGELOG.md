@@ -9,9 +9,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the test of the module, `MCFLemonSolver_test`: the four algorithms on the
+  two graphs against a small instance whose optimal value is known after each
+  of the changes a MCFBlock can undergo, plus the Solver destroyed without a
+  MCFBlock, the data given only by a Modification, the deficits that sum to
+  zero only up to rounding, the parameters and the DMX file
+
 ### Changed
 
+- the DMX file of `strDMXFile` is written by the MCFBlock in the complete
+  DIMACS format, on both graphs, rather than as the adjacency matrix of the
+  SmartDigraph only, which had no costs, capacities or deficits
+
+- deficits that sum to zero only up to rounding are balanced before each run,
+  and deficits that do not sum to zero make the problem infeasible: LEMON
+  alone reads the former as infeasible and the latter, when the demand
+  exceeds the supply, as demands that may be left unmet
+
+- the flows and the potentials are available only at an optimal solution
+
 ### Fixed
+
+- adding an arc to the MCFListDigraph did not grow the maps of the costs and
+  of the capacities, which were then written past their end: the heap was
+  corrupted as soon as an arc was added, and the run crashed later
+
+- a Solver attached to a MCFBlock that had closed or deleted arcs built its
+  graph with those arcs open, and with the NaN cost of the deleted ones
+
+- the capacities, costs and deficits missing from the MCFBlock left their map
+  unallocated, so a Modification giving them, or any change of the arcs,
+  dereferenced a null pointer; each map now holds what the empty vector means
+
+- re-attaching the Solver, or reloading the MCFBlock, leaked the previous
+  graph, algorithm and maps; a Solver never attached to a MCFBlock destroyed
+  an uninitialised graph; MCFLemonSolverCostScaling never destroyed its
+  algorithm and graph
+
+- compute() left the Solver locked when there was no MCFBlock or its lock
+  could not be acquired
+
+- get_lb() and get_ub() returned the cost of whatever flow LEMON left when
+  the problem was infeasible or unbounded, instead of +Inf and -Inf
+
+- the string parameter `strDMXFile` could not be set, since set_par() for
+  strings was not implemented, nor found by name, since its lookup
+  overrode `dbl_par_str2idx()` and so broke the lookup of every double
+  parameter by name
+
+- `kMethod` of CycleCanceling and CostScaling accepted five values out of
+  the three the algorithms have
+
+- the messages of the exceptions name the class and the method
 
 ## [0.2.0] - 2026-09-12
 

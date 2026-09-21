@@ -49,13 +49,9 @@
 
 #include <lemon/smart_graph.h>
 
-#include <lemon/dimacs.h>
-
 #include <type_traits>
 
 #include <chrono>
-
-#include <lemon/lgf_writer.h>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -64,8 +60,6 @@
 namespace SMSpp_di_unipi_it
 {
  using namespace lemon;
- using namespace lemon::concepts;
- using namespace std;
 
  /** @} ---------------------------------------------------------------------*/
  /*------------------------------- CLASSES ----------------------------------*/
@@ -85,12 +79,12 @@ namespace SMSpp_di_unipi_it
   *
   * - In MCFBlock, the when a new arc is created its "name" is that of the
   *   arc with smallest name that has been previously deleted and not
-  *   re-added yet (the name of th last arc if there are no such arcs).
+  *   re-added yet (the name of the last arc if there are no such arcs).
   *   This is not so in the original ListDigraph, so the implementation
   *   of addArc() has to be changed accordingly.
   *
   * - The need of implementing the openArc() and closeArc() methods, that
-  *   realise the arc losing /opening operations of MCFBlock. A "closed" arc
+  *   realise the arc closing / opening operations of MCFBlock. A "closed" arc
   *   is basically a deleted arc in the original ListDigraph, except that its
   *   "name" is not available when new arcs are constructed, so that it can
   *   be re-opened keeping its original name, capacity and cost. The
@@ -126,7 +120,7 @@ class MCFListDigraph : public ListDigraph
   using ListDigraphBase::Node;
 
   /// basically ListDigraph::Arc, just made friend of MCFListDigraph
-  class MCFArc : ListDigraph::Arc
+  class MCFArc : public ListDigraph::Arc
   {
    friend class MCFListDigraph;
 
@@ -191,7 +185,7 @@ class MCFListDigraph : public ListDigraph
 
    nodes[ u ].first_out = nodes[ v ].first_in = minidx;
 
-   return( MCFArc( minidx ) );
+   return( notify_added( minidx ) );
    }
 
   // otherwise add to the last position
@@ -210,7 +204,21 @@ class MCFListDigraph : public ListDigraph
 
   nodes[ u ].first_out = nodes[ v ].first_in = n;
 
-  return( MCFArc( n ) );
+  return( notify_added( n ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ /// tell the ArcMap of the graph that arc n exists
+ /** ListDigraph::addArc() notifies the observers of the arcs, i.e., every
+  * ArcMap built on the graph, which is how a map grows with the graph;
+  * addArc() above replaces it, so it has to do the same, or the next set()
+  * on a map writes past the end of its storage. */
+
+ MCFArc notify_added( int n )
+ {
+  MCFArc arc( n );
+  notifier( Arc() ).add( arc );
+  return( arc );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -295,18 +303,18 @@ class MCFListDigraph : public ListDigraph
   *     this to arc closure and re-opening.
   *
   * - V, which is the type of flows / deficits; typically, double can be used
-  *   for maximum compatibility, but int (or even smaller) would yeld better
+  *   for maximum compatibility, but int (or even smaller) would yield better
   *   performances;
   *
-  * - C, which is the type of ar costs; typically, double can be used for
-  *   maximum compatibility, but int (or even smaller) would yeld better
+  * - C, which is the type of arc costs; typically, double can be used for
+  *   maximum compatibility, but int (or even smaller) would yield better
   *   performances.
   *
   * Furthermore, scaling-type algorithms may behave in different ways
   * according to which combination of V and C is used, and there are different
   * "traits" for this which are another scaling parameter. However, we prefer
-  * that the MCFLemonSolver class is always template over the three first
-  * parameter only, which is why we define SMSppCapacityScaling and
+  * that the MCFLemonSolver class is always template over the first three
+  * parameters only, which is why we define SMSppCapacityScaling and
   * SMSppCostScaling as template over < GR , V , C > and using the default
   * trait.
   *
@@ -325,7 +333,8 @@ class MCFListDigraph : public ListDigraph
  {
   public:
 
-  SMSppCapacityScaling( const GR& dgp ) : CapacityScaling< GR , V , C >( dgp ) {}
+  SMSppCapacityScaling( const GR& dgp )
+    : CapacityScaling< GR , V , C >( dgp ) {}
 
   ~SMSppCapacityScaling() = default;
   };
@@ -366,13 +375,13 @@ class MCFListDigraph : public ListDigraph
   *     provides only linear time counting for nodes and arcs. The original
   *     ListDigraph supports node and arc deletion, and MCFListDigraph extends
   *     this to arc closure and re-opening.
-   *
+  *
   * - V, which is the type of flows / deficits; typically, double can be used
-  *   for maximum compatibility, but int (or even smaller) would yeld better
+  *   for maximum compatibility, but int (or even smaller) would yield better
   *   performances;
   *
-  * - C, which is the type of ar costs; typically, double can be used for
-  *   maximum compatibility, but int (or even smaller) would yeld better
+  * - C, which is the type of arc costs; typically, double can be used for
+  *   maximum compatibility, but int (or even smaller) would yield better
   *   performances;
   *
   * - Algo, which is the specific algorithm (itself, template over GR, V, and
@@ -384,7 +393,7 @@ class MCFListDigraph : public ListDigraph
   *     for the minimum cost flow problem.
   *
   *   = CycleCanceling implements three different cycle-canceling algorithms
-  *     for finding a minimum cost flow. The most efficent one is the
+  *     for finding a minimum cost flow. The most efficient one is the
   *     Cancel-and-tighten algorithm, thus it is the default method. It runs
   *     in strongly polynomial time, but in practice, it is typically orders of
   *     magnitude slower than the scaling algorithms and NetworkSimplex.
@@ -411,7 +420,18 @@ class MCFListDigraph : public ListDigraph
   *   template parameters we fix the use of the default trait, which is why
   *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
   *   < GR , V , C >) that are meant to be used instead of the original
-  *   CapacityScaling and CostScaling. */
+  *   CapacityScaling and CostScaling.
+  *
+  * LEMON requires the data to be integer even when V and C are double: all
+  * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities
+  * and supplies for CapacityScaling, which is the one that actually gives
+  * wrong values on fractional capacities and supplies. Besides,
+  * CycleCanceling and CapacityScaling do not support negative costs on arcs
+  * with infinite capacity. The deficits of a MCFBlock that sum to zero only
+  * up to the rounding of their computation are balanced before each run,
+  * since LEMON would otherwise read the problem as infeasible, whereas
+  * deficits that really do not sum to zero make the problem infeasible
+  * rather than being taken as demands that may be left unmet. */
 
 template< template< typename , typename , typename > class Algo ,
            LEMONGraph GR, typename V , typename C >
@@ -451,7 +471,7 @@ class MCFLemonSolver : public CDASolver
 
  MCFLemonSolver( void ) :  um( nullptr ) , cm( nullptr ) , bm( nullptr ) {}
 
- ~MCFLemonSolver( void ) override { delete um; delete cm; delete bm; }
+ ~MCFLemonSolver( void ) override { guts_of_destructor(); }
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PUBLIC METHODS --------------------------------*/
@@ -472,8 +492,8 @@ class MCFLemonSolver : public CDASolver
  /** Basically invokes the run() method of the underlying LEMON Algo. A lot
   * of the preparatory steps (locking the Block and the Solver, printing the
   * DMX file if required ...) are common to all the Algo and therefore are
-  * implemented in this class; a guts_of_compute() method is inkoked at the
-  * right time that eed be implemented in specialised classe. */
+  * implemented in this class; a guts_of_compute() method, which the
+  * specialised classes implement, is invoked at the right time. */
 
  int compute( bool changedvars = true ) override;
 
@@ -485,11 +505,19 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- OFValue get_lb( void ) override { return( OFValue( f_algo->totalCost() ) ); }
+ OFValue get_lb( void ) override { return( get_ub() ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- OFValue get_ub( void ) override { return( OFValue( f_algo->totalCost() ) ); }
+ OFValue get_ub( void ) override {
+  switch( this->get_status() ) {
+   case( ThisAlgo::ProblemType::OPTIMAL ) :
+    return( OFValue( f_algo->totalCost() ) );
+   case( ThisAlgo::ProblemType::UNBOUNDED ) :
+    return( -Inf< OFValue >() );
+   default : return( Inf< OFValue >() );
+   }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
@@ -497,24 +525,19 @@ class MCFLemonSolver : public CDASolver
 
 /*--------------------------------------------------------------------------*/
 
+ /// the flows are those of an optimal solution, none is given otherwise
+
  bool has_var_solution( void ) override {
-  switch( this->get_status() ) {
-   case( ThisAlgo::ProblemType::OPTIMAL ) :
-   case( ThisAlgo::ProblemType::UNBOUNDED ) :
-    return( true );
-   default : return( false );
-   }
+  return( this->get_status() == ThisAlgo::ProblemType::OPTIMAL );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
+ /// the potentials are those of an optimal solution: LEMON gives no
+ /// certificate of infeasibility
+
  bool has_dual_solution( void ) override {
-  switch( this->get_status() ) {
-   case( ThisAlgo::ProblemType::OPTIMAL ) :
-   case( ThisAlgo::ProblemType::INFEASIBLE ) :
-    return( true );
-   default : return( false );
-   }
+  return( this->get_status() == ThisAlgo::ProblemType::OPTIMAL );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -617,21 +640,23 @@ class MCFLemonSolver : public CDASolver
   return( true );
   }
 
- /// returns false until we understand if and how LEMON does is
+ /// returns false: the LEMON algorithms give out no unbounded direction
 
  bool has_var_direction( void ) override { return( false ); }
 
  void get_var_direction( Configuration* dirc = nullptr ) override {
-  throw( std::logic_error( "LEMONSolver:get_dual_direction() called" ) );
+  throw( std::logic_error( "MCFLemonSolver::get_var_direction: no direction "
+			   "is available" ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// returns false until we understand if and how LEMON does is
+ /// returns false: the LEMON algorithms give out no dual unbounded direction
 
  bool has_dual_direction( void ) override { return( false ); }
 
  void get_dual_direction( Configuration* dirc = nullptr ) override {
-  throw( std::logic_error( "LEMONSolver:get_dual_direction() called" ) );
+  throw( std::logic_error( "MCFLemonSolver::get_dual_direction: no direction "
+			   "is available" ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -641,12 +666,13 @@ class MCFLemonSolver : public CDASolver
 
  [[nodiscard]] const std::string & get_dflt_str_par( idx_type par )
   const override {
-  if( par > strLastParLEMON )
-   throw( std::invalid_argument( "Invalid str parameter: out_of_range " +
+  if( par >= strLastParLEMON )
+   throw( std::invalid_argument( "MCFLemonSolver::get_dflt_str_par: invalid "
+				 "parameter " +
 				 std::to_string( par ) ) );
 
   static const std::string _empty;
-  if( par == strLastParLEMON )
+  if( par == strDMXFile )
    return( _empty );
 
   return( CDASolver::get_dflt_str_par( par ) );
@@ -660,11 +686,23 @@ class MCFLemonSolver : public CDASolver
   if( par == strDMXFile )
    return( this->f_dmx_file );
 
-  return( get_dflt_str_par( par ) );
+  return( CDASolver::get_str_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// @return number of string algorithimc parameters
+ /// set the string parameter @param par to @param value
+
+ using CDASolver::set_par;
+
+ void set_par( idx_type par , std::string && value ) override {
+  if( par == strDMXFile )
+   f_dmx_file = std::move( value );
+  else
+   CDASolver::set_par( par , std::move( value ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// @return number of string algorithmic parameters
 
  [[nodiscard]] idx_type get_num_str_par( void ) const override {
   return( strLastParLEMON );
@@ -672,7 +710,7 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- [[nodiscard]] idx_type dbl_par_str2idx( const std::string & name )
+ [[nodiscard]] idx_type str_par_str2idx( const std::string & name )
   const override {
   if( name == "strDMXFile" )
    return( strDMXFile );
@@ -684,15 +722,16 @@ class MCFLemonSolver : public CDASolver
 
  [[nodiscard]] const std::string & str_par_idx2str( idx_type idx )
   const override {
-  if( idx > strLastParLEMON )
-   throw( std::invalid_argument( "str_par_idx2str: index out_of_range " +
+  if( idx >= strLastParLEMON )
+   throw( std::invalid_argument( "MCFLemonSolver::str_par_idx2str: invalid "
+				 "index " +
 				 std::to_string( idx ) ) );
 
   static const std::string par = "strDMXFile";
   if( idx == strDMXFile )
    return( par );
 
-  return( CDASolver::dbl_par_idx2str( idx ) );
+  return( CDASolver::str_par_idx2str( idx ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -712,16 +751,12 @@ class MCFLemonSolver : public CDASolver
   * (because the name of, say, a newly created arc depends on the current
   * state and/or number of the arcs).
   *
-  * Important note: THIS VERSION ONLY WORKS PROPERLY IF THE MCFBlock IS
-  * "FRESHLY MINTED", I.E., THERE ARE NO CLOSED OR DELETED ARCS.
-  *
-  * This should ordinarily always happen, as whenever the MCFBlock is changed
-  * the NBModification is immediately issued. The problem may come if the
-  * MCFBlock is a R3Block of another MCFBlock which is loaded and then
-  * further modified, and the NBModification to this MCFBlock is generated by
-  * a map_forward_Modification() of the NBModification to the original
-  * MCFBlock: then, this MCFBlock may be copied from a MCFBlock that has
-  * closed or deleted arcs and this method would not work. */
+  * The MCFBlock need not be "freshly minted": the graph is rebuilt with the
+  * arcs the MCFBlock has closed or deleted closed or deleted in the graph as
+  * well, which is what happens when the MCFBlock is a R3Block of another
+  * MCFBlock that is loaded and then further modified, the NBModification to
+  * this MCFBlock being generated by a map_forward_Modification() of the one
+  * to the original MCFBlock. */
 
  void add_Modification( sp_Mod& mod ) override;
 
@@ -741,8 +776,15 @@ class MCFLemonSolver : public CDASolver
 
  void guts_of_destructor( void ) {
   delete f_algo;
-  dgp->clear();
+  f_algo = nullptr;
+  delete um;
+  um = nullptr;
+  delete cm;
+  cm = nullptr;
+  delete bm;
+  bm = nullptr;
   delete dgp;
+  dgp = nullptr;
   }
 
 /*--------------------------------------------------------------------------*/
@@ -763,17 +805,19 @@ class MCFLemonSolver : public CDASolver
 
   std::string f_dmx_file;  ///< string for DMX file output
 
-  Algo< GR , V , C >* f_algo;  ///< the (pointer to) the actual LEMON algo
+  Algo< GR , V , C >* f_algo = nullptr;  ///< the actual LEMON algo
 
   ProblemType status = ProblemType::INFEASIBLE;  ///< return status
 
-  GR * dgp;  ///< the (di)graph, i.e., either MCFListDigraph or SmartDigraph
+  GR * dgp = nullptr;
+  ///< the (di)graph, i.e., either MCFListDigraph or SmartDigraph
 
   bool cost_changed = false;    ///< true if a cost Modification is done
   bool cap_changed = false;     ///< true if a capacity Modification is done
   bool supply_changed = false;  ///< true if a supply Modification is done
 
-  int n_arcs;  ///< number of arcs in the graph, closed arcs count as deleted
+  int n_arcs = 0;
+  ///< number of arcs in the graph, closed arcs count as deleted
   int n_arcs_added = 0;
                    ///< number of arcs added to the graph with addArc/openArc
   int n_arcs_deleted = 0;
@@ -804,7 +848,7 @@ class MCFLemonSolver : public CDASolver
 /*--------------------------------------------------------------------------*/
 /** Specialized MCFLemonSolverNetworkSimplex< GR , V , C > that derives from
  * MCFLemonSolver and contains the specialized compute() method, enums for
- * indexing NetworkSimplex specific algorithimc parameters and methods
+ * indexing NetworkSimplex specific algorithmic parameters and methods
  * set/get_*_par for manage them.
  *
  * The template parameters are the same as those of MCFLemonSolver, except
@@ -881,7 +925,8 @@ class MCFLemonSolverNetworkSimplex : public
  void set_par( idx_type par , int value ) override {
   if( par == kPivot ) {
    if( ( value < 0 ) || ( value > 4 ) )
-    throw( std::invalid_argument( "Error: invalid kPivot " +
+    throw( std::invalid_argument( "MCFLemonSolverNetworkSimplex::"
+				 "set_par: invalid kPivot " +
 				  std::to_string( value ) ) );
 
    if( value == f_pivot_rule )
@@ -904,7 +949,8 @@ class MCFLemonSolverNetworkSimplex : public
 
  [[nodiscard]] int get_dflt_int_par( idx_type par ) const override {
   if( par > intLastParLEMON_NS )
-   throw( std::invalid_argument( "Invalid int parameter: out_of_range " +
+   throw( std::invalid_argument( "MCFLemonSolverNetworkSimplex::"
+				 "get_dflt_int_par: invalid parameter " +
 				 std::to_string( par ) ) );
   if( par == kPivot )
    return( NSPivotRule::BLOCK_SEARCH );
@@ -918,7 +964,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( par == kPivot )
    return( f_pivot_rule );
 
-  return( get_dflt_int_par( par ) );
+  return( CDASolver::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -936,7 +982,8 @@ class MCFLemonSolverNetworkSimplex : public
  [[nodiscard]] const std::string & int_par_idx2str( idx_type idx )
   const override {
   if( idx > intLastParLEMON_NS )
-   throw( std::invalid_argument( "int_par_idx2str: index out_of_range " +
+   throw( std::invalid_argument( "MCFLemonSolverNetworkSimplex::"
+				 "int_par_idx2str: invalid index " +
 				 std::to_string( idx ) ) );
 
   static const std::string par = "kPivot";
@@ -981,7 +1028,7 @@ class MCFLemonSolverNetworkSimplex : public
 /*--------------------------------------------------------------------------*/
 /** Specialized MCFLemonSolverCycleCanceling< GR , V , C > that derives from
  * MCFLemonSolver and contains the specialized compute() method, enums for
- * indexing CycleCanceling specific algorithimc parameters and methods
+ * indexing CycleCanceling specific algorithmic parameters and methods
  * set/get_*_par for manage them.
  *
  * The template parameters are the same as those of MCFLemonSolver, except
@@ -1047,14 +1094,17 @@ class MCFLemonSolverCycleCanceling : public
 
  /// destructor, calls guts_of_destructor()
 
- ~MCFLemonSolverCycleCanceling( void ) override { BaseClass::guts_of_destructor(); }
+ ~MCFLemonSolverCycleCanceling( void ) override {
+  BaseClass::guts_of_destructor();
+  }
 
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 
  void set_par( idx_type par , int value ) override {
   if( par == kMethod ) {
-   if( ( value < 0 ) || ( value > 4 ) )
-    throw( std::invalid_argument( "Error: invalid kMethod " +
+   if( ( value < 0 ) || ( value > 2 ) )
+    throw( std::invalid_argument( "MCFLemonSolverCycleCanceling::"
+				 "set_par: invalid kMethod " +
 				  std::to_string( value ) ) );
    if( value == f_method )
     return; // nothing is changed
@@ -1076,7 +1126,8 @@ class MCFLemonSolverCycleCanceling : public
 
  [[nodiscard]] int get_dflt_int_par( idx_type par ) const override {
   if( par > intLastParLEMON_CC )
-   throw( std::invalid_argument( "Invalid int parameter: out_of_range " +
+   throw( std::invalid_argument( "MCFLemonSolverCycleCanceling::"
+				 "get_dflt_int_par: invalid parameter " +
 				 std::to_string( par ) ) );
   if( par == kMethod )
    return( CycleCanceling< GR , V , C >::Method::CANCEL_AND_TIGHTEN );
@@ -1090,7 +1141,7 @@ class MCFLemonSolverCycleCanceling : public
   if( par == kMethod )
    return( f_method );
 
-  return( get_dflt_int_par( par ) );
+  return( CDASolver::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1108,7 +1159,8 @@ class MCFLemonSolverCycleCanceling : public
  [[nodiscard]] const std::string & int_par_idx2str( idx_type idx )
   const override {
   if( idx > intLastParLEMON_CC )
-   throw( std::invalid_argument( "Invalid int parameter: out_of_range " +
+   throw( std::invalid_argument( "MCFLemonSolverCycleCanceling::"
+				 "int_par_idx2str: invalid parameter " +
 				 std::to_string( idx ) ) );
 
   static const std::string par = "kMethod";
@@ -1235,7 +1287,7 @@ template< typename GR , typename V , typename C >
 /*--------------------------------------------------------------------------*/
 /** Specialized MCFLemonSolverCostScaling< GR , V , C > that derives from
  * MCFLemonSolver and contains the specialized compute() method, enums for
- * indexing CostScaling specific algorithimc parameters and methods
+ * indexing CostScaling specific algorithmic parameters and methods
  * set/get_*_par for manage them.
  *
  * The template parameters are the same as those of MCFLemonSolver, except
@@ -1299,14 +1351,17 @@ class MCFLemonSolverCostScaling : public
   }
 
  /// destructor, calls guts_of_destructor()
- ~MCFLemonSolverCostScaling( void ) override { BaseClass::guts_of_constructor(); }
+ ~MCFLemonSolverCostScaling( void ) override {
+  BaseClass::guts_of_destructor();
+  }
 
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 
  void set_par( idx_type par , int value ) override {
   if( par == kMethod ) {
-   if( ( value < 0 ) || ( value > 4 ) )
-    throw( std::invalid_argument( "Error: invalid kMethod " +
+   if( ( value < 0 ) || ( value > 2 ) )
+    throw( std::invalid_argument( "MCFLemonSolverCostScaling::"
+				 "set_par: invalid kMethod " +
 				  std::to_string( value ) ) );
    if( value == f_method )
     return; // nothing is changed
@@ -1328,7 +1383,8 @@ class MCFLemonSolverCostScaling : public
 
  [[nodiscard]] int get_dflt_int_par( idx_type par ) const override {
   if( par > intLastParLEMON_CS )
-   throw( std::invalid_argument( "Invalid int parameter: out_of_range " +
+   throw( std::invalid_argument( "MCFLemonSolverCostScaling::"
+				 "get_dflt_int_par: invalid parameter " +
 				 std::to_string( par ) ) );
   if( par == kMethod )
    return( SMSppCostScaling< GR , V , C >::Method::PARTIAL_AUGMENT );
@@ -1342,7 +1398,7 @@ class MCFLemonSolverCostScaling : public
   if( par == kMethod )
    return( f_method );
 
-  return( get_dflt_int_par( par ) );
+  return( CDASolver::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1357,7 +1413,8 @@ class MCFLemonSolverCostScaling : public
  [[nodiscard]] const std::string & int_par_idx2str( idx_type idx )
   const override {
   if( idx > intLastParLEMON_CS )
-   throw( std::invalid_argument( "Invalid int parameter: out_of_range " +
+   throw( std::invalid_argument( "MCFLemonSolverCostScaling::"
+				 "int_par_idx2str: invalid parameter " +
 				 std::to_string( idx ) ) );
 
   static const std::string par = "kMethod";

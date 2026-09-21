@@ -90,11 +90,12 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 // register the various MCFLemonSolver*< GR , V , C > to the Solver factory
 // it's all combinations of:
-// - four algorithms ( NetworkSimplex , CycleCanceling , CostScaling , CapacityScaling )
+// - four algorithms ( NetworkSimplex , CycleCanceling , CostScaling ,
+//   CapacityScaling )
 // - two graphs ( SmartDigraph , ListDigraph )
-// - three data tyopes ( int , long , double ) in two places ( costs , flows ),
+// - three data types ( int , long , double ) in two places ( costs , flows ),
 //   i.e., 3^2 = 9 possible data configurations
-// so it is 4 * 2 * 9 = 72 versione
+// so it is 4 * 2 * 9 = 72 versions
 
 #if SMSpp_which_insert_LEMON & 1     // double costs and flows are allowed
 
@@ -144,19 +145,21 @@ template< template < typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
 {
- delete f_algo; // delete previous f_algo (if present)
- f_algo = nullptr;
+ // whatever was built for the previous MCFBlock (if any) goes
+ guts_of_destructor();
 
- // create and clear new Graph (MCFListDigraph or SmartDigraph)
+ n_arcs_added = n_arcs_deleted = 0;
+ cost_changed = cap_changed = supply_changed = false;
+
+ // create the new Graph (MCFListDigraph or SmartDigraph)
  dgp = new GR;
- dgp->clear();
 
  // actually reserve get_MaxNNodes() node space in dgp
  auto maxNNodes = MCFB->get_MaxNNodes();
  dgp->reserveNode( maxNNodes );
  MCFBlock::Index n = MCFB->get_NNodes();
- // add all the nodes, one by one (looks stupid you con't do all in one blow,
- // but who are we to say ...)
+ // add all the nodes, one by one (LEMON has no way of adding them all at
+ // once)
  for( MCFBlock::Index i = 0 ; i < n ; ++i )
   dgp->addNode();
 
@@ -165,7 +168,6 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
  dgp->reserveArc( maxNArcs );
  MCFBlock::Index m = MCFB->get_NArcs();
  n_arcs = m;
- n_arcs_added = 0;
  // get starting node subset and ending node subset
  MCFBlock::c_Subset& sn = MCFB->get_SN();
  MCFBlock::c_Subset& en = MCFB->get_EN();
@@ -179,45 +181,71 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
   else
    dgp->addArc( sn[ i ] - 1 , en[ i ] - 1 );
 
- // new instance of LEMON Algorithm with no arc mixing
+ // defining names for types for readability
+ using MCFArcMapV = typename GR::template ArcMap< V >;
+ using MCFNodeMapV = typename GR::template NodeMap< V >;
+
+ /* Now we are going to fill up ArcMap and NodeMap. The three maps exist
+  * even when the MCFBlock has no data for them, holding what the empty
+  * vector means (+Inf capacities, zero costs and deficits): a Modification
+  * can fill the data in later, and a change of the graph passes all three
+  * to the Algo again. */
+ um = new MCFArcMapV( *dgp , Inf< V >() );  // create the upper map
+ if( ! MCFB->get_U().empty() ) {
+  auto& u = MCFB->get_U();
+  for( MCFBlock::Index i = 0 ; i < m ; ++i )
+   um->set( dgp->arcFromId( i ) , u[ i ] );
+  }
+
+ cm = new MCFArcMapV( *dgp , 0 );  // create the cost map
+ if( ! MCFB->get_C().empty() ) {
+  auto& c = MCFB->get_C();
+  for( MCFBlock::Index i = 0 ; i < m ; ++i )  // a deleted arc costs NaN
+   cm->set( dgp->arcFromId( i ) , std::isnan( c[ i ] ) ? 0 : c[ i ] );
+  }
+
+ bm = new MCFNodeMapV( *dgp , 0 );  // create the supply map
+ if( ! MCFB->get_B().empty() ) {
+  auto& b = MCFB->get_B();
+  for( MCFBlock::Index i = 0 ; i < n ; i++ )
+   bm->set( dgp->nodeFromId( i ) ,
+            b[ i ] == 0 ? 0 : -b[ i ] );  // note that supply = - deficit
+  }
+
+ /* The MCFBlock may come with arcs already closed or deleted: MCFListDigraph
+  * closes and erases them as the Modification would have done, so that they
+  * can be re-opened or re-created later, whereas SmartDigraph, which can do
+  * neither, gives them zero capacity, which is the same for the flow. An
+  * arc is closed by fixing its flow Variable, so there can be closed arcs
+  * only if the Variable have been generated. */
+ const bool hasvars = ( MCFB->get_number_static_variables() > 0 ) ||
+                      ( MCFB->get_number_dynamic_variables() > 0 );
+ for( MCFBlock::Index i = 0 ; i < m ; ++i ) {
+  if( ( ! MCFB->is_deleted( i ) ) && ! ( hasvars && MCFB->is_closed( i ) ) )
+   continue;
+
+  if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
+   if( MCFB->is_deleted( i ) )
+    dgp->erase( dgp->arcFromId( i ) );
+   else
+    dgp->closeArc( i );
+   }
+  else
+   um->set( dgp->arcFromId( i ) , 0 );
+
+  --n_arcs;
+  }
+
+ // new instance of LEMON Algorithm with no arc mixing, on the final graph
  if constexpr( std::is_same< Algo< GR , V , C > ,
 	                     NetworkSimplex< GR , V , C > >::value )
   f_algo = new Algo< GR , V , C >( *dgp , false );
  else
   f_algo = new Algo< GR , V , C >( *dgp );
 
- // defining names for types for readability
- using MCFArcMapV = typename GR::template ArcMap< V >;
- using MCFNodeMapV = typename GR::template NodeMap< V >;
-
- // now we are going to fill up ArcMap and NodeMap
- if( ! MCFB->get_U().empty() ) {  // this is the case of upperMap
-  um = new MCFArcMapV( *dgp );    // create the upper map
-  auto& u = MCFB->get_U();
-  for( MCFBlock::Index i = 0 ; i < m ; ++i )
-   um->set( dgp->arcFromId( i ) , u[ i ] );
-
-  f_algo->upperMap( *um );        // pass it to the Algo
-  }
-
- if( ! MCFB->get_C().empty() ) {  // this is the case of CostMap
-  cm = new MCFArcMapV( *dgp );    // create the cost map
-  auto& c = MCFB->get_C();
-  for( MCFBlock::Index i = 0 ; i < m ; ++i )
-   cm->set( dgp->arcFromId( i ) , c[ i ] );
-
-  f_algo->costMap( *cm );  // pass it to the Algo
-  }
-
- if( ! MCFB->get_B().empty() ) {  // this is the case of supplyMap
-  bm = new MCFNodeMapV( *dgp );   // create the supply map
-  auto& b = MCFB->get_B();
-  for( MCFBlock::Index i = 0 ; i < n ; i++ )
-   bm->set( dgp->nodeFromId( i ) ,
-            b[ i ] == 0 ? 0 : -b[ i ] );  // note that supply = - deficit
-
-  f_algo->supplyMap( *bm );       // pass it to the algo
-  }
+ f_algo->upperMap( *um );   // pass the maps to the Algo
+ f_algo->costMap( *cm );
+ f_algo->supplyMap( *bm );
  }  // end( guts_of_set_Block )
 
 /*--------------------------------------------------------------------------*/
@@ -237,11 +265,12 @@ void MCFLemonSolver< Algo , GR , V , C >::set_Block( Block * block )
  auto MCFB = dynamic_cast< MCFBlock * >( block );
  if( ! MCFB )
   throw( std::invalid_argument(
-                         "MCFSolver:set_Block: block must be a MCFBlock" ) );
+                 "MCFLemonSolver::set_Block: block must be a MCFBlock" ) );
 
  bool owned = MCFB->is_owned_by( f_id );
  if( ( ! owned ) && ( ! MCFB->read_lock() ) )
-  throw( std::logic_error( "cannot acquire read_lock on MCFBlock" ) );
+  throw( std::logic_error( "MCFLemonSolver::set_Block: cannot acquire "
+			   "read_lock on MCFBlock" ) );
 
  guts_of_set_Block( MCFB );  // fill up the graph and f_algo
 
@@ -265,28 +294,31 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 
  lock(); // first of all, acquire self-lock
 
- if( ! f_Block ) // there is no [MCFBlock] to solve
+ if( ! f_Block ) { // there is no [MCFBlock] to solve
+  unlock();
   return( kBlockLocked ); // return error
+  }
 
  bool owned = f_Block->is_owned_by( f_id ); // check if already locked
- if( ( ! owned ) && ( ! f_Block->read_lock() ) ) // if not, try to read_lock
+ if( ( ! owned ) && ( ! f_Block->read_lock() ) ) { // if not, try to read_lock
+  unlock();
   return( kBlockLocked ); // return error on failure
+  }
 
  // while [read_]locked, process any outstanding Modification
  process_outstanding_Modification();
 
  if( ! f_dmx_file.empty() ) {  // if so required
-  // output the current instance (after the changes) to a DMX file
-  if constexpr( std::is_same< GR , SmartDigraph >::value ) {
-   std::ofstream ProbFile( f_dmx_file , ios_base::out | ios_base::trunc );
-   if( ! ProbFile.is_open() )
-    throw( std::logic_error( "cannot open DMX file " + f_dmx_file ) );
-   writeDimacsMat( ProbFile , *dgp );
-   ProbFile.close();
-   }
-  else
-   throw( std::logic_error( "saving to DMX file not supported on ListDigraph"
-			    ) );
+  // output the current instance (after the changes) to a DMX file: the
+  // MCFBlock writes it, in the complete DIMACS format and with the closed
+  // and the deleted arcs where they are, i.e., the data the graph has
+  std::ofstream ProbFile( f_dmx_file ,
+                          std::ios_base::out | std::ios_base::trunc );
+  if( ! ProbFile.is_open() )
+   throw( std::logic_error( "MCFLemonSolver::compute: cannot open DMX file "
+			    + f_dmx_file ) );
+  f_Block->print( ProbFile , 'C' );
+  ProbFile.close();
   }
 
  if( ! owned ) // if the [MCF]Block was actually read_locked
@@ -316,24 +348,59 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   cap_changed = false;
   }
 
- if( supply_changed ) {
-  f_algo->supplyMap( *bm );
-  supply_changed = false;
+ /* The LEMON algorithms decide on the sum of the supplies taken exactly: a
+  * positive sum, even by one ulp, makes the problem infeasible, and a
+  * negative one is read as demands that may be left unmet, i.e., another
+  * problem. The deficits of a MCFBlock sum to zero only up to the rounding
+  * of the values they are computed from, so a residual within the rounding
+  * is moved, for this run only, onto the node whose supply is largest in
+  * absolute value, while a larger one makes the problem infeasible, as it is
+  * for the MCFBlock. Since the moved residual is itself rounded, the supply
+  * of that node is then lowered until the sum, taken in the order of the
+  * nodes of the graph as LEMON takes it, is not positive. */
+ auto sum_of = [ this ]() {
+  V s = 0;
+  for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+   s += (*bm)[ nd ];
+  return( s );
+  };
+
+ const V sum = sum_of();
+ V size = 0;
+ typename GR::Node big = INVALID;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
+  size += std::abs( (*bm)[ nd ] );
+  if( ( big == INVALID ) ||
+      ( std::abs( (*bm)[ nd ] ) > std::abs( (*bm)[ big ] ) ) )
+   big = nd;
   }
 
- // using LEMON Digraph Writer for debuggging
- // std::ofstream ProbFile("lmn.txt", ios_base::out | ios_base::trunc);
- // if (!ProbFile.is_open()) {
- //     throw(std::logic_error("cannot open file lmn.txt"));
- // }
- // DigraphWriter<GR>(*dgp, ProbFile).nodeMap("supply", *bm).arcMap("cost",
- // *cm).arcMap("upper", *um).run(); ProbFile.close();
+ const bool balanced = std::abs( sum ) <= 1e-9 * std::max( V( 1 ) , size );
 
- auto start = chrono::system_clock::now();
- guts_of_compute(); // here the actual magic is done by specialised classes
- auto end = chrono::system_clock::now();
+ if( balanced && ( sum != 0 ) ) {
+  const V supply = (*bm)[ big ];
+  bm->set( big , supply - sum );
+  if constexpr( std::is_floating_point< V >::value )
+   while( sum_of() > 0 )
+    bm->set( big , std::nextafter( (*bm)[ big ] , -Inf< V >() ) );
+  f_algo->supplyMap( *bm );
+  bm->set( big , supply );
+  supply_changed = true;  // the next run passes the map as it is again
+  }
+ else
+  if( supply_changed ) {
+   f_algo->supplyMap( *bm );
+   supply_changed = false;
+   }
 
- chrono::duration< double > elapsed = end - start;
+ auto start = std::chrono::system_clock::now();
+ if( balanced )
+  guts_of_compute(); // here the actual magic is done by specialised classes
+ else
+  status = ThisAlgo::INFEASIBLE;
+ auto end = std::chrono::system_clock::now();
+
+ std::chrono::duration< double > elapsed = end - start;
  ticks = elapsed.count();
 
  unlock(); // release self-lock
@@ -407,7 +474,7 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
  /* Note: in the following, we can assume that C, B and U are nonempty. This
   * is because they can be empty only if they are so when the object is
   * loaded. But if a Modification has been issued, they are no longer empty (a
-  * Modification changin nothing from the "empty" state is not issued). */
+  * Modification changing nothing from the "empty" state is not issued). */
 
  if( auto tmod = dynamic_cast< const MCFBlockRngdMod* >( mod ) ) {
   auto rng = tmod->rng();
@@ -457,8 +524,8 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
        }
      }
     else
-     throw( std::logic_error(
-                      "SmartDigraph doesn't support operations on arc" ) );
+     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
+			      "does not support operations on arcs" ) );
     return;
     }
 
@@ -475,8 +542,8 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
        }
      }
     else
-     throw( std::logic_error(
-                      "SmartDigraph doesn't support operations on arc" ) );
+     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
+			      "does not support operations on arcs" ) );
     return;
     }
 
@@ -489,7 +556,12 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
      auto endNode = MCFB->get_EN( rng.first ) - 1;
      auto capacity = MCFB->get_U( rng.first );
 
-     dgp->addArc( startNode , endNode );
+     // the graph must give the new arc the name the MCFBlock gave it
+     if( MCFBlock::Index( dgp->id( dgp->addArc( startNode , endNode ) ) )
+	 != rng.first )
+      throw( std::logic_error( "MCFLemonSolver::guts_of_poM: new arc " +
+			       std::to_string( rng.first ) +
+			       " has a different name in the graph" ) );
      auto arc = dgp->arcFromId( rng.first );
 
      n_arcs_added++;
@@ -500,8 +572,8 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
      cap_changed = true;
      }
     else
-     throw( std::logic_error(
-                    "SmartDigraph doesn't support operations on arc" ) );
+     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
+			      "does not support operations on arcs" ) );
     return;
     }
 
@@ -525,13 +597,14 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
      n_arcs_deleted++;
      }
     else
-     throw( std::logic_error(
-		    "SmartDigraph doesn't support operations on arc" ) );
+     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
+			      "does not support operations on arcs" ) );
     return;
     }
 
    default :
-    throw( std::invalid_argument( "unknown MCFBlockRngdMod type" ) );
+    throw( std::invalid_argument(
+		  "MCFLemonSolver::guts_of_poM: unknown MCFBlockRngdMod type" ) );
 
    }  // end( case )
   }  // end( MCFBlockRngdMod )
@@ -559,7 +632,8 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
     auto & CC = MCFB->get_C();
     auto & U = MCFB->get_U();
     for( auto i : tmod->nms() )
-     if( ! std::isnan( CC[ i ] ) && dgp->valid( dgp->arcFromId( i ) ) )
+     if( ( CC.empty() || ! std::isnan( CC[ i ] ) ) &&
+	 dgp->valid( dgp->arcFromId( i ) ) )
       um->set( dgp->arcFromId( i ) , U[ i ] );
 
     return;
@@ -588,8 +662,8 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
        }
      }
     else
-     throw( std::logic_error(
-		      "SmartDigraph doesn't support operations on arc" ) );
+     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
+			      "does not support operations on arcs" ) );
     return;
     }
 
@@ -607,13 +681,14 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
        }
      }
     else
-     throw( std::logic_error(
-		     "SmartDigraph doesn't support operations on arc" ) );
+     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
+			      "does not support operations on arcs" ) );
     return;
     }
 
    default :
-    throw( std::invalid_argument( "unknown MCFBlockSbstMod type" ) );
+    throw( std::invalid_argument(
+		  "MCFLemonSolver::guts_of_poM: unknown MCFBlockSbstMod type" ) );
 
    }  // end( case )
   }  // end( MCFBlockSbstMod )
