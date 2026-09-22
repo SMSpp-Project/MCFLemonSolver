@@ -30,10 +30,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- CostScaling could read out of its own vectors, and CycleCanceling end away
-  from the optimum, on fractional costs: both are given the costs scaled by a
-  power of 2 and rounded, which are integer, CostScaling with an integer large
-  cost type, and the value and the potentials are those of the true costs
+- CostScaling, CycleCanceling and CapacityScaling could report as infeasible,
+  or not terminate on, fractional capacities or supplies: these are given to
+  them scaled by a power of 2 and rounded, which are integer, and the flows
+  are brought back to the true scale, each capacity being given as at most a
+  bound that no optimal flow of least total flow exceeds, so that a large
+  capacity no optimal flow uses does not set the rounding of the other data.
+  CostScaling runs by default the `AUGMENT` method on scaled flows and the
+  `PARTIAL_AUGMENT` method, which is much slower on them, on the others,
+  through the new value 3 of `kMethod`
+
+- CostScaling, CycleCanceling and CapacityScaling answered "unbounded" on a
+  negative cost of infinite capacity even when the optimum is finite: the
+  infinite capacity is given to them as a finite bound that no optimal flow
+  reaches, and a flow that reaches it makes the problem unbounded
+
+- CostScaling could read out of its own vectors, CycleCanceling end away from
+  the optimum, and CapacityScaling report as infeasible a problem that is not,
+  on fractional costs: the three of them are given the costs scaled by a power
+  of 2 and rounded, which are integer, CostScaling with an integer large cost
+  type, and the value and the potentials are those of the true costs
 
 - the network simplex of LEMON could pivot for ever on fractional costs, a
   reduced cost that is zero being computed a few ulp below it, and could report

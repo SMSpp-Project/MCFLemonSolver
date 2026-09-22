@@ -79,10 +79,17 @@ headers need a few portability fixes, and a numerical one:
   tolerance relative to the largest cost and the largest supply, which is zero
   for integer types, so that on integer data the algorithm is unchanged.
 
-CostScaling and CycleCanceling are exact only on integer costs too, and for
-them no header is rewritten: `MCFLemonSolver` gives them the costs scaled by a
-power of 2 and rounded, which are integer, with an integer large cost type for
-CostScaling, and gives back the value and the potentials of the true costs.
+CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
+too, and for them no header is rewritten: `MCFLemonSolver` gives them the
+costs scaled by a power of 2 and rounded, which are integer, with an integer
+large cost type for CostScaling, and gives back the value and the potentials
+of the true costs.
+In the same way CostScaling, CycleCanceling and CapacityScaling, which are
+exact only on integer capacities and supplies, are given fractional ones
+scaled and rounded, and an infinite capacity as a finite bound that no optimal
+flow reaches, since the three of them saturate the arcs of negative cost. By
+default CostScaling runs its `AUGMENT` method on scaled flows, on which its
+`PARTIAL_AUGMENT` method is much slower, and the latter on the others.
 
 Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
 package provided by your platform (see *Requirements* below) and applies a

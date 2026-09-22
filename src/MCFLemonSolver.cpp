@@ -248,6 +248,10 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
  f_algo->upperMap( *um );   // pass the maps to the Algo
  pass_costs();
  f_algo->supplyMap( *bm );
+
+ // the scaled capacities and supplies are passed by compute()
+ if constexpr( f_scaled_flows )
+  cap_changed = supply_changed = true;
  }  // end( guts_of_set_Block )
 
 /*--------------------------------------------------------------------------*/
@@ -256,21 +260,25 @@ template< template < typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
 {
- /* CostScaling and CycleCanceling are exact only on integer costs: on
-  * fractional ones the former may read out of its own vectors and the
-  * latter end away from the optimum. They are therefore given the costs
+ /* CostScaling, CycleCanceling and CapacityScaling are exact only on
+  * integer costs: on fractional ones the first may read out of its own
+  * vectors, the second end away from the optimum and the third report as
+  * infeasible a problem that is not. They are therefore given the costs
   * scaled by a power of 2 and rounded, which are integer in C as long as
   * they stay below 2^52. CostScaling multiplies them by ( n + 1 ) * 16, its
   * default factor, in an integer large cost type [see SMSppCostScaling],
   * and its potentials grow up to about n times that, hence the scale also
   * keeps max |c| * 16 * n^2 below 2^62; CycleCanceling sums them along
-  * cycles of at most n arcs, hence the scale keeps max |c| * 16 * n below
-  * 2^52. The value and the potentials are brought back to the true costs
-  * [see get_ub()]. */
+  * cycles, and CapacityScaling along the shortest paths of its potentials,
+  * of at most n arcs, hence the scale keeps max |c| * 16 * n below 2^52.
+  * The value and the potentials are brought back to the true costs [see
+  * get_ub()]. */
  constexpr bool scaled = std::is_floating_point< C >::value &&
   ( std::is_same< Algo< GR , V , C > , SMSppCostScaling< GR , V , C > >::value
     || std::is_same< Algo< GR , V , C > ,
-                     CycleCanceling< GR , V , C > >::value );
+                     CycleCanceling< GR , V , C > >::value
+    || std::is_same< Algo< GR , V , C > ,
+                     SMSppCapacityScaling< GR , V , C > >::value );
 
  if constexpr( ! scaled )
   f_algo->costMap( *cm );
@@ -296,6 +304,95 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
   f_algo->costMap( *icm );
   }
  }  // end( pass_costs )
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename > class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::pass_flows( typename GR::Node big )
+{
+ /* CostScaling, CycleCanceling and CapacityScaling are exact only on integer
+  * capacities and supplies: on fractional ones the residual capacities and
+  * the excesses are left with a few ulp that keep arcs and nodes active, and
+  * they may report infeasibility or not terminate. They are therefore given
+  * the capacities and the supplies scaled by a power of 2 and rounded, which
+  * are integer in V as long as the sum of n of them stays below 2^52, the
+  * excess of a node being at most the sum of the supplies. The rounded
+  * supplies are then made to sum to zero exactly, in integer arithmetic, on
+  * the node whose supply is largest in absolute value, the problem having
+  * already been found balanced up to rounding. The flows are brought back to
+  * the true scale [see get_ub()]. Integer capacities and supplies whose sum
+  * of n stays below 2^52 are given as they are, with scale 1: a large scale
+  * makes the default method of CostScaling slow [see
+  * MCFLemonSolverCostScaling].
+  *
+  * The three algorithms also saturate every arc of negative cost, and answer
+  * "unbounded" when its capacity is infinite, even if the problem has a
+  * finite optimum. Every capacity is therefore given as at most a bound that
+  * the flow of no arc exceeds in an optimal flow of least total flow, which
+  * only has cycles of negative cost, each of them through an arc of negative
+  * cost and one of finite capacity: the sum of the positive supplies, plus
+  * that of the finite capacities of the arcs of negative cost, or of all the
+  * finite capacities if an arc of negative cost has an infinite one, plus
+  * one. If the flow of an arc of infinite capacity reaches it the problem is
+  * unbounded [see compute()], and otherwise the optimum is that of the true
+  * capacities. The bound also keeps a large capacity that no optimal flow
+  * uses from setting the scale, and with it the rounding of the other data;
+  * it depends on the signs of the costs, hence it is computed anew when they
+  * change. */
+ V supply = 0;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+  if( (*bm)[ nd ] > 0 )
+   supply += (*bm)[ nd ];
+
+ V negative = 0;
+ V finite = 0;
+ bool inf_negative = false;
+ for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+  if( (*um)[ a ] < Inf< V >() ) {
+   finite += (*um)[ a ];
+   if( (*cm)[ a ] < 0 )
+    negative += (*um)[ a ];
+   }
+  else
+   if( (*cm)[ a ] < 0 )
+    inf_negative = true;
+
+ const V bound = supply + 1 + ( inf_negative ? finite : negative );
+
+ const double n = countNodes( *dgp ) + 1;
+ bool integer = double( bound ) * n <= std::exp2( 52 );
+ for( typename GR::ArcIt a( *dgp ) ; integer && ( a != INVALID ) ; ++a )
+  if( ( (*um)[ a ] < bound ) && ( (*um)[ a ] != std::floor( (*um)[ a ] ) ) )
+   integer = false;
+ for( typename GR::NodeIt nd( *dgp ) ; integer && ( nd != INVALID ) ; ++nd )
+  if( (*bm)[ nd ] != std::floor( (*bm)[ nd ] ) )
+   integer = false;
+
+ f_flow_scale = integer ? 1 :
+  std::exp2( std::floor( std::log2( std::exp2( 52 ) /
+				    ( double( bound ) * n ) ) ) );
+ if( ! ium )
+  ium = new typename GR::template ArcMap< V >( *dgp , 0 );
+ if( ! ibm )
+  ibm = new typename GR::template NodeMap< V >( *dgp , 0 );
+
+ f_inf_cap = std::ceil( bound * f_flow_scale );
+ for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+  ium->set( a , (*um)[ a ] < bound ?
+	        V( std::round( (*um)[ a ] * f_flow_scale ) ) : f_inf_cap );
+
+ V sum = 0;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
+  const V b = std::round( (*bm)[ nd ] * f_flow_scale );
+  ibm->set( nd , b );
+  sum += b;
+  }
+ ibm->set( big , (*ibm)[ big ] - sum );
+
+ f_algo->upperMap( *ium );
+ f_algo->supplyMap( *ibm );
+ }  // end( pass_flows )
 
 /*--------------------------------------------------------------------------*/
 
@@ -390,9 +487,13 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  if( cost_changed ) {
   pass_costs();
   cost_changed = false;
+  // the bound of the capacities depends on the signs of the costs [see
+  // pass_flows()]
+  if constexpr( f_scaled_flows )
+   cap_changed = true;
   }
 
- if( cap_changed ) {
+ if( ( ! f_scaled_flows ) && cap_changed ) {
   f_algo->upperMap( *um );
   cap_changed = false;
   }
@@ -426,7 +527,15 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
 
  const bool balanced = std::abs( sum ) <= 1e-9 * std::max( V( 1 ) , size );
 
- if( balanced && ( sum != 0 ) ) {
+ if constexpr( f_scaled_flows ) {
+  // the capacities and the supplies go scaled and rounded, and the latter
+  // sum to zero exactly [see pass_flows()]
+  if( balanced && ( cap_changed || supply_changed ) ) {
+   pass_flows( big );
+   cap_changed = supply_changed = false;
+   }
+  }
+ else if( balanced && ( sum != 0 ) ) {
   const V supply = (*bm)[ big ];
   bm->set( big , supply - sum );
   if constexpr( std::is_floating_point< V >::value )
@@ -447,6 +556,38 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   guts_of_compute(); // here the actual magic is done by specialised classes
  else
   status = ThisAlgo::INFEASIBLE;
+
+ // an infinite capacity was given as a finite bound [see pass_flows()]: an
+ // arc whose flow reaches it makes the problem unbounded
+ if constexpr( f_scaled_flows )
+  if( status == ThisAlgo::OPTIMAL )
+   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+    if( ( (*um)[ a ] == Inf< V >() ) && ( f_algo->flow( a ) >= f_inf_cap ) ) {
+     status = ThisAlgo::UNBOUNDED;
+     break;
+     }
+
+ /* The rounding of scaled capacities and supplies perturbs them by up to
+  * half the inverse of the scale, which is tiny with respect to the supplies
+  * unless the bound of the capacities is many orders of magnitude larger
+  * than them [see pass_flows()]: then the flow is not one of the true data,
+  * and rather than giving it out the run ends in error. */
+ if constexpr( f_scaled_flows )
+  if( ( status == ThisAlgo::OPTIMAL ) && ( f_flow_scale != 1 ) ) {
+   const V tol = 1e-9 * std::max( V( 1 ) , size );
+   MCFNodeMapV excess( *dgp , 0 );
+   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+    const V x = f_algo->flow( a ) / f_flow_scale;
+    if( x > (*um)[ a ] + tol )
+     status = ProblemType( kErrorStatus );
+    excess.set( dgp->source( a ) , excess[ dgp->source( a ) ] - x );
+    excess.set( dgp->target( a ) , excess[ dgp->target( a ) ] + x );
+    }
+   for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+    if( std::abs( excess[ nd ] + (*bm)[ nd ] ) > tol )
+     status = ProblemType( kErrorStatus );
+   }
+
  auto end = std::chrono::system_clock::now();
 
  std::chrono::duration< double > elapsed = end - start;
@@ -455,6 +596,8 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  unlock(); // release self-lock
 
  // now give out the result
+ if( this->get_status() == kErrorStatus )
+  return( Solver::kError );
  return( LEMONstatus_2_sol_type[ this->get_status() ] );
 
  }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )

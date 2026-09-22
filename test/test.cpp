@@ -14,10 +14,12 @@
  * Besides, the cases that do not come up when an instance is simply solved
  * are checked on their own: a Solver destroyed without ever having been
  * attached to a MCFBlock, a MCFBlock that has no capacities and no costs to
- * begin with and is given them by a Modification, fractional costs, deficits
- * that sum to zero only up to rounding and deficits that do not, the
- * parameters looked up by their name, the invalid values of the parameters
- * of the algorithms, and the DMX file of the instance.
+ * begin with and is given them by a Modification, fractional costs and
+ * flows, negative costs on arcs of infinite capacity, a capacity many orders
+ * of magnitude larger than the other data, each method of CostScaling,
+ * deficits that sum to zero only up to rounding and deficits that do not,
+ * the parameters looked up by their name, the invalid values of the
+ * parameters of the algorithms, and the DMX file of the instance.
  *
  * The exit code is the number of failed checks.
  *
@@ -79,7 +81,8 @@ static std::string name( const std::string & algo , const std::string & gr )
  }
 
 /*--------------------------------------------------------------------------*/
-/// checks the value a Solver gives against the known one, +Inf = infeasible
+/// checks the value a Solver gives against the known one, +Inf = infeasible,
+/// -Inf = unbounded
 
 static void check_value( Solver * slv , double expected ,
 			 const std::string & what )
@@ -90,6 +93,12 @@ static void check_value( Solver * slv , double expected ,
  if( expected == Inf< double >() ) {
   check( status == Solver::kInfeasible , who + ": infeasible expected" );
   check( slv->get_ub() == Inf< double >() , who + ": ub is not +Inf" );
+  return;
+  }
+
+ if( expected == -Inf< double >() ) {
+  check( status == Solver::kUnbounded , who + ": unbounded expected" );
+  check( slv->get_ub() == -Inf< double >() , who + ": ub is not -Inf" );
   return;
   }
 
@@ -133,11 +142,11 @@ static void check_all( MCFBlock & mcf , double expected ,
 
 static void load( MCFBlock & mcf , bool withdata ,
 		  const MCFBlock::Vec_FNumber & b = { -4 , 0 , 0 , 4 } ,
-		  const MCFBlock::Vec_CNumber & c = { 1 , 4 , 1 , 5 , 1 } )
+		  const MCFBlock::Vec_CNumber & c = { 1 , 4 , 1 , 5 , 1 } ,
+		  const MCFBlock::Vec_FNumber & u = { 3 , 5 , 2 , 3 , 5 } )
 {
  const MCFBlock::Subset sn = { 1 , 1 , 2 , 2 , 3 };
  const MCFBlock::Subset en = { 2 , 3 , 3 , 4 , 4 };
- const MCFBlock::Vec_FNumber u = { 3 , 5 , 2 , 3 , 5 };
 
  if( withdata )
   mcf.load( 4 , 5 , en , sn , u , c , b , 0 , 0 , 0 , 2 );
@@ -216,18 +225,15 @@ static void test_empty_data( void )
  * 3.7, -0.1, -0.3, -3.3 sum to 3.6e-16 in any order, which LEMON alone
  * reads as infeasible. The optimum sends 0.1 to node 2 along 1-2, 0.3 to
  * node 3 along 1-2-3, and to node 4 1.7 along 1-2-3-4 and 1.6 along 1-3-4,
- * i.e., 0.1 + 0.6 + 5.1 + 8 = 13.8. CapacityScaling is left out, since it
- * requires integer capacities and supplies and on these it gives a wrong
- * value. Deficits that really do not sum to zero make the problem
- * infeasible, which LEMON alone does not say when the demand exceeds the
- * supply: it leaves part of the demand unmet. */
+ * i.e., 0.1 + 0.6 + 5.1 + 8 = 13.8. Deficits that really do not sum to zero
+ * make the problem infeasible, which LEMON alone does not say when the
+ * demand exceeds the supply: it leaves part of the demand unmet. */
 
 static void test_balance( void )
 {
  MCFBlock mcf;
  load( mcf , true , { -3.7 , 0.1 , 0.3 , 3.3 } );
- check_all( mcf , 13.8 , "deficits summing to zero up to rounding" ,
-	    { "NetworkSimplex" , "CycleCanceling" , "CostScaling" } );
+ check_all( mcf , 13.8 , "deficits summing to zero up to rounding" );
 
  MCFBlock mcf2;
  load( mcf2 , true , { -4 , 0 , 0 , 4.1 } );
@@ -250,6 +256,107 @@ static void test_fractional_costs( void )
 
  mcf.chg_cost( 1.0 , 2 );  // 2 -> 3 now costs 1: 4 units along 1-3-4
  check_all( mcf , 2 , "fractional costs changed" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* 8 units from node 1 to node 3 on three arcs of fractional costs (costs,
+ * capacities):
+ *
+ *   0: 1 -> 2  (37.41, 3)    1: 2 -> 3  (22.43, 6)    2: 1 -> 3  (92.89, 10)
+ *
+ * The optimum sends 3 units along 1-2-3 and 5 along 1-3, i.e., 643.97.
+ * CapacityScaling, run on these costs as they are, answers "infeasible". */
+
+static void test_fractional_costs_paths( void )
+{
+ MCFBlock mcf;
+ const MCFBlock::Subset sn = { 1 , 2 , 1 };
+ const MCFBlock::Subset en = { 2 , 3 , 3 };
+ const MCFBlock::Vec_CNumber c = { 37.41 , 22.43 , 92.89 };
+ const MCFBlock::Vec_FNumber u = { 3 , 6 , 10 };
+ const MCFBlock::Vec_FNumber d = { -8 , 0 , 8 };
+ mcf.load( 3 , 3 , en , sn , u , c , d );
+ check_all( mcf , 643.97 , "fractional costs along paths" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* The capacities and the deficits of the instance divided by 10, i.e.,
+ * fractional and not exact in binary: the optimum is the same flow divided
+ * by 10, and its value 1.6. LEMON is exact only on integer capacities and
+ * supplies, which is why MCFLemonSolver gives CostScaling, CycleCanceling and
+ * CapacityScaling the flows scaled and rounded; every algorithm has to give
+ * the value of the true flows. */
+
+static void test_fractional_flows( void )
+{
+ MCFBlock mcf;
+ load( mcf , true , { -0.4 , 0 , 0 , 0.4 } , { 1 , 4 , 1 , 5 , 1 } ,
+       { 0.3 , 0.5 , 0.2 , 0.3 , 0.5 } );
+ check_all( mcf , 1.6 , "fractional flows" );
+
+ // 2 -> 4, which no optimal flow uses, gets a capacity many orders of
+ // magnitude larger than the others, which must not set the rounding of
+ // the others
+ mcf.chg_ucap( 1e12 , 3 );
+ check_all( mcf , 1.6 , "fractional flows, a large unused capacity" );
+
+ // 2 -> 3 carries 0.05: 0.05 along 1-2-3-4 and 0.35 along 1-3-4
+ mcf.chg_ucap( 0.05 , 2 );
+ check_all( mcf , 1.9 , "fractional flows, capacity changed" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* The fractional flows of test_fractional_flows(), with the arc of negative
+ * cost 3 -> 2 and a capacity of 1e15 on it: its capacity then bounds the
+ * flow of the optimal ones, and scaled so that it is integer the supplies
+ * are rounded to multiples of 2, i.e., a flow of the scaled data is not one
+ * of the true data. CostScaling, CycleCanceling and CapacityScaling have to
+ * end in error rather than give it out, the network simplex, which is given
+ * the data as they are, has to solve it. */
+
+static void test_scale_out_of_range( void )
+{
+ MCFBlock mcf;
+ load( mcf , true , { -0.4 , 0 , 0 , 0.4 } , { 1 , 4 , 1 , 5 , 1 } ,
+       { 0.3 , 0.5 , 0.2 , 0.3 , 0.5 } );
+ check( mcf.add_arc( 3 , 2 , -0.5 , 1e15 ) == 5 , "name of the large arc" );
+
+ for( const auto & algo : ALGOS ) {
+  auto slv = Solver::new_Solver( name( algo , "MCFListDigraph" ) );
+  mcf.register_Solver( slv );
+  if( algo == "NetworkSimplex" )
+   check_value( slv , 1.6 , "scale out of range" );
+  else {
+   const int status = slv->compute();
+   check( status == Solver::kError , "scale out of range, " +
+	  slv->classname() + ": status " + std::to_string( status ) );
+   check( ! slv->has_var_solution() , "scale out of range, " +
+	  slv->classname() + ": a solution is given" );
+   }
+  mcf.unregister_Solver( slv , true );
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+/* No capacities at all, and an arc of negative cost: 3 -> 2 at -0.5 makes
+ * with 2 -> 3 a cycle of positive cost, so that the optimum is finite and
+ * the one without it, 4 units along 1-2-3-4, i.e., 12. CostScaling,
+ * CycleCanceling and CapacityScaling saturate an arc of negative cost and
+ * answer "unbounded" when its capacity is infinite, which is why
+ * MCFLemonSolver gives them a finite bound in its place. At -2 the cycle is
+ * of negative cost and infinite capacity, and the problem is unbounded. */
+
+static void test_negative_costs( void )
+{
+ MCFBlock mcf;
+ load( mcf , false );
+ const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
+ mcf.chg_costs( c.begin() );
+ check( mcf.add_arc( 3 , 2 , -0.5 ) == 5 , "name of the negative arc" );
+ check_all( mcf , 12 , "negative cost, finite optimum" );
+
+ mcf.chg_cost( -2 , 5 );
+ check_all( mcf , -Inf< double >() , "negative cycle of infinite capacity" );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -282,16 +389,57 @@ static void test_parameters( void )
   check( slv->dbl_par_idx2str( d ) == "dblMaxTime" ,
 	 who + ": dblMaxTime by name" );
 
-  // the algorithms with a method have three of them, not five
+  // CycleCanceling has three methods, CostScaling three plus the automatic
+  // choice, which is its default
   if( algo == "CycleCanceling" || algo == "CostScaling" ) {
    const auto k = slv->int_par_str2idx( "kMethod" );
-   bool thrown = false;
-   try { slv->set_par( k , 3 ); }
-   catch( std::invalid_argument & ) { thrown = true; }
-   check( thrown , who + ": kMethod 3 accepted" );
+   const int last = algo == "CostScaling" ? 3 : 2;
+   if( algo == "CostScaling" )
+    check( slv->get_dflt_int_par( k ) == 3 , who + ": kMethod default" );
+   for( int m : { -1 , last + 1 } ) {
+    bool thrown = false;
+    try { slv->set_par( k , m ); }
+    catch( std::invalid_argument & ) { thrown = true; }
+    check( thrown , who + ": kMethod " + std::to_string( m ) + " accepted" );
+    }
+   slv->set_par( k , last );
+   check( slv->get_int_par( k ) == last , who + ": kMethod not set" );
    }
 
   delete slv;
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+/* Each method of CostScaling, and the automatic choice among them, on the
+ * integer instance, whose flows are given as they are, on the fractional
+ * flows, which are scaled, and on the negative costs of infinite
+ * capacity. */
+
+static void test_cost_scaling_methods( void )
+{
+ MCFBlock mcf;
+ load( mcf , true );
+ MCFBlock frac;
+ load( frac , true , { -0.4 , 0 , 0 , 0.4 } , { 1 , 4 , 1 , 5 , 1 } ,
+       { 0.3 , 0.5 , 0.2 , 0.3 , 0.5 } );
+ MCFBlock neg;
+ load( neg , false );
+ const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
+ neg.chg_costs( c.begin() );
+ neg.add_arc( 3 , 2 , -0.5 );
+
+ for( int m = 0 ; m <= 3 ; ++m ) {
+  const auto what = "CostScaling kMethod " + std::to_string( m );
+  for( auto [ blk , value ] : { std::pair( &mcf , 16.0 ) ,
+				std::pair( &frac , 1.6 ) ,
+				std::pair( &neg , 12.0 ) } ) {
+   auto slv = Solver::new_Solver( name( "CostScaling" , "MCFListDigraph" ) );
+   slv->set_par( slv->int_par_str2idx( "kMethod" ) , m );
+   blk->register_Solver( slv );
+   check_value( slv , value , what );
+   blk->unregister_Solver( slv , true );
+   }
   }
  }
 
@@ -339,6 +487,11 @@ int main( void )
  test_empty_data();
  test_balance();
  test_fractional_costs();
+ test_fractional_costs_paths();
+ test_fractional_flows();
+ test_negative_costs();
+ test_scale_out_of_range();
+ test_cost_scaling_methods();
  test_dmx();
 
  if( failures )

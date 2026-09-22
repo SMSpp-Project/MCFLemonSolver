@@ -529,12 +529,13 @@ class MCFLemonSolver : public CDASolver
  OFValue get_ub( void ) override {
   switch( this->get_status() ) {
    case( ThisAlgo::ProblemType::OPTIMAL ) :
-    if( f_cost_scale != 1 ) {
-     // the Algo saw the costs scaled and rounded [see pass_costs()]: the
-     // value is taken with the true ones
+    if( ( f_cost_scale != 1 ) || ( f_flow_scale != 1 ) ) {
+     // the Algo saw the costs, or the flows, scaled and rounded [see
+     // pass_costs() and pass_flows()]: the value is taken with the true
+     // costs and flows
      OFValue v = 0;
      for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
-      v += OFValue( f_algo->flow( a ) ) * (*cm)[ a ];
+      v += OFValue( f_algo->flow( a ) / f_flow_scale ) * (*cm)[ a ];
      return( v );
      }
     return( OFValue( f_algo->totalCost() ) );
@@ -577,7 +578,7 @@ class MCFLemonSolver : public CDASolver
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
    auto i = Index( dgp->id( a ) );
    if( i < MCFB->get_NArcs() )
-    MCFB->set_x( i , f_algo->flow( a ) );
+    MCFB->set_x( i , f_algo->flow( a ) / f_flow_scale );
    }
   }
 
@@ -632,7 +633,7 @@ class MCFLemonSolver : public CDASolver
     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
      auto i = Index( dgp->id( a ) );
      if( i < X.size() )
-      X[ i ] = f_algo->flow( a );
+      X[ i ] = f_algo->flow( a ) / f_flow_scale;
      }
     sol->set_x( std::move( X ) );
     }
@@ -809,6 +810,11 @@ class MCFLemonSolver : public CDASolver
   delete icm;
   icm = nullptr;
   f_cost_scale = 1;
+  delete ium;
+  ium = nullptr;
+  delete ibm;
+  ibm = nullptr;
+  f_flow_scale = 1;
   delete bm;
   bm = nullptr;
   delete dgp;
@@ -824,6 +830,13 @@ class MCFLemonSolver : public CDASolver
  void guts_of_set_Block( MCFBlock* MCFB );
 
  void pass_costs( void );
+
+ void pass_flows( typename GR::Node big );
+
+ /// true if the Algo is given the capacities and supplies scaled
+ [[nodiscard]] bool flows_scaled( void ) const {
+  return( f_flow_scale != 1 );
+  }
 
  /*--------------------------------------------------------------------------*/
 
@@ -871,6 +884,23 @@ class MCFLemonSolver : public CDASolver
   ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
   double f_cost_scale = 1;
   ///< the scale of icm, 1 when the Algo is given the costs as they are
+
+  MCFArcMapV * ium = nullptr;
+  ///< the capacities scaled by f_flow_scale and rounded [see pass_flows()]
+  MCFNodeMapV * ibm = nullptr;
+  ///< the supplies scaled by f_flow_scale and rounded [see pass_flows()]
+  double f_flow_scale = 1;
+  ///< the scale of ium and ibm, 1 when the Algo is given the flows as they are
+  V f_inf_cap = 0;
+  ///< the scaled bound given for an infinite capacity [see pass_flows()]
+
+  /// true if the Algo is given the capacities and supplies scaled and rounded
+  static constexpr bool f_scaled_flows = std::is_floating_point< V >::value &&
+   ( std::is_same< Algo< GR , V , C > , SMSppCostScaling< GR , V , C > >::value
+     || std::is_same< Algo< GR , V , C > ,
+                      CycleCanceling< GR , V , C > >::value
+     || std::is_same< Algo< GR , V , C > ,
+                      SMSppCapacityScaling< GR , V , C > >::value );
 
 /*--------------------------------------------------------------------------*/
 
@@ -1326,7 +1356,15 @@ template< typename GR , typename V , typename C >
  * set/get_*_par for manage them.
  *
  * The template parameters are the same as those of MCFLemonSolver, except
- * of course the first that is fixed to CostScaling. */
+ * of course the first that is fixed to CostScaling.
+ *
+ * kMethod takes the values of CostScaling::Method, i.e., 0 = PUSH,
+ * 1 = AUGMENT and 2 = PARTIAL_AUGMENT, plus kAutoMethod = 3, the default,
+ * which is PARTIAL_AUGMENT when the capacities and the supplies are given as
+ * they are and AUGMENT when they are scaled [see pass_flows()]: the number of
+ * operations of PARTIAL_AUGMENT grows with the magnitude of the flows, and on
+ * scaled ones it can be 2 to 3 orders of magnitude slower than the other
+ * two. */
 
 template< typename GR , typename V , typename C >
 class MCFLemonSolverCostScaling : public
@@ -1351,6 +1389,7 @@ class MCFLemonSolverCostScaling : public
  using BaseClass::intLastParCDAS;
  using BaseClass::dgp;
  using BaseClass::f_algo;
+ using BaseClass::flows_scaled;
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using CDASolver::kBlockLocked;
@@ -1365,6 +1404,9 @@ class MCFLemonSolverCostScaling : public
 
  using typename BaseClass::ThisAlgo;
  using CSMethod = typename ThisAlgo::Method;
+
+ /// the value of kMethod that chooses the method [see the class]
+ static constexpr int kAutoMethod = 3;
 
  enum LEMON_CS_int_par_type {
   kMethod = intLastParCDAS ,  ///< the method of cost scaling
@@ -1382,7 +1424,7 @@ class MCFLemonSolverCostScaling : public
 
  MCFLemonSolverCostScaling( void ) : BaseClass() {
   BaseClass::guts_of_constructor();
-  f_method = SMSppCostScaling< GR , V , C >::Method::PARTIAL_AUGMENT;
+  f_method = kAutoMethod;
   }
 
  /// destructor, calls guts_of_destructor()
@@ -1394,14 +1436,11 @@ class MCFLemonSolverCostScaling : public
 
  void set_par( idx_type par , int value ) override {
   if( par == kMethod ) {
-   if( ( value < 0 ) || ( value > 2 ) )
+   if( ( value < 0 ) || ( value > kAutoMethod ) )
     throw( std::invalid_argument( "MCFLemonSolverCostScaling::"
 				 "set_par: invalid kMethod " +
 				  std::to_string( value ) ) );
-   if( value == f_method )
-    return; // nothing is changed
-
-   f_method = CSMethod( value );
+   f_method = value;
    return;
    }
 
@@ -1422,7 +1461,7 @@ class MCFLemonSolverCostScaling : public
 				 "get_dflt_int_par: invalid parameter " +
 				 std::to_string( par ) ) );
   if( par == kMethod )
-   return( SMSppCostScaling< GR , V , C >::Method::PARTIAL_AUGMENT );
+   return( kAutoMethod );
 
   return( CDASolver::get_dflt_int_par( par ) );
   }
@@ -1468,7 +1507,11 @@ class MCFLemonSolverCostScaling : public
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
  void guts_of_compute( void ) override {
-  status = f_algo->run( CSMethod( f_method ) );
+  if( f_method != kAutoMethod )
+   status = f_algo->run( CSMethod( f_method ) );
+  else
+   status = f_algo->run( flows_scaled() ? ThisAlgo::AUGMENT :
+			                   ThisAlgo::PARTIAL_AUGMENT );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1483,7 +1526,7 @@ class MCFLemonSolverCostScaling : public
 
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
 
- CSMethod f_method;
+ int f_method;  ///< a CSMethod, or kAutoMethod
 
  };  // end( class MCFLemonSolverCostScaling< GR , V , C> )
 
