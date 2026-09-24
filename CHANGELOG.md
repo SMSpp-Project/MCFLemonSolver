@@ -9,6 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `kFactor`, the scaling factor of `MCFLemonSolverCapacityScaling`, i.e., the
+  base of the geometric sequence of the deltas of the successive
+  approximations: it was the only algorithmic parameter of the four algorithms
+  that no `ComputeConfig` could reach, the pivot rule of the network simplex
+  and the method of cycle canceling and of cost scaling being there already:
+  a configuration can now ask for the factor the instance at hand wants, as it
+  can already ask for a pivot rule. The default is the 4 of LEMON and a value
+  below 2, which `CapacityScaling` refuses, is refused here
+
+- the network simplex re-optimizes: after a change of the costs alone the
+  basis of the previous run is still primal feasible, so the potentials are
+  recomputed on its tree and the simplex goes on from there instead of
+  starting from the artificial basis, which is the change a Lagrangian or a
+  Frank-Wolfe decomposition makes at each iteration. LEMON has no warm start
+  of its own, the `run()` of every algorithm calling its `init()`, hence
+  `runWarm()` is added by the shim of the build [see shim/README.md]. On the
+  instances of the `MCFBlock` suite a re-solve after a change of the costs
+  takes between one seventh and one fiftieth of a solution from scratch, the
+  larger the instance the larger the gain; a change of the capacities, of the
+  supplies or of the graph drops the basis, and there the cost is the one it
+  was
+
+- the network simplex re-optimizes after a change of the capacities as well:
+  the basis of the last run stays primal feasible if every arc whose capacity
+  changes keeps the flow it holds within the new bound and, when it is out of
+  the basis tree, sits at its lower bound, which is the case of an arc that is
+  closed while it carries no flow and of one that is opened again, i.e. of
+  what a decomposition that opens and closes arcs does at each iteration; an
+  arc that sits at its upper bound, or one whose flow no longer fits, drops
+  the basis as before. On the instances of the `MCFBlock` suite a re-solve
+  after closing and re-opening idle arcs takes between one sixteenth and one
+  three-hundredth of a solution from scratch
+
+- `has_var_direction()`, `get_var_direction()` and a `Solution` that says it
+  holds a direction for the network simplex: the cycle of negative cost and
+  infinite capacity that proves the instance unbounded is the one of the
+  pivot the algorithm cannot perform when it answers `UNBOUNDED`, which the
+  shim reads out of it [see `unbCycle()`]; the other three algorithms give no
+  certificate and say so
+
 - the test of the module, `MCFLemonSolver_test`: the four algorithms on the
   two graphs against a small instance whose optimal value is known after each
   of the changes a MCFBlock can undergo, plus the Solver destroyed without a
@@ -16,6 +56,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zero only up to rounding, the parameters and the DMX file
 
 ### Changed
+
+- an arc the `MCFBlock` closes is given zero capacity instead of being taken
+  out of the graph, and one it re-opens is given back the capacity the
+  `MCFBlock` has: the graph is left alone, hence the algorithm need not be
+  reset, which it has to be whenever the graph changes and which throws away
+  everything it knows, and `SmartDigraph`, which cannot take arcs out at all,
+  now follows the closing and the re-opening of arcs as well. On the flow
+  relaxation of the capacitated facility location, where every round of the
+  test closes and re-opens facilities, the battery takes 1464 seconds against
+  the 1849 it took, i.e., a fifth less; where few arcs of many are closed
+  there is nothing to gain, the closed ones being scanned by the algorithm
+  anyway
 
 - whoever links the module keeps it: the classes of a module register
   themselves in the factory from a static initialiser, and a linker that
@@ -34,6 +86,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the flows and the potentials are available only at an optimal solution
 
 ### Fixed
+
+- a change of an arc that is removed from the `MCFBlock` before the Solver is
+  asked to solve again made it throw "invalid arc name": the two Modification
+  reach it in one batch and the first one names an arc that is no longer
+  there, so the loops that go by arc name now stop at the arcs the `MCFBlock`
+  has, leaving the graph to the Modification that removes the arc
+
+- the makefiles of the module put the library of the core SMS++ before the
+  objects that use it, so that a tester linking against `libSMS++.a` was left
+  with unresolved symbols; it goes last, as in every other module
 
 - CostScaling, CycleCanceling and CapacityScaling could report as infeasible,
   or not terminate on, fractional capacities or supplies: these are given to

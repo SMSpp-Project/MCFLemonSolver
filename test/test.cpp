@@ -15,8 +15,9 @@
  * are checked on their own: a Solver destroyed without ever having been
  * attached to a MCFBlock, a MCFBlock that has no capacities and no costs to
  * begin with and is given them by a Modification, fractional costs and
- * flows, negative costs on arcs of infinite capacity, a capacity many orders
- * of magnitude larger than the other data, each method of CostScaling,
+ * flows, negative costs on arcs of infinite capacity, the direction that
+ * proves an instance unbounded, a capacity many orders of magnitude larger
+ * than the other data, each method of CostScaling,
  * deficits that sum to zero only up to rounding and deficits that do not,
  * the parameters looked up by their name, the invalid values of the
  * parameters of the algorithms, and the DMX file of the instance.
@@ -195,6 +196,37 @@ static void test_changes( void )
  }
 
 /*--------------------------------------------------------------------------*/
+/* An arc that is changed and then removed before any Solver is asked: the two
+ * Modification reach it in one batch, and the first one names an arc that the
+ * MCFBlock no longer has, which the Solver has to leave alone rather than ask
+ * the MCFBlock about it. */
+
+static void test_change_then_remove( void )
+{
+ MCFBlock mcf;
+ load( mcf , true );
+
+ for( const auto & algo : ALGOS )
+  mcf.register_Solver( Solver::new_Solver( name( algo , "MCFListDigraph" ) ) );
+
+ check_all( mcf , 16 , "initial instance" );
+
+ // 1 -> 4 is arc 5, and at cost 1 it carries all the flow
+ check( mcf.add_arc( 1 , 4 , 1 , 10 ) == 5 , "name of the added arc" );
+ check_all( mcf , 4 , "arc added" );
+
+ // capacity, cost and fixing of arc 5 change and then the arc goes, with no
+ // solve in between, so that every change of it is processed after it is gone
+ mcf.chg_ucap( 1 , 5 );
+ mcf.chg_cost( 2 , 5 );
+ mcf.close_arc( 5 );
+ mcf.remove_arc( 5 );
+ check_all( mcf , 16 , "arc changed and removed in one batch" );
+
+ mcf.unregister_Solvers( true );
+ }
+
+/*--------------------------------------------------------------------------*/
 /// no capacities and no costs to begin with, given by a Modification
 
 static void test_empty_data( void )
@@ -303,6 +335,53 @@ static void test_fractional_flows( void )
  // 2 -> 3 carries 0.05: 0.05 along 1-2-3-4 and 0.35 along 1-3-4
  mcf.chg_ucap( 0.05 , 2 );
  check_all( mcf , 1.9 , "fractional flows, capacity changed" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* The unbounded instance of test_negative_costs(): the network simplex gives
+ * the cycle that proves it unbounded, hence its Solution holds a direction,
+ * which the MCFBlock has to take for one and not for a solution, and
+ * get_var_direction() writes it in the Variable. The other three algorithms
+ * give no certificate, and have to say so. */
+
+static void test_unbounded_direction( void )
+{
+ MCFBlock mcf;
+ load( mcf , false );
+ const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
+ mcf.chg_costs( c.begin() );
+ mcf.add_arc( 3 , 2 , -2 );   // a negative cycle of infinite capacity
+
+ for( const auto & algo : ALGOS ) {
+  auto slv = Solver::new_Solver( name( algo , "MCFListDigraph" ) );
+  mcf.register_Solver( slv );
+  const auto who = slv->classname();
+  check( slv->compute() == Solver::kUnbounded , who + ": unbounded expected" );
+
+  if( algo != "NetworkSimplex" ) {
+   check( ! slv->has_var_direction() , who + ": a direction is claimed" );
+   mcf.unregister_Solver( slv , true );
+   continue;
+   }
+
+  check( slv->has_var_direction() , who + ": no direction is claimed" );
+
+  auto dir = slv->get_Solution();
+  check( dir && dir->is_direction() ,
+	 who + ": the Solution does not hold a direction" );
+  check( mcf.is_sol_feasible( dir ) ,
+	 who + ": the direction is not one of the MCFBlock" );
+  dir->is_direction( false );
+  check( ! mcf.is_sol_feasible( dir ) ,
+	 who + ": the direction is taken for a solution" );
+  delete dir;
+
+  slv->get_var_direction();
+  check( mcf.is_direction() , who + ": the MCFBlock was not told" );
+  mcf.is_direction( false );
+
+  mcf.unregister_Solver( slv , true );
+  }
  }
 
 /*--------------------------------------------------------------------------*/
@@ -484,12 +563,14 @@ int main( void )
  test_unattached();
  test_parameters();
  test_changes();
+ test_change_then_remove();
  test_empty_data();
  test_balance();
  test_fractional_costs();
  test_fractional_costs_paths();
  test_fractional_flows();
  test_negative_costs();
+ test_unbounded_direction();
  test_scale_out_of_range();
  test_cost_scaling_methods();
  test_dmx();

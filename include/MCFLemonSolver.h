@@ -939,6 +939,7 @@ class MCFLemonSolverNetworkSimplex : public
  using BaseClass = MCFLemonSolver< NetworkSimplex , GR , V , C >;
  using idx_type = ThinComputeInterface::idx_type;
 
+ using BaseClass::dgp;
  using BaseClass::f_algo;
  using BaseClass::intLastParCDAS;
  using BaseClass::status;
@@ -1061,13 +1062,83 @@ class MCFLemonSolverNetworkSimplex : public
 /*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
+ /// the network simplex gives the cycle that proves the instance unbounded
+
+ bool has_var_direction( void ) override { return( true ); }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// writes one unit of flow along that cycle in the flow Variable
+ /** Writes in the flow Variable of the MCFBlock one unit of flow along the
+  * cycle of negative cost and infinite capacity that the network simplex
+  * gives as the certificate of unboundedness [see unbCycle() in the shim of
+  * the build], and tells the MCFBlock that what they hold is a direction
+  * [see MCFBlock::is_direction()]. The Configuration says which part to
+  * write, as in MCFBlock::get_Solution(): a value of 2 asks for the dual
+  * part alone, and then nothing is done. Throws if the last run did not end
+  * declaring the instance unbounded, or if the cycle goes through an
+  * artificial arc and is therefore none of the instance. */
+
+ void get_var_direction( Configuration * dirc = nullptr ) override {
+  if( ! f_Block )  // no [MCF]Block to write to
+   return;         // cowardly and silently return
+
+  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
+  if( tsolc && ( tsolc->f_value == 2 ) )
+   return;
+
+  MCFBlock::Vec_FNumber X;
+  if( ! unb_cycle( X ) )
+   throw( std::logic_error( "MCFLemonSolverNetworkSimplex::"
+			    "get_var_direction: no certificate of "
+			    "unboundedness" ) );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFB->is_direction( true );  // what the Variable hold is a direction
+  MCFB->set_x( X.begin() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// on an unbounded instance the Solution holds the direction
+ /** An unbounded instance has a direction to give rather than a solution:
+  * the Solution is filled with the cycle, and says that what it holds is a
+  * direction [see Solution::is_direction()]. In every other case, and when
+  * no certificate is available, this is what the base class does. */
+
+ [[nodiscard]] Solution * get_Solution( Configuration * solc = nullptr )
+  override {
+  MCFBlock::Vec_FNumber X;
+  if( ( status != ThisAlgo::ProblemType::UNBOUNDED ) ||
+      ( ! unb_cycle( X ) ) )
+   return( BaseClass::get_Solution( solc ) );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc , true ) );
+
+  if( ! sol->get_x().empty() ) {
+   sol->is_direction( true );
+   sol->set_x( std::move( X ) );
+   }
+
+  if( ! sol->get_pi().empty() )  // no potentials go with a direction
+   sol->set_pi( MCFBlock::Vec_CNumber() );
+
+  return( sol );
+  }
+
+/*--------------------------------------------------------------------------*/
 
  protected:
 
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
+ /* The network simplex is asked to re-optimize: the basis of the previous run
+  * survives a change of the costs alone, which is the change a Lagrangian or
+  * a Frank-Wolfe decomposition makes at each iteration, and the algorithm
+  * drops it by itself when the capacities, the supplies or the graph change
+  * [see runWarm() in the shim of the build]. */
+
  void guts_of_compute( void ) override {
-  status = f_algo->run( NSPivotRule( f_pivot_rule ) );
+  status = f_algo->runWarm( NSPivotRule( f_pivot_rule ) );
   }
 
 /*---------------------------- PROTECTED FIELDS ----------------------------*/
@@ -1081,6 +1152,31 @@ class MCFLemonSolverNetworkSimplex : public
  private:
 
 /*-------------------------- PRIVATE METHODS -------------------------------*/
+ /// one unit of flow along the cycle that proves the instance unbounded
+ /** Writes in X one unit of flow along the cycle the network simplex gives
+  * as the certificate of unboundedness and returns true; returns false,
+  * leaving X alone, if there is no certificate to give. */
+
+ bool unb_cycle( MCFBlock::Vec_FNumber & X ) {
+  if( ! f_Block )
+   return( false );
+
+  auto cycle = f_algo->unbCycle();
+  if( cycle.empty() )
+   return( false );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  X.assign( MCFB->get_NArcs() , 0 );
+  for( auto a : cycle ) {
+   auto i = MCFBlock::Index( dgp->id( a ) );
+   if( i < X.size() )
+    X[ i ] = 1;
+   }
+
+  return( true );
+  }
+
+/*--------------------------------------------------------------------------*/
 
   SMSpp_insert_in_factory_h;
 
@@ -1269,10 +1365,17 @@ class MCFLemonSolverCycleCanceling : public
 /*--------------------- MCFLemonSolverCapacityScaling ----------------------*/
 /*--------------------------------------------------------------------------*/
 /** Specialized MCFLemonSolverCapacityScaling< GR , V , C > that derives from
- * MCFLemonSolver and contains the specialized compute() method.
+ * MCFLemonSolver and contains the specialized compute() method, the enum
+ * indexing the algorithmic parameter of CapacityScaling and the set/get_*_par
+ * methods that manage it.
  *
  * The template parameters are the same as those of MCFLemonSolver, except
- * of course the first that is fixed to CapacityScaling. */
+ * of course the first that is fixed to CapacityScaling.
+ *
+ * kFactor is the scaling factor of the successive approximations, i.e., the
+ * base of the geometric sequence of the deltas: it has to be at least 2, the
+ * default is 4, and 1 would ask for the plain successive shortest path
+ * algorithm, which is why CapacityScaling refuses it. */
 
 template< typename GR , typename V , typename C >
  class MCFLemonSolverCapacityScaling : public
@@ -1309,18 +1412,100 @@ template< typename GR , typename V , typename C >
  using Solver::unlock;
  using ThinComputeInterface::kUnEval;
 
+/*--------------------------------------------------------------------------*/
+ // enums for handling the extra parameters
+
+ enum LEMON_CapS_int_par_type {
+  kFactor = intLastParCDAS ,  ///< the scaling factor of CapacityScaling
+  intLastParLEMON_CapS  ///< first allowed parameter value for derived classes
+  /**< convenience value for easily allow derived classes
+   * to further extend the set of types of return codes */
+  };
+
 /*------ CONSTRUCTING AND DESTRUCTING MCFLemonSolverCapacityScaling --------*/
 
- /// constructor, calls guts_of_constructor()
+ /// constructor: initializes algorithm parameters
+ /** Void constructor. Sets f_factor to the default scaling factor of
+  * CapacityScaling, then calls guts_of_constructor(). */
 
  MCFLemonSolverCapacityScaling( void ) : BaseClass() {
   BaseClass::guts_of_constructor();
+  f_factor = 4;
   }
 
  /// destructor, calls guts_of_destructor()
 
  ~MCFLemonSolverCapacityScaling( void ) override {
   BaseClass::guts_of_destructor();
+  }
+
+/*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
+
+ void set_par( idx_type par , int value ) override {
+  if( par == kFactor ) {
+   if( value < 2 )
+    throw( std::invalid_argument( "MCFLemonSolverCapacityScaling::"
+				  "set_par: invalid kFactor " +
+				  std::to_string( value ) ) );
+   f_factor = value;
+   return;
+   }
+
+  CDASolver::set_par( par , value );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] idx_type get_num_int_par( void ) const override {
+  return( intLastParLEMON_CapS );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] int get_dflt_int_par( idx_type par ) const override {
+  if( par > intLastParLEMON_CapS )
+   throw( std::invalid_argument( "MCFLemonSolverCapacityScaling::"
+				 "get_dflt_int_par: invalid parameter " +
+				 std::to_string( par ) ) );
+  if( par == kFactor )
+   return( 4 );
+
+  return( CDASolver::get_dflt_int_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] int get_int_par( idx_type par ) const override {
+  if( par == kFactor )
+   return( f_factor );
+
+  return( CDASolver::get_int_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] idx_type int_par_str2idx( const std::string & name )
+  const override {
+  if( name == "kFactor" )
+   return( kFactor );
+
+  return( CDASolver::int_par_str2idx( name ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] const std::string & int_par_idx2str( idx_type idx )
+  const override {
+  if( idx > intLastParLEMON_CapS )
+   throw( std::invalid_argument( "MCFLemonSolverCapacityScaling::"
+				 "int_par_idx2str: invalid parameter " +
+				 std::to_string( idx ) ) );
+
+  static const std::string par = "kFactor";
+  if( idx == kFactor )
+   return( par );
+
+  return( CDASolver::int_par_idx2str( idx ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1331,7 +1516,9 @@ template< typename GR , typename V , typename C >
 
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
- void guts_of_compute( void ) override { status = f_algo->run(); }
+ void guts_of_compute( void ) override {
+  status = f_algo->run( f_factor );
+  }
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -1342,6 +1529,10 @@ template< typename GR , typename V , typename C >
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 
  SMSpp_insert_in_factory_h;
+
+/*--------------------------- PRIVATE FIELDS -------------------------------*/
+
+ int f_factor;  ///< the scaling factor, at least 2
 
 /*--------------------------------------------------------------------------*/
 

@@ -214,28 +214,30 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
             b[ i ] == 0 ? 0 : -b[ i ] );  // note that supply = - deficit
   }
 
- /* The MCFBlock may come with arcs already closed or deleted: MCFListDigraph
-  * closes and erases them as the Modification would have done, so that they
-  * can be re-opened or re-created later, whereas SmartDigraph, which can do
-  * neither, gives them zero capacity, which is the same for the flow. An
-  * arc is closed by fixing its flow Variable, so there can be closed arcs
-  * only if the Variable have been generated. */
+ /* The MCFBlock may come with arcs already closed or deleted. A closed arc
+  * is given zero capacity, which is the same for the flow as not having it
+  * and leaves the graph alone: the arcs keep their names and the Algo need
+  * not be reset() when one is closed or re-opened [see guts_of_poM()]. A
+  * deleted arc is erased from MCFListDigraph, so that it can be created
+  * again later, while SmartDigraph, which cannot erase, gives it zero
+  * capacity as well. An arc is closed by fixing its flow Variable, so there
+  * can be closed arcs only if the Variable have been generated. */
  const bool hasvars = ( MCFB->get_number_static_variables() > 0 ) ||
                       ( MCFB->get_number_dynamic_variables() > 0 );
  for( MCFBlock::Index i = 0 ; i < m ; ++i ) {
   if( ( ! MCFB->is_deleted( i ) ) && ! ( hasvars && MCFB->is_closed( i ) ) )
    continue;
 
-  if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
-   if( MCFB->is_deleted( i ) )
+  if( MCFB->is_deleted( i ) ) {
+   if constexpr( std::is_same< GR , MCFListDigraph >::value )
     dgp->erase( dgp->arcFromId( i ) );
    else
-    dgp->closeArc( i );
+    um->set( dgp->arcFromId( i ) , 0 );
+
+   --n_arcs;
    }
   else
    um->set( dgp->arcFromId( i ) , 0 );
-
-  --n_arcs;
   }
 
  // new instance of LEMON Algorithm with no arc mixing, on the final graph
@@ -671,11 +673,19 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
  if( auto tmod = dynamic_cast< const MCFBlockRngdMod* >( mod ) ) {
   auto rng = tmod->rng();
 
+  /* The arcs of the MCFBlock the range names may have been removed from it
+   * after this Modification was issued, the eRmvArc that says so coming
+   * later in this same batch: the MCFBlock has nothing to say about them any
+   * longer, hence the arcs beyond the ones it has are left alone, and so is
+   * the graph, which the eRmvArc takes care of. */
+  const auto na = MCFB->get_NArcs();
+
   switch( tmod->type() ) {
    // changing costs - - - - - - - - - - - - - - - - - - - - - - - - - - - -
    case( MCFBlockMod::eChgCost ) : {
     cost_changed = true;
-    for( MCFBlock::Index i = rng.first ; i < rng.second ; i++ )
+    for( MCFBlock::Index i = rng.first ; i < std::min( rng.second , na ) ;
+	 i++ )
      if( dgp->valid( dgp->arcFromId( i ) ) ) {
       auto cost = MCFB->get_C( i );
       cm->set( dgp->arcFromId( i ) , std::isnan( cost ) ? 0 : cost );
@@ -687,9 +697,12 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
    // changing capacities- - - - - - - - - - - - - - - - - - - - - - - - - -
    case( MCFBlockMod::eChgCaps ) : {
     cap_changed = true;
-    for( MCFBlock::Index i = rng.first ; i < rng.second ; i++ )
+    // a closed arc keeps the zero capacity that closes it [see below]
+    for( MCFBlock::Index i = rng.first ; i < std::min( rng.second , na ) ;
+	 i++ )
      if( dgp->valid( dgp->arcFromId( i ) ) )
-      um->set( dgp->arcFromId( i ) , MCFB->get_U( i ) );
+      um->set( dgp->arcFromId( i ) ,
+	       MCFB->is_closed( i ) ? 0 : MCFB->get_U( i ) );
 
     return;
     }
@@ -703,39 +716,28 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
     return;
     }
 
-   // opening arcs - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   /* opening and closing arcs: an arc is closed by giving it zero capacity
+    * and opened by giving it back the one the MCFBlock has, so that the
+    * graph is left alone, the Algo need not be reset() and both graphs can
+    * take the change [see guts_of_set_Block()]. */
    case( MCFBlockMod::eOpenArc ) : {
-    // only if the graph is ListDigraph
-    if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
-     for( ; rng.first < rng.second ; ++rng.first )
-      if( ( ! MCFB->is_deleted( rng.first ) ) &&
-	  dgp->valid( dgp->arcFromId( rng.first ) ) &&
-	  dgp->isClosed( rng.first ) ) {
-       dgp->openArc( rng.first );
-       n_arcs_added++;
-       }
-     }
-    else
-     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
-			      "does not support operations on arcs" ) );
+    cap_changed = true;
+    for( ; rng.first < std::min( rng.second , na ) ; ++rng.first )
+     if( ( ! MCFB->is_deleted( rng.first ) ) &&
+	 dgp->valid( dgp->arcFromId( rng.first ) ) )
+      um->set( dgp->arcFromId( rng.first ) , MCFB->get_U( rng.first ) );
+
     return;
     }
 
    // closing arcs - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
    case( MCFBlockMod::eCloseArc ) : {
-    // only if the graph is ListDigraph
-    if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
-     for( ; rng.first < rng.second ; ++rng.first )
-      if( ( ! MCFB->is_deleted( rng.first ) ) &&
-	  ! dgp->isClosed( rng.first ) &&
-	  dgp->valid( dgp->arcFromId( rng.first ) ) ) {
-       dgp->closeArc( rng.first );
-       n_arcs_deleted++;
-       }
-     }
-    else
-     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
-			      "does not support operations on arcs" ) );
+    cap_changed = true;
+    for( ; rng.first < std::min( rng.second , na ) ; ++rng.first )
+     if( ( ! MCFB->is_deleted( rng.first ) ) &&
+	 dgp->valid( dgp->arcFromId( rng.first ) ) )
+      um->set( dgp->arcFromId( rng.first ) , 0 );
+
     return;
     }
 
@@ -743,6 +745,9 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
    case( MCFBlockMod::eAddArc ) : {
     // only if the graph is ListDigraph
     if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
+     if( rng.first >= na )  // the arc has been removed already, and the
+      return;               // graph never had it [see above]
+
      auto ca = MCFB->get_C( rng.first );
      auto startNode = MCFB->get_SN( rng.first ) - 1;
      auto endNode = MCFB->get_EN( rng.first ) - 1;
@@ -777,14 +782,9 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
      if( ! dgp->valid( dgp->arcFromId( rng.second - 1 ) ) )
       return;
 
-     auto arc = dgp->arcFromId( rng.second - 1 );
-
-     // if the arc isClosed, only 'mark' it as eliminated, otherwise
-     // normally erase it
-     if( dgp->isClosed( rng.second - 1 ) )
-      dgp->eraseClosed( rng.second - 1 );
-     else
-      dgp->erase( arc );
+     // a closed arc is in the graph as any other one, at zero capacity
+     // [see guts_of_set_Block()], hence it is erased the same way
+     dgp->erase( dgp->arcFromId( rng.second - 1 ) );
 
      n_arcs_deleted++;
      }
@@ -809,7 +809,7 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
    case( MCFBlockMod::eChgCost ) : {
     cost_changed = true;
     for( auto i : tmod->nms() )
-     if( dgp->valid( dgp->arcFromId( i ) ) ) {
+     if( ( i < MCFB->get_NArcs() ) && dgp->valid( dgp->arcFromId( i ) ) ) {
       auto arc = dgp->arcFromId( i );
       auto cost = MCFB->get_C( i );
       cm->set( arc , std::isnan( cost ) ? 0 : cost );
@@ -823,10 +823,12 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
     cap_changed = true;
     auto & CC = MCFB->get_C();
     auto & U = MCFB->get_U();
+    // a closed arc keeps the zero capacity that closes it [see below]
     for( auto i : tmod->nms() )
-     if( ( CC.empty() || ! std::isnan( CC[ i ] ) ) &&
+     if( ( i < MCFB->get_NArcs() ) &&
+	 ( CC.empty() || ! std::isnan( CC[ i ] ) ) &&
 	 dgp->valid( dgp->arcFromId( i ) ) )
-      um->set( dgp->arcFromId( i ) , U[ i ] );
+      um->set( dgp->arcFromId( i ) , MCFB->is_closed( i ) ? 0 : U[ i ] );
 
     return;
     }
@@ -841,40 +843,25 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_poM( c_p_Mod mod )
     return;
     }
 
-   // opening arcs - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   // opening arcs, i.e., giving them back their capacity [see above]- - - -
    case( MCFBlockMod::eOpenArc ) : {
-    // only if ListDigraph is used
-    if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
-     for( auto arc : tmod->nms() )
-      // checking if the arc is closed
-      if( ( ! MCFB->is_deleted( arc ) ) && dgp->isClosed( arc ) &&
-	  dgp->valid( dgp->arcFromId( arc ) ) ) {
-       dgp->openArc( arc );
-       n_arcs_added++;
-       }
-     }
-    else
-     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
-			      "does not support operations on arcs" ) );
+    cap_changed = true;
+    for( auto arc : tmod->nms() )
+     if( ( arc < MCFB->get_NArcs() ) && ( ! MCFB->is_deleted( arc ) ) &&
+	 dgp->valid( dgp->arcFromId( arc ) ) )
+      um->set( dgp->arcFromId( arc ) , MCFB->get_U( arc ) );
+
     return;
     }
 
-   // closing arcs - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+   // closing arcs, i.e., giving them zero capacity [see above] - - - - - - -
    case( MCFBlockMod::eCloseArc ) : {
-    // only if ListDigraph is used
-    if constexpr( std::is_same< GR , MCFListDigraph >::value ) {
-     for( auto arc : tmod->nms() )
-      // checking if the arc is not closed
-      if( ( ! MCFB->is_deleted( arc ) ) &&
-	  dgp->valid( dgp->arcFromId( arc ) ) &&
-	  ! dgp->isClosed( arc ) ) {
-       dgp->closeArc( arc );
-       n_arcs_deleted++;
-       }
-     }
-    else
-     throw( std::logic_error( "MCFLemonSolver::guts_of_poM: SmartDigraph "
-			      "does not support operations on arcs" ) );
+    cap_changed = true;
+    for( auto arc : tmod->nms() )
+     if( ( arc < MCFB->get_NArcs() ) && ( ! MCFB->is_deleted( arc ) ) &&
+	 dgp->valid( dgp->arcFromId( arc ) ) )
+      um->set( dgp->arcFromId( arc ) , 0 );
+
     return;
     }
 

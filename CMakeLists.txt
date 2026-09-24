@@ -161,39 +161,21 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
         # feasibility check, the same rewrite as the sed of the makefile
         if (_lemon_hdr STREQUAL "network_simplex.h"
                 AND NOT _lemon_hdr_content MATCHES "ns_pivot_eps")
-            set(_ns_eps [=[namespace lemon {
-
-  // the tolerance of the pivot rules of NetworkSimplex: zero for an exact
-  // cost type, otherwise relative to the largest of the n costs
-  template <typename C>
-  inline C ns_pivot_eps(const std::vector<C>& c, int n) {
-    if (std::numeric_limits<C>::is_exact) return C(0);
-    C m(1);
-    for (int i = 0; i != n; ++i) m = std::max(m, c[i] < 0 ? C(-c[i]) : c[i]);
-    return m * std::numeric_limits<C>::epsilon() * C(1e6);
-  }
-
-  // the tolerance of the flow left on the artificial arcs: zero for an exact
-  // flow type, otherwise relative to the largest of the n supplies
-  template <typename V>
-  inline V ns_flow_eps(const std::vector<V>& s, int n) {
-    if (std::numeric_limits<V>::is_exact) return V(0);
-    V m(1);
-    for (int i = 0; i != n; ++i) m = std::max(m, s[i] < 0 ? V(-s[i]) : s[i]);
-    return m * std::numeric_limits<V>::epsilon() * V(1e6);
-  }
-]=])
-            set(_ns_ctor [=[_search_arc_num(ns._search_arc_num),
-        _eps(ns_pivot_eps(ns._cost, ns._arc_num))]=])
-            set(_ns_chk [=[      const Value feps = ns_flow_eps(_supply, _node_num);
-      // Check feasibility]=])
-            set(_ns_flow [=[if (_flow[e] > feps || _flow[e] < -feps) return]=])
-            string(REPLACE "namespace lemon {" "${_ns_eps}"
+            # the two rewrites of network_simplex.h, the tolerances of the
+            # pivot rules and of the feasibility check and the warm start,
+            # whose code lives in shim/ and is inserted at its anchor, so
+            # that it is written once and read as C++ [see shim/README.md]
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_eps.inc _ns_eps)
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_runwarm.inc _ns_warm)
+            string(REPLACE "namespace lemon {"
+                    "namespace lemon {\n\n${_ns_eps}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "      int _search_arc_num;"
                     "      int _search_arc_num; Cost _eps;"
                     _lemon_hdr_content "${_lemon_hdr_content}")
-            string(REPLACE "_search_arc_num(ns._search_arc_num)" "${_ns_ctor}"
+            string(REPLACE "_search_arc_num(ns._search_arc_num)"
+                    "_search_arc_num(ns._search_arc_num),
+        _eps(ns_pivot_eps(ns._cost, ns._arc_num))"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "if (c < 0)" "if (c < -_eps)"
                     _lemon_hdr_content "${_lemon_hdr_content}")
@@ -203,9 +185,39 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "else if (c >= 0) {" "else if (c >= -_eps) {"
                     _lemon_hdr_content "${_lemon_hdr_content}")
-            string(REPLACE "      // Check feasibility" "${_ns_chk}"
+            string(REPLACE "      // Check feasibility"
+                    "      const Value feps = ns_flow_eps(_supply, _node_num);
+      // Check feasibility"
                     _lemon_hdr_content "${_lemon_hdr_content}")
-            string(REPLACE "if (_flow[e] != 0) return" "${_ns_flow}"
+            string(REPLACE "if (_flow[e] != 0) return"
+                    "if (_flow[e] > feps || _flow[e] < -feps) return"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            # the basis the warm start reuses, and what drops it; the arc
+            # whose pivot cannot be performed, which the certificate of
+            # unboundedness is made of [see unbCycle()]
+            string(REPLACE "    int _root;"
+                    "    int _root; bool _warm; int _unb_arc;"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      // Check the number types"
+                    "      _warm = false;\n      _unb_arc = -1;\n      // Check the number types"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (!initialPivots()) return UNBOUNDED;"
+                    "if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (delta >= MAX) return UNBOUNDED;"
+                    "if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "        _upper[_arc_id[a]] = map[a];"
+                    "        warmUpper(_arc_id[a], map[a]);"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            foreach (_ns_drop "NetworkSimplex& lowerMap(const LowerMap& map) {"
+                              "NetworkSimplex& supplyMap(const SupplyMap& map) {"
+                              "NetworkSimplex& stSupply(const Node& s, const Node& t, Value k) {"
+                              "NetworkSimplex& reset() {")
+                string(REPLACE "${_ns_drop}" "${_ns_drop} _warm = false;"
+                        _lemon_hdr_content "${_lemon_hdr_content}")
+            endforeach ()
+            string(REPLACE "      return start(pivot_rule);" "${_ns_warm}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
         file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")

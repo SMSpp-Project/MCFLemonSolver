@@ -130,25 +130,17 @@ $(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h
 	  -e 's@(#include <lemon/core.h>)@\1\n#include <lemon/maps.h>@' \
 	  $< > $@
 
-# network_simplex.h needs the base rewrites plus the tolerances of the pivot
-# rules and of the feasibility check, the same rewrite as the CMake build: the
-# tolerance is zero for an exact type, so that on integer data the algorithm is
-# unchanged, and otherwise relative to the largest cost (supply). The two
-# functions computing it are defined right after "namespace lemon {".
-LEMON_NS_EPS = \
-	template <typename C> inline C ns_pivot_eps(const std::vector<C>\& c, \
-	int n) { if (std::numeric_limits<C>::is_exact) return C(0); C m(1); \
-	for (int i = 0; i != n; ++i) m = std::max(m, c[i] < 0 ? C(-c[i]) : c[i]); \
-	return m * std::numeric_limits<C>::epsilon() * C(1e6); } \
-	template <typename V> inline V ns_flow_eps(const std::vector<V>\& s, \
-	int n) { if (std::numeric_limits<V>::is_exact) return V(0); V m(1); \
-	for (int i = 0; i != n; ++i) m = std::max(m, s[i] < 0 ? V(-s[i]) : s[i]); \
-	return m * std::numeric_limits<V>::epsilon() * V(1e6); }
+# network_simplex.h needs the base rewrites plus the two of its own, the same
+# as the CMake build: the tolerances of the pivot rules and of the feasibility
+# check, zero for an exact type so that on integer data the algorithm is
+# unchanged, and the warm start of the basis. The code of both lives in shim/
+# and sed inserts it at its anchor, so that it is written once and read as
+# C++ [see shim/README.md].
 
-$(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h
+$(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
+	  $(MCFLESDR)/shim/ns_eps.inc $(MCFLESDR)/shim/ns_runwarm.inc
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) \
-	  -e 's/^namespace lemon \{/namespace lemon { $(LEMON_NS_EPS)/' \
 	  -e 's/^      int _search_arc_num;$$/      int _search_arc_num; Cost _eps;/' \
 	  -e 's/_search_arc_num\(ns\._search_arc_num\)/&, _eps(ns_pivot_eps(ns._cost, ns._arc_num))/' \
 	  -e 's/if \(c < 0\)/if (c < -_eps)/g' \
@@ -157,6 +149,17 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h
 	  -e 's/else if \(c >= 0\) \{/else if (c >= -_eps) {/' \
 	  -e 's@^      // Check feasibility@      const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
 	  -e 's/if \(_flow\[e\] != 0\) return/if (_flow[e] > feps || _flow[e] < -feps) return/' \
+	  -e 's/^    int _root;$$/    int _root; bool _warm; int _unb_arc;/' \
+	  -e 's@^      // Check the number types@      _warm = false; _unb_arc = -1; // Check the number types@' \
+	  -e 's/if \(!initialPivots\(\)\) return UNBOUNDED;/if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }/' \
+	  -e 's/if \(delta >= MAX\) return UNBOUNDED;/if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }/' \
+	  -e 's@^        _upper\[_arc_id\[a\]\] = map\[a\];$$@        warmUpper(_arc_id[a], map[a]);@' \
+	  -e 's/^(    NetworkSimplex\& (lowerMap|supplyMap)\(const .*\& map\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^(    NetworkSimplex\& stSupply\(const Node\& s, const Node\& t, Value k\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^(    NetworkSimplex\& reset\(\) \{)$$/\1 _warm = false;/' \
+	  -e '/^namespace lemon \{$$/r $(MCFLESDR)/shim/ns_eps.inc' \
+	  -e '/^      return start\(pivot_rule\);$$/{r $(MCFLESDR)/shim/ns_runwarm.inc' \
+	  -e 'd}' \
 	  $< > $@
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -

@@ -21,9 +21,12 @@ LEMON project
 
 Each solver is instantiated on two different types of graphs:
 `SmartDigraph`, which is more efficient but static (it does not allow
-to add/remove, open/close arcs) and `MCFListDigraph` (a small ad-hoc
+to add/remove arcs) and `MCFListDigraph` (a small ad-hoc
 improvement of the original `ListDigraph`), which can be less efficient
-but allows to add/remove, open/close arcs. These already make 8 variants,
+but allows to add/remove arcs. Closing and re-opening an arc, which the
+`MCFBlock` does by fixing and un-fixing its flow `Variable`, both graphs
+take: a closed arc is one of zero capacity, hence the graph is left alone
+and the algorithm need not be reset. These already make 8 variants,
 each of which can be instantiated with different types of flows and costs
 on the arcs, which can be `int`, `double` or `long`. Although `int` is
 supported, for large graphs (or large costs/capacities/deficits on small
@@ -77,7 +80,15 @@ headers need a few portability fixes, and a numerical one:
   fractional costs it can make degenerate pivots for ever, or report as
   infeasible a problem that is not; the rewrite compares them against a
   tolerance relative to the largest cost and the largest supply, which is zero
-  for integer types, so that on integer data the algorithm is unchanged.
+  for integer types, so that on integer data the algorithm is unchanged;
+- **no re-optimization**: the `run()` of every algorithm of LEMON calls its
+  `init()`, i.e., each call starts from scratch, and nothing of the previous
+  call is reused; `network_simplex.h` gets `runWarm()`, which after a change
+  of the costs alone recomputes the potentials on the basis of the last run
+  and lets the simplex go on from there, a change of the capacities, of the
+  supplies or of the graph dropping that basis. The code of the two rewrites
+  above lives in [shim](shim), read as C++ and inserted at its anchor by both
+  the CMake build and the makefiles.
 
 CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
 too, and for them no header is rewritten: `MCFLemonSolver` gives them the

@@ -47,7 +47,7 @@ include $(MCFLESDR)/makefile
 # append other *INC to MCFLEINC, *OBJ to MCFLEOBJ, and *H to MCFLEH as
 # defined by the makefile, thus the := assignment has to be used
 
-MCFLEOBJ := $(SMS++OBJ) $(MCFLEOBJ) $(MCFBkOBJ)
+MCFLEOBJ := $(MCFLEOBJ) $(MCFBkOBJ) $(SMS++OBJ)
 MCFLEINC := $(SMS++INC) $(MCFBkINC) $(MCFLEINC)
 MCFLELIB := $(MCFLELIB) $(MCFBkLIB) $(SMS++LIB)
 
