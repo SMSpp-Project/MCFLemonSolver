@@ -102,6 +102,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the tester did not compile against an installed LEMON whose
+  `lemon/capacity_scaling.h` misses the include of `lemon/maps.h`, since the
+  shim of those headers was given to the library alone: it now reaches
+  whatever is built in the same tree against the library, as
+  `MCFLemonSolver.h` includes the LEMON headers
+
 - a change of an arc that is removed from the `MCFBlock` before the Solver is
   asked to solve again made it throw "invalid arc name": the two Modification
   reach it in one batch and the first one names an arc that is no longer

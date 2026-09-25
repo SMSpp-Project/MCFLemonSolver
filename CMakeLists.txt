@@ -327,9 +327,12 @@ target_include_directories(
         $<INSTALL_INTERFACE:include/${modNamespace}>)
 
 # When using an installed LEMON, the C++20-rewritten headers (see the LEMON
-# section above) must be found before the system ones: prepend the shim dir.
+# section above) must be found before the system ones: prepend the shim dir,
+# also for whatever is built here against this library (e.g., the tester),
+# since MCFLemonSolver.h includes the LEMON headers.
 if (DEFINED LEMON_CXX20_SHIM_DIR)
-    target_include_directories(${modName} BEFORE PRIVATE ${LEMON_CXX20_SHIM_DIR})
+    target_include_directories(${modName} BEFORE PUBLIC
+            $<BUILD_INTERFACE:${LEMON_CXX20_SHIM_DIR}>)
 endif ()
 
 # When linking other targets to the library with target_link_libraries(),
