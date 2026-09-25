@@ -326,13 +326,17 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<INSTALL_INTERFACE:include/${modNamespace}>)
 
-# When using an installed LEMON, the C++20-rewritten headers (see the LEMON
-# section above) must be found before the system ones: prepend the shim dir,
-# also for whatever is built here against this library (e.g., the tester),
-# since MCFLemonSolver.h includes the LEMON headers.
+# When using an installed LEMON, the rewritten headers (see the LEMON section
+# above) must be found before the system ones: prepend the shim dir, for this
+# library and for whatever is built against it, here (e.g., the tester) or
+# against the installed package, since MCFLemonSolver.h includes the LEMON
+# headers and calls what only the rewritten ones have (e.g., runWarm()). The
+# installed copies are those of the LEMON the library was built with [see the
+# install of the headers below].
 if (DEFINED LEMON_CXX20_SHIM_DIR)
     target_include_directories(${modName} BEFORE PUBLIC
-            $<BUILD_INTERFACE:${LEMON_CXX20_SHIM_DIR}>)
+            $<BUILD_INTERFACE:${LEMON_CXX20_SHIM_DIR}>
+            $<INSTALL_INTERFACE:include/${modNamespace}/lemon-shim>)
 endif ()
 
 # When linking other targets to the library with target_link_libraries(),
@@ -374,6 +378,13 @@ install(TARGETS ${modName}
 # Install the headers
 install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
+
+# Install the rewritten LEMON headers, which the installed MCFLemonSolver.h
+# has to find before the system ones (see target_include_directories above).
+if (DEFINED LEMON_CXX20_SHIM_DIR)
+    install(DIRECTORY ${LEMON_CXX20_SHIM_DIR}/
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace}/lemon-shim)
+endif ()
 
 # Install the auto-generated configuration header (see above).
 install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h

@@ -102,6 +102,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- a project built against the installed package did not compile: the
+  rewritten LEMON headers were given to the build tree alone, so that
+  `MCFLemonSolver.h`, which includes the LEMON headers and calls what only
+  the rewritten ones have (e.g., `runWarm()`), found the system ones; they
+  are now installed next to the headers of the module, in `lemon-shim`, and
+  the exported target puts them before the system ones
+
 - the tester did not compile against an installed LEMON whose
   `lemon/capacity_scaling.h` misses the include of `lemon/maps.h`, since the
   shim of those headers was given to the library alone: it now reaches
