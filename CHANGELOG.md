@@ -22,39 +22,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   can already ask for a pivot rule. The default is the 4 of LEMON and a value
   below 2, which `CapacityScaling` refuses, is refused here
 
-- the network simplex re-optimizes: after a change of the costs alone the
-  basis of the previous run is still primal feasible, so the potentials are
-  recomputed on its tree and the simplex goes on from there instead of
-  starting from the artificial basis, which is the change a Lagrangian or a
-  Frank-Wolfe decomposition makes at each iteration. LEMON has no warm start
-  of its own, the `run()` of every algorithm calling its `init()`, hence
-  `runWarm()` is added by the shim of the build [see shim/README.md]. On the
-  instances of the `MCFBlock` suite a re-solve after a change of the costs
-  takes between one seventh and one fiftieth of a solution from scratch, the
-  larger the instance the larger the gain. A change of the capacities keeps
-  the basis as well, if every arc whose capacity changes keeps the flow it
-  holds within the new bound and, when it is out of the basis tree, sits at
-  its lower bound, which is the case of an arc that is closed while it
-  carries no flow and of one that is opened again, i.e., of what a
-  decomposition that opens and closes arcs does at each iteration; there a
-  re-solve after closing and re-opening idle arcs takes between one sixteenth
-  and one three-hundredth of a solution from scratch. An arc that sits at its
-  upper bound, one whose flow no longer fits, and a change of the supplies or
-  of the graph drop the basis, and there the cost is the one it was
-  larger the instance the larger the gain; a change of the capacities, of the
-  supplies or of the graph drops the basis, and there the cost is the one it
-  was
-
-- the network simplex re-optimizes after a change of the capacities as well:
-  the basis of the last run stays primal feasible if every arc whose capacity
-  changes keeps the flow it holds within the new bound and, when it is out of
-  the basis tree, sits at its lower bound, which is the case of an arc that is
-  closed while it carries no flow and of one that is opened again, i.e. of
-  what a decomposition that opens and closes arcs does at each iteration; an
-  arc that sits at its upper bound, or one whose flow no longer fits, drops
-  the basis as before. On the instances of the `MCFBlock` suite a re-solve
-  after closing and re-opening idle arcs takes between one sixteenth and one
-  three-hundredth of a solution from scratch
+- the network simplex re-optimizes: after a change of the costs alone the basis
+  of the previous run is still primal feasible, so the potentials are
+  recomputed on its tree and the simplex goes on from there instead of starting
+  from the artificial basis, which is the change a Lagrangian or a Frank-Wolfe
+  decomposition makes at each iteration. LEMON has no warm start of its own,
+  the `run()` of every algorithm calling its `init()`, hence `runWarm()` is
+  added by the shim of the build [see shim/README.md]. On the instances of the
+  `MCFBlock` suite a re-solve after a change of the costs takes between one
+  seventh and one fiftieth of a solution from scratch, the larger the instance
+  the larger the gain. A change of the capacities keeps the basis as well, if
+  every arc whose capacity changes keeps the flow it holds within the new bound
+  and, when it is out of the basis tree, sits at its lower bound, which is the
+  case of an arc that is closed while it carries no flow and of one that is
+  opened again, i.e., of what a decomposition that opens and closes arcs does
+  at each iteration; there a re-solve after closing and re-opening idle arcs
+  takes between one sixteenth and one three-hundredth of a solution from
+  scratch. An arc that sits at its upper bound, one whose flow no longer fits,
+  and a change of the supplies or of the graph drop the basis, and there the
+  cost is the one it was
 
 - `has_var_direction()`, `get_var_direction()` and a `Solution` that says it
   holds a direction for the network simplex: the cycle of negative cost and
