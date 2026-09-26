@@ -108,6 +108,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `get_dual_solution()` wrote the potentials only, leaving in the bound
+  constraints the dual values of whatever had written there before, so that
+  the dual solution read out of the abstract representation was not one;
+  it now writes the reduced costs as well, as the `:MCFSolver` do
+
 - cost scaling could read and write past the end of its buckets: in the
   price refinement the rank of a node is a sum of ranks along a path, each
   of them checked against the number of buckets but not their sum, which

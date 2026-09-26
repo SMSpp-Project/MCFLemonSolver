@@ -591,11 +591,25 @@ class MCFLemonSolver : public CDASolver
 
   // the node is identified by its LEMON id, see get_var_solution(); the
   // digraph may also have more nodes than the MCFBlock has
+  MCFBlock::Vec_CNumber Pi( MCFB->get_NNodes() , 0 );
   for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
    auto i = Index( dgp->id( n ) );
-   if( i < MCFB->get_NNodes() )    // NB: set_pi() takes the value first
-    MCFB->set_pi( f_algo->potential( n ) / f_cost_scale , i );
+   if( i < Pi.size() )
+    Pi[ i ] = f_algo->potential( n ) / f_cost_scale;
    }
+  MCFB->set_pi( Pi.cbegin() );
+
+  // the reduced costs, i.e., the dual values of the bound constraints, which
+  // the potentials alone do not give and which a dual solution of the
+  // abstract representation needs, as the :MCFSolver give them [see
+  // MCFSolution::write()]; a deleted arc has none
+  MCFBlock::Vec_CNumber RC( MCFB->get_NArcs() , 0 );
+  for( Index i = 0 ; i < RC.size() ; ++i )
+   if( ! MCFB->is_deleted( i ) )
+    RC[ i ] = ( MCFB->get_C().empty() ? 0 : MCFB->get_C( i ) )
+              + Pi[ MCFB->get_SN( i ) - 1 ]
+                               - Pi[ MCFB->get_EN( i ) - 1 ];
+  MCFB->set_rc( RC.cbegin() );
   }
 
 /*--------------------------------------------------------------------------*/
