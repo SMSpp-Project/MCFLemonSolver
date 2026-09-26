@@ -88,9 +88,19 @@ headers need a few portability fixes, and a numerical one:
   the potentials on its tree, and after a change of the capacities or of the
   supplies it first recomputes the flow of the tree, hanging from the root by
   its artificial arc the subtree below an arc whose flow falls outside its
-  bounds, a change of the graph dropping that basis. The code of the two rewrites
-  above lives in [shim](shim), read as C++ and inserted at its anchor by both
-  the CMake build and the makefiles.
+  bounds, a change of the graph dropping that basis; `capacity_scaling.h`,
+  `cost_scaling.h` and `cycle_canceling.h` get a `runWarm()` as well, the
+  first starting from the flow and the potentials of the last run after any
+  change, the other two from the flow of the last run when it is still
+  feasible, i.e., after a change of the costs;
+- **price refinement of cost scaling**: the rank of a node is a sum of ranks
+  along a path, each of them checked against the number of buckets but not
+  their sum, which then indexes past the end of the buckets; the rewrite
+  bounds it, the rank being a lower bound on how far the potential of the
+  node has to go down.
+
+The code of the warm starts lives in [shim](shim), read as C++ and inserted
+at its anchor by both the CMake build and the makefiles.
 
 CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
 too, and for them no header is rewritten: `MCFLemonSolver` gives them the

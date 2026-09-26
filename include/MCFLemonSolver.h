@@ -1255,6 +1255,7 @@ class MCFLemonSolverCycleCanceling : public
 
  enum LEMON_CC_int_par_type {
   kMethod = intLastParCDAS ,  ///< the method parameter of CycleCanceling
+  kReopt ,                    ///< whether to re-optimize from the last run
   intLastParLEMON_CC  ///< first allowed parameter value for derived classes
    /**< convenience value for easily allow derived classes
     * to further extend the set of types of return codes */
@@ -1269,6 +1270,7 @@ class MCFLemonSolverCycleCanceling : public
  MCFLemonSolverCycleCanceling( void ) : BaseClass() {
   BaseClass::guts_of_constructor();
   f_method = CycleCanceling< GR , V , C >::Method::CANCEL_AND_TIGHTEN;
+  f_reopt = true;
   }
 
  /// destructor, calls guts_of_destructor()
@@ -1292,6 +1294,11 @@ class MCFLemonSolverCycleCanceling : public
    return;
    }
 
+  if( par == kReopt ) {
+   f_reopt = ( value != 0 );
+   return;
+   }
+
   CDASolver::set_par( par , value );
  }
 
@@ -1310,6 +1317,8 @@ class MCFLemonSolverCycleCanceling : public
 				 std::to_string( par ) ) );
   if( par == kMethod )
    return( CycleCanceling< GR , V , C >::Method::CANCEL_AND_TIGHTEN );
+  if( par == kReopt )
+   return( 1 );
 
   return( CDASolver::get_dflt_int_par( par ) );
   }
@@ -1319,6 +1328,8 @@ class MCFLemonSolverCycleCanceling : public
  [[nodiscard]] int get_int_par( idx_type par ) const override {
   if( par == kMethod )
    return( f_method );
+  if( par == kReopt )
+   return( f_reopt );
 
   return( CDASolver::get_int_par( par ) );
   }
@@ -1329,6 +1340,8 @@ class MCFLemonSolverCycleCanceling : public
   const override {
   if( name == "kMethod" )
    return( kMethod );
+  if( name == "kReopt" )
+   return( kReopt );
 
   return( CDASolver::int_par_str2idx( name ) );
   }
@@ -1342,9 +1355,9 @@ class MCFLemonSolverCycleCanceling : public
 				 "int_par_idx2str: invalid parameter " +
 				 std::to_string( idx ) ) );
 
-  static const std::string par = "kMethod";
-  if( idx == kMethod )
-   return( par );
+  static const std::array< std::string , 2 > pars = { "kMethod" , "kReopt" };
+  if( ( idx >= kMethod ) && ( idx < intLastParLEMON_CC ) )
+   return( pars[ idx - kMethod ] );
 
   return( CDASolver::int_par_idx2str( idx ) );
   }
@@ -1357,8 +1370,13 @@ class MCFLemonSolverCycleCanceling : public
 
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
+ /* With kReopt the negative cycles are canceled from the flow of the last
+  * run, if it is still feasible [see runWarm() in the shim of the build];
+  * without, each run finds a feasible flow anew. */
+
  void guts_of_compute( void ) override {
-  status = f_algo->run( CCMethod( f_method ) );
+  status = f_reopt ? f_algo->runWarm( CCMethod( f_method ) )
+                   : f_algo->run( CCMethod( f_method ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1374,6 +1392,7 @@ class MCFLemonSolverCycleCanceling : public
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  CCMethod f_method;
+ bool f_reopt;  ///< whether to re-optimize from the last run [see kReopt]
 
 /*--------------------------------------------------------------------------*/
 
@@ -1435,6 +1454,7 @@ template< typename GR , typename V , typename C >
 
  enum LEMON_CapS_int_par_type {
   kFactor = intLastParCDAS ,  ///< the scaling factor of CapacityScaling
+  kReopt ,                    ///< whether to re-optimize from the last run
   intLastParLEMON_CapS  ///< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
    * to further extend the set of types of return codes */
@@ -1449,6 +1469,7 @@ template< typename GR , typename V , typename C >
  MCFLemonSolverCapacityScaling( void ) : BaseClass() {
   BaseClass::guts_of_constructor();
   f_factor = 4;
+  f_reopt = true;
   }
 
  /// destructor, calls guts_of_destructor()
@@ -1466,6 +1487,11 @@ template< typename GR , typename V , typename C >
 				  "set_par: invalid kFactor " +
 				  std::to_string( value ) ) );
    f_factor = value;
+   return;
+   }
+
+  if( par == kReopt ) {
+   f_reopt = ( value != 0 );
    return;
    }
 
@@ -1488,6 +1514,9 @@ template< typename GR , typename V , typename C >
   if( par == kFactor )
    return( 4 );
 
+  if( par == kReopt )
+   return( 1 );
+
   return( CDASolver::get_dflt_int_par( par ) );
   }
 
@@ -1496,6 +1525,9 @@ template< typename GR , typename V , typename C >
  [[nodiscard]] int get_int_par( idx_type par ) const override {
   if( par == kFactor )
    return( f_factor );
+
+  if( par == kReopt )
+   return( f_reopt );
 
   return( CDASolver::get_int_par( par ) );
   }
@@ -1506,6 +1538,9 @@ template< typename GR , typename V , typename C >
   const override {
   if( name == "kFactor" )
    return( kFactor );
+
+  if( name == "kReopt" )
+   return( kReopt );
 
   return( CDASolver::int_par_str2idx( name ) );
   }
@@ -1519,9 +1554,9 @@ template< typename GR , typename V , typename C >
 				 "int_par_idx2str: invalid parameter " +
 				 std::to_string( idx ) ) );
 
-  static const std::string par = "kFactor";
-  if( idx == kFactor )
-   return( par );
+  static const std::array< std::string , 2 > pars = { "kFactor" , "kReopt" };
+  if( ( idx >= kFactor ) && ( idx < intLastParLEMON_CapS ) )
+   return( pars[ idx - kFactor ] );
 
   return( CDASolver::int_par_idx2str( idx ) );
   }
@@ -1534,8 +1569,13 @@ template< typename GR , typename V , typename C >
 
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
+ /* With kReopt the algorithm starts from the flow and the potentials of the
+  * last run, the flow put within the new bounds and at the one the reduced
+  * costs say [see runWarm() in the shim of the build]; without, each run
+  * starts from the zero flow and the zero potentials. */
+
  void guts_of_compute( void ) override {
-  status = f_algo->run( f_factor );
+  status = f_reopt ? f_algo->runWarm( f_factor ) : f_algo->run( f_factor );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1551,6 +1591,7 @@ template< typename GR , typename V , typename C >
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  int f_factor;  ///< the scaling factor, at least 2
+ bool f_reopt;  ///< whether to re-optimize from the last run [see kReopt]
 
 /*--------------------------------------------------------------------------*/
 
@@ -1619,6 +1660,7 @@ class MCFLemonSolverCostScaling : public
 
  enum LEMON_CS_int_par_type {
   kMethod = intLastParCDAS ,  ///< the method of cost scaling
+  kReopt ,                    ///< whether to re-optimize from the last run
   intLastParLEMON_CS
   //< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
@@ -1634,6 +1676,7 @@ class MCFLemonSolverCostScaling : public
  MCFLemonSolverCostScaling( void ) : BaseClass() {
   BaseClass::guts_of_constructor();
   f_method = kAutoMethod;
+  f_reopt = true;
   }
 
  /// destructor, calls guts_of_destructor()
@@ -1650,6 +1693,11 @@ class MCFLemonSolverCostScaling : public
 				 "set_par: invalid kMethod " +
 				  std::to_string( value ) ) );
    f_method = value;
+   return;
+   }
+
+  if( par == kReopt ) {
+   f_reopt = ( value != 0 );
    return;
    }
 
@@ -1671,6 +1719,8 @@ class MCFLemonSolverCostScaling : public
 				 std::to_string( par ) ) );
   if( par == kMethod )
    return( kAutoMethod );
+  if( par == kReopt )
+   return( 1 );
 
   return( CDASolver::get_dflt_int_par( par ) );
   }
@@ -1680,6 +1730,8 @@ class MCFLemonSolverCostScaling : public
  [[nodiscard]] int get_int_par( idx_type par ) const override {
   if( par == kMethod )
    return( f_method );
+  if( par == kReopt )
+   return( f_reopt );
 
   return( CDASolver::get_int_par( par ) );
   }
@@ -1688,6 +1740,9 @@ class MCFLemonSolverCostScaling : public
 
  [[nodiscard]] idx_type int_par_str2idx( const std::string & name )
   const override {
+  if( name == "kReopt" )
+   return( kReopt );
+
   return( name == "kMethod" ? kMethod : CDASolver::int_par_str2idx( name ) );
   }
 
@@ -1700,9 +1755,9 @@ class MCFLemonSolverCostScaling : public
 				 "int_par_idx2str: invalid parameter " +
 				 std::to_string( idx ) ) );
 
-  static const std::string par = "kMethod";
-  if( idx == kMethod )
-   return( par );
+  static const std::array< std::string , 2 > pars = { "kMethod" , "kReopt" };
+  if( ( idx >= kMethod ) && ( idx < intLastParLEMON_CS ) )
+   return( pars[ idx - kMethod ] );
 
   return( CDASolver::int_par_idx2str( idx ) );
   }
@@ -1715,12 +1770,17 @@ class MCFLemonSolverCostScaling : public
 
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
+ /* With kReopt the scaling starts from the flow and the potentials of the
+  * last run, if the flow is still feasible, and from the largest violation
+  * of the optimality conditions under them [see runWarm() in the shim of the
+  * build]; without, each run finds a feasible flow anew and starts from the
+  * largest cost. */
+
  void guts_of_compute( void ) override {
-  if( f_method != kAutoMethod )
-   status = f_algo->run( CSMethod( f_method ) );
-  else
-   status = f_algo->run( flows_scaled() ? ThisAlgo::AUGMENT :
-			                   ThisAlgo::PARTIAL_AUGMENT );
+  const CSMethod m = f_method != kAutoMethod ? CSMethod( f_method ) :
+                     flows_scaled() ? ThisAlgo::AUGMENT :
+                                      ThisAlgo::PARTIAL_AUGMENT;
+  status = f_reopt ? f_algo->runWarm( m ) : f_algo->run( m );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1736,6 +1796,7 @@ class MCFLemonSolverCostScaling : public
 /*--------------------------- PRIVATE FIELDS -------------------------------*/
 
  int f_method;  ///< a CSMethod, or kAutoMethod
+ bool f_reopt;  ///< whether to re-optimize from the last run [see kReopt]
 
  };  // end( class MCFLemonSolverCostScaling< GR , V , C> )
 

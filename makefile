@@ -74,6 +74,8 @@ LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
                   $(MCFLESHIM)/lemon/path.h \
                   $(MCFLESHIM)/lemon/adaptors.h \
                   $(MCFLESHIM)/lemon/capacity_scaling.h \
+                  $(MCFLESHIM)/lemon/cost_scaling.h \
+                  $(MCFLESHIM)/lemon/cycle_canceling.h \
                   $(MCFLESHIM)/lemon/network_simplex.h
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -120,14 +122,42 @@ $(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) $< > $@
 
+# the warm start of capacity_scaling.h, cost_scaling.h and cycle_canceling.h,
+# the same as the CMake build: their runWarm(), whose code lives in shim/ and
+# is inserted after the declaration of _sum_supply, the basis of the warm start
+# dropped by run() and by reset() [see shim/README.md]
+LEMON_SHIM_WARM = \
+	  -e 's/^(    [A-Za-z]+\& reset\(\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^      ProblemType pt = init\(\);$$/      _warm = false; ProblemType pt = init();/'
+
 # capacity_scaling.h needs the base rewrites plus the maps.h include (RangeMap);
 # this explicit rule overrides the generic one above for that single header. The
 # extra expression adds #include <lemon/maps.h> right after #include <lemon/core.h>.
-$(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h
+$(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h \
+	  $(MCFLESDR)/shim/capsc_runwarm.inc
 	mkdir -p $(dir $@)
-	sed -E $(LEMON_SHIM_SED) \
+	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
 	  -e '/#include <lemon\/maps.h>/d' \
 	  -e 's@(#include <lemon/core.h>)@\1\n#include <lemon/maps.h>@' \
+	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/capsc_runwarm.inc' \
+	  $< > $@
+
+# cost_scaling.h also gets the rank of its price refinement bounded: the rank
+# of a node is a sum of ranks along a path, each below _max_rank but not their
+# sum, which then indexes past the end of the buckets [see priceRefinement()]
+$(MCFLESHIM)/lemon/cost_scaling.h: $(LEMON_INCDIR)/lemon/cost_scaling.h \
+	  $(MCFLESDR)/shim/cs_runwarm.inc
+	mkdir -p $(dir $@)
+	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
+	  -e 's/int new_rank_v = rank_u \+ static_cast<int>\(nrc\);/int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);/' \
+	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cs_runwarm.inc' \
+	  $< > $@
+
+$(MCFLESHIM)/lemon/cycle_canceling.h: $(LEMON_INCDIR)/lemon/cycle_canceling.h \
+	  $(MCFLESDR)/shim/cc_runwarm.inc
+	mkdir -p $(dir $@)
+	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
+	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cc_runwarm.inc' \
 	  $< > $@
 
 # network_simplex.h needs the base rewrites plus the two of its own, the same

@@ -128,7 +128,7 @@ find_package(LEMON REQUIRED)
 # on headers that do not match, so they are always safe to apply.
 set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
 foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
-                    network_simplex.h)
+                    cost_scaling.h cycle_canceling.h network_simplex.h)
     unset(_lemon_hdr_src CACHE)
     find_file(_lemon_hdr_src lemon/${_lemon_hdr}
             PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -155,6 +155,40 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             string(REGEX REPLACE
                     "#include <lemon/core.h>"
                     "#include <lemon/core.h>\n#include <lemon/maps.h>"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        # capacity_scaling.h, cost_scaling.h and cycle_canceling.h: the warm
+        # start, whose code lives in shim/ and is inserted after the
+        # declaration of _sum_supply, the basis of the warm start dropped by
+        # run() and by reset(), the same rewrite as the sed of the makefile
+        # [see shim/README.md]
+        set(_ns_warm_inc "")
+        if (_lemon_hdr STREQUAL "capacity_scaling.h")
+            set(_ns_warm_inc capsc_runwarm.inc)
+        elseif (_lemon_hdr STREQUAL "cost_scaling.h")
+            set(_ns_warm_inc cs_runwarm.inc)
+        elseif (_lemon_hdr STREQUAL "cycle_canceling.h")
+            set(_ns_warm_inc cc_runwarm.inc)
+        endif ()
+        # cost_scaling.h only: the rank of a node in the price refinement is
+        # a sum of ranks along a path, each below _max_rank but not their sum,
+        # which then indexes past the end of the buckets; it is bounded, the
+        # rank being a lower bound on how far the potential has to go down
+        if (_lemon_hdr STREQUAL "cost_scaling.h")
+            string(REPLACE "int new_rank_v = rank_u + static_cast<int>(nrc);"
+                    "int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        if (_ns_warm_inc AND NOT _lemon_hdr_content MATCHES "runWarm")
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc} _warm_code)
+            string(REPLACE "    Value _sum_supply;"
+                    "    Value _sum_supply;\n${_warm_code}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      ProblemType pt = init();"
+                    "      _warm = false; ProblemType pt = init();"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REGEX REPLACE "(    [A-Za-z]+& reset\\(\\) {)"
+                    "\\1 _warm = false;"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
         # network_simplex.h only: the tolerances of the pivot rules and of the

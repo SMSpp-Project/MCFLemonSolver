@@ -45,6 +45,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   supplies do not sum to zero, the artificial arcs being built differently
   then
 
+- cost scaling, capacity scaling and cycle canceling re-optimize, each with
+  its own `kReopt`: capacity scaling, a primal-dual algorithm, starts from the
+  flow and the potentials of the last run after any change of the costs, of
+  the capacities or of the supplies, the flow put within the new bounds and
+  at the one the reduced cost says and the excess this leaves sent by its
+  shortest augmenting paths; cost scaling and cycle canceling start from the
+  flow of the last run when it is still feasible, i.e., after a change of
+  the costs, the former from the largest violation of the optimality
+  conditions under the potentials of the last run rather than from the
+  largest cost, the latter without the circulation that finds a feasible
+  flow anew [see shim/README.md]
+
 - `kReopt` for the network simplex, whether it re-optimizes from the basis of
   the previous run (1, the default) or starts from scratch at each solve (0),
   with the name the `:MCFSolver` give to the same parameter, so that the two
@@ -95,6 +107,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the flows and the potentials are available only at an optimal solution
 
 ### Fixed
+
+- cost scaling could read and write past the end of its buckets: in the
+  price refinement the rank of a node is a sum of ranks along a path, each
+  of them checked against the number of buckets but not their sum, which
+  LEMON as released gets wrong on small random instances; the shim bounds
+  it, the rank being a lower bound on how far the potential has to go down
 
 - on macOS a program linking the module lost the classes the module
   registers in the factories when the linker dropped the library, as it
