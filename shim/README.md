@@ -14,7 +14,7 @@ it at the same anchor, so that the two agree by construction:
 | file | anchor | what it is |
 |---|---|---|
 | `ns_eps.inc` | `namespace lemon {` | the two tolerances of `NetworkSimplex`, of the pivot rules and of the flow left on the artificial arcs, zero for an exact type so that on integer data the algorithm is the one of LEMON |
-| `ns_runwarm.inc` | the `return start( pivot_rule );` of `run()` | the tail of `run()`, then `runWarm()` and `unbCycle()`: the warm start, i.e., after a change of the costs alone the basis of the last run is still primal feasible, so the potentials are recomputed on its tree and the simplex goes on from there, and the certificate of unboundedness, i.e., the cycle of the pivot the algorithm cannot perform when it answers `UNBOUNDED` |
+| `ns_runwarm.inc` | the `return start( pivot_rule );` of `run()` | the tail of `run()`, then `runWarm()` and `unbCycle()`: the warm start, i.e., the simplex goes on from the basis of the last run, whose potentials are recomputed on its tree after a change of the costs and whose tree flow is recomputed after a change of the capacities or of the supplies, a subtree whose flow no longer fits being hung from the root by its artificial arc [see `repairBasis()`], and the certificate of unboundedness, i.e., the cycle of the pivot the algorithm cannot perform when it answers `UNBOUNDED` |
 
 The anchors are lines of LEMON as it is released: if a new version of LEMON
 moves them the build finds nothing to replace, the rewrite does not happen

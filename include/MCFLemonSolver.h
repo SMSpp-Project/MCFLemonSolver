@@ -51,6 +51,8 @@
 
 #include <type_traits>
 
+#include <array>
+
 #include <chrono>
 
 /*--------------------------------------------------------------------------*/
@@ -962,6 +964,7 @@ class MCFLemonSolverNetworkSimplex : public
 
  enum LEMON_NS_int_par_type {
   kPivot = intLastParCDAS ,  ///< pivot algorithm for the simplex
+  kReopt ,                   ///< whether to re-optimize from the last basis
   intLastParLEMON_NS  ///< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
    * to further extend the set of types of return codes */
@@ -977,6 +980,7 @@ class MCFLemonSolverNetworkSimplex : public
  {
   BaseClass::guts_of_constructor();
   f_pivot_rule = NSPivotRule::BLOCK_SEARCH;
+  f_reopt = true;
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1002,6 +1006,11 @@ class MCFLemonSolverNetworkSimplex : public
    return;
    }
 
+  if( par == kReopt ) {
+   f_reopt = ( value != 0 );
+   return;
+   }
+
   CDASolver::set_par( par , value );
  }
 
@@ -1020,6 +1029,8 @@ class MCFLemonSolverNetworkSimplex : public
 				 std::to_string( par ) ) );
   if( par == kPivot )
    return( NSPivotRule::BLOCK_SEARCH );
+  if( par == kReopt )
+   return( 1 );
 
   return( CDASolver::get_dflt_int_par( par ) );
   }
@@ -1029,6 +1040,8 @@ class MCFLemonSolverNetworkSimplex : public
  [[nodiscard]] int get_int_par( idx_type par ) const override {
   if( par == kPivot )
    return( f_pivot_rule );
+  if( par == kReopt )
+   return( f_reopt );
 
   return( CDASolver::get_int_par( par ) );
   }
@@ -1039,6 +1052,8 @@ class MCFLemonSolverNetworkSimplex : public
   const override {
   if( name == "kPivot" )
    return( kPivot );
+  if( name == "kReopt" )
+   return( kReopt );
 
   return( CDASolver::int_par_str2idx( name ) );
   }
@@ -1052,9 +1067,9 @@ class MCFLemonSolverNetworkSimplex : public
 				 "int_par_idx2str: invalid index " +
 				 std::to_string( idx ) ) );
 
-  static const std::string par = "kPivot";
-  if( idx == kPivot )
-   return( par );
+  static const std::array< std::string , 2 > pars = { "kPivot" , "kReopt" };
+  if( ( idx >= kPivot ) && ( idx < intLastParLEMON_NS ) )
+   return( pars[ idx - kPivot ] );
 
   return( CDASolver::int_par_idx2str( idx ) );
   }
@@ -1131,19 +1146,22 @@ class MCFLemonSolverNetworkSimplex : public
 
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
- /* The network simplex is asked to re-optimize: the basis of the previous run
-  * survives a change of the costs alone, which is the change a Lagrangian or
-  * a Frank-Wolfe decomposition makes at each iteration, and the algorithm
-  * drops it by itself when the capacities, the supplies or the graph change
-  * [see runWarm() in the shim of the build]. */
+ /* With kReopt the network simplex is asked to re-optimize: the basis of the
+  * previous run survives a change of the costs as it is, and a change of the
+  * capacities or of the supplies after the flow of its tree has been
+  * recomputed, while the algorithm drops it by itself when the graph changes
+  * [see runWarm() in the shim of the build]; without, each run starts from
+  * the artificial basis. */
 
  void guts_of_compute( void ) override {
-  status = f_algo->runWarm( NSPivotRule( f_pivot_rule ) );
+  status = f_reopt ? f_algo->runWarm( NSPivotRule( f_pivot_rule ) )
+                   : f_algo->run( NSPivotRule( f_pivot_rule ) );
   }
 
 /*---------------------------- PROTECTED FIELDS ----------------------------*/
 
   NSPivotRule f_pivot_rule;
+  bool f_reopt;  ///< whether to re-optimize from the last basis [see kReopt]
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/

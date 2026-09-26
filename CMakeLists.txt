@@ -196,10 +196,10 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             # whose pivot cannot be performed, which the certificate of
             # unboundedness is made of [see unbCycle()]
             string(REPLACE "    int _root;"
-                    "    int _root; bool _warm; int _unb_arc;"
+                    "    int _root; bool _warm; bool _repair; int _unb_arc;"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "      // Check the number types"
-                    "      _warm = false;\n      _unb_arc = -1;\n      // Check the number types"
+                    "      _warm = false;\n      _repair = false;\n      _unb_arc = -1;\n      // Check the number types"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "if (!initialPivots()) return UNBOUNDED;"
                     "if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }"
@@ -210,8 +210,10 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             string(REPLACE "        _upper[_arc_id[a]] = map[a];"
                     "        warmUpper(_arc_id[a], map[a]);"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "        _supply[_node_id[n]] = map[n];"
+                    "        warmSupply(_node_id[n], map[n]);"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
             foreach (_ns_drop "NetworkSimplex& lowerMap(const LowerMap& map) {"
-                              "NetworkSimplex& supplyMap(const SupplyMap& map) {"
                               "NetworkSimplex& stSupply(const Node& s, const Node& t, Value k) {"
                               "NetworkSimplex& reset() {")
                 string(REPLACE "${_ns_drop}" "${_ns_drop} _warm = false;"

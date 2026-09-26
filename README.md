@@ -83,10 +83,12 @@ headers need a few portability fixes, and a numerical one:
   for integer types, so that on integer data the algorithm is unchanged;
 - **no re-optimization**: the `run()` of every algorithm of LEMON calls its
   `init()`, i.e., each call starts from scratch, and nothing of the previous
-  call is reused; `network_simplex.h` gets `runWarm()`, which after a change
-  of the costs alone recomputes the potentials on the basis of the last run
-  and lets the simplex go on from there, a change of the capacities, of the
-  supplies or of the graph dropping that basis. The code of the two rewrites
+  call is reused; `network_simplex.h` gets `runWarm()`, which re-optimizes
+  from the basis of the last run: after a change of the costs it recomputes
+  the potentials on its tree, and after a change of the capacities or of the
+  supplies it first recomputes the flow of the tree, hanging from the root by
+  its artificial arc the subtree below an arc whose flow falls outside its
+  bounds, a change of the graph dropping that basis. The code of the two rewrites
   above lives in [shim](shim), read as C++ and inserted at its anchor by both
   the CMake build and the makefiles.
 

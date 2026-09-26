@@ -22,25 +22,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   can already ask for a pivot rule. The default is the 4 of LEMON and a value
   below 2, which `CapacityScaling` refuses, is refused here
 
-- the network simplex re-optimizes: after a change of the costs alone the basis
-  of the previous run is still primal feasible, so the potentials are
-  recomputed on its tree and the simplex goes on from there instead of starting
-  from the artificial basis, which is the change a Lagrangian or a Frank-Wolfe
-  decomposition makes at each iteration. LEMON has no warm start of its own,
-  the `run()` of every algorithm calling its `init()`, hence `runWarm()` is
-  added by the shim of the build [see shim/README.md]. On the instances of the
-  `MCFBlock` suite a re-solve after a change of the costs takes between one
-  seventh and one fiftieth of a solution from scratch, the larger the instance
-  the larger the gain. A change of the capacities keeps the basis as well, if
-  every arc whose capacity changes keeps the flow it holds within the new bound
-  and, when it is out of the basis tree, sits at its lower bound, which is the
-  case of an arc that is closed while it carries no flow and of one that is
-  opened again, i.e., of what a decomposition that opens and closes arcs does
-  at each iteration; there a re-solve after closing and re-opening idle arcs
-  takes between one sixteenth and one three-hundredth of a solution from
-  scratch. An arc that sits at its upper bound, one whose flow no longer fits,
-  and a change of the supplies or of the graph drop the basis, and there the
-  cost is the one it was
+- the network simplex re-optimizes: after a change of the costs the basis of
+  the previous run is still primal feasible, so the potentials are recomputed
+  on its tree and the simplex goes on from there instead of starting from the
+  artificial basis, which is the change a Lagrangian or a Frank-Wolfe
+  decomposition makes at each iteration; after a change of the capacities or
+  of the supplies the flow of the tree is recomputed from the leaves up, and
+  the subtree below an arc whose flow falls outside its bounds is hung from
+  the root by its artificial arc, as `init()` hangs every node, so that the
+  basis is again primal feasible and the simplex drives the artificial arcs
+  out by their cost; the basis of a run that ends by proving the instance
+  infeasible is kept as well, being optimal for the problem with the
+  artificial arcs. LEMON has no warm start of its own, the `run()` of every
+  algorithm calling its `init()`, hence `runWarm()` is added by the shim of
+  the build [see shim/README.md]. On the instances of the `MCFBlock` suite a
+  re-solve after a change of the costs takes between one seventh and one
+  fiftieth of a solution from scratch, the larger the instance the larger the
+  gain, and on a GOTO instance of 1024 nodes and 65536 arcs the instructions
+  of 20 re-solves after changes of the capacities, of the deficits or of the
+  closed arcs are between 15 and 42 times fewer than from scratch. The basis
+  is dropped after a change of the graph, with lower bounds, and when the
+  supplies do not sum to zero, the artificial arcs being built differently
+  then
+
+- `kReopt` for the network simplex, whether it re-optimizes from the basis of
+  the previous run (1, the default) or starts from scratch at each solve (0),
+  with the name the `:MCFSolver` give to the same parameter, so that the two
+  can be compared against their own solve from scratch in one configuration
 
 - `has_var_direction()`, `get_var_direction()` and a `Solution` that says it
   holds a direction for the network simplex: the cycle of negative cost and

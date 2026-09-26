@@ -1,22 +1,35 @@
-      // the tail of run(): a basis is there to reuse only if this run has
-      // ended at an optimal one [see runWarm()]
+      // the tail of run(): a basis is there to reuse if this run has ended
+      // at an optimal one, or at one that proves the instance infeasible,
+      // which is optimal for the problem with the artificial arcs and makes
+      // a start after a change as good as any [see runWarm()]; not with
+      // lower bounds, which start() does not put back in the supplies when
+      // it answers INFEASIBLE
+      _repair = false;
       ProblemType pt = start(pivot_rule);
-      _warm = (pt == OPTIMAL);
+      _warm = (pt == OPTIMAL || (pt == INFEASIBLE && !_has_lower));
       return pt;
       }
 
-    /// re-optimizes after a change of the costs alone
-    /** Re-optimizes after a change of the costs alone: the basis of the last
-     * run is still primal feasible, hence the potentials are recomputed on
-     * its tree and the simplex goes on from there instead of starting from
-     * the artificial basis, which is what a Lagrangian or a Frank-Wolfe
-     * decomposition asks for, changing nothing but the costs at each
-     * iteration. A change of the capacities, of the supplies or of the graph
-     * drops the basis, since it is no longer feasible or no longer there at
-     * all, and then this method does what run() does. */
+    /// re-optimizes from the basis of the last run
+    /** Re-optimizes from the basis of the last run instead of starting from
+     * the artificial one. After a change of the costs alone the basis is
+     * still primal feasible, hence the potentials are recomputed on its tree
+     * and the simplex goes on from there, which is what a Lagrangian or a
+     * Frank-Wolfe decomposition asks for. After a change of the capacities
+     * or of the supplies the flow of the tree is recomputed first, and the
+     * subtree below an arc whose flow falls outside its bounds is hung from
+     * the root by its artificial arc [see repairBasis()], as init() hangs
+     * every node, so that the basis is again primal feasible and the
+     * artificial arcs are driven out by their cost. A change of the graph,
+     * of the lower bounds or of the supplies that leaves them not summing to
+     * zero drops the basis, and then this method does what run() does. */
 
     ProblemType runWarm(PivotRule pivot_rule = BLOCK_SEARCH) {
       if (!_warm) return run(pivot_rule);
+      if (_repair) {
+        if (!repairBasis()) return run(pivot_rule);
+        _repair = false;
+      }
 
       // the artificial arcs keep a cost larger than any of the real ones,
       // which the change may have made larger than it was
@@ -41,23 +54,20 @@
       }
 
       ProblemType ptw = start(pivot_rule);
-      _warm = (ptw == OPTIMAL);
+      _warm = (ptw == OPTIMAL || (ptw == INFEASIBLE && !_has_lower));
       return ptw;
       }
 
     /// takes in the new upper bound of an arc, keeping the basis if it can
     /** Takes in the new upper bound of the arc of internal index i, as
-     * upperMap() gives it, and tells whether the basis of the last run
-     * survives it: it does if the flow the arc holds stays inside the new
-     * bound and, when the arc is out of the basis tree, if it sits at its
-     * lower bound, where it stays whatever the upper bound becomes; an arc
-     * that sits at its upper bound would have to move with it, and the flow
-     * of the tree would have to be recomputed, which is what init() does.
-     * This is the case of the arc that is closed while it carries no flow,
-     * and of the one that is opened again, both of which a decomposition
-     * that closes and opens arcs does at each iteration [see runWarm()].
-     * The capacity the algorithm works on is that of the problem the lower
-     * bounds have been taken out of, as init() computes it. */
+     * upperMap() gives it. The basis of the last run is kept as it is if the
+     * flow the arc holds stays inside the new bound and the arc does not sit
+     * at its upper bound, which is the case of the arc that is closed while
+     * it carries no flow and of the one that is opened again; otherwise the
+     * flow of the tree has to be recomputed, which runWarm() does before
+     * starting [see repairBasis()]. With lower bounds the basis is dropped
+     * instead, the capacity the algorithm works on being that of the problem
+     * the lower bounds have been taken out of, as init() computes it. */
 
     void warmUpper(int i, Value up) {
       if (up == _upper[i]) return;
@@ -76,8 +86,134 @@
         cap = up;
       }
 
-      if (_state[i] == STATE_UPPER || _flow[i] > cap) _warm = false;
-      else _cap[i] = cap;
+      const bool moves = _state[i] == STATE_UPPER || _flow[i] > cap;
+      if (moves && _has_lower) { _warm = false; return; }
+      _cap[i] = cap;
+      if (moves) _repair = true;
+      }
+
+    /// takes in the new supply of a node, keeping the basis
+    /** Takes in the new supply of the node of internal index i, as
+     * supplyMap() gives it: the basis of the last run is kept, and the flow
+     * of its tree is recomputed by runWarm() before starting [see
+     * repairBasis()]. */
+
+    void warmSupply(int i, Value s) {
+      if (s == _supply[i]) return;
+      _supply[i] = s;
+      if (_warm) _repair = true;
+      }
+
+    /// makes the basis of the last run primal feasible again
+    /** Makes the basis of the last run primal feasible again after a change
+     * of the capacities or of the supplies, keeping its tree: every arc out
+     * of the tree is put at the bound it sits at, and the flow of the tree
+     * arcs is recomputed from the leaves up, each carrying what the subtree
+     * below it has to send. An arc whose flow falls outside its bounds leaves
+     * the tree at the bound it violates, and the subtree below it is hung
+     * from the root by the artificial arc of its top node, directed as the
+     * flow it has to carry and with the cost init() would give it, i.e.,
+     * zero towards the root and larger than any real one from it, so that
+     * the simplex drives it out as it does from the artificial basis. The
+     * thread and the sizes of the subtrees are then rebuilt from the fathers
+     * by a depth-first visit. It returns false, leaving the basis to be
+     * dropped, if there are lower bounds or if the supplies of the last run
+     * or the new ones do not sum to zero, the artificial arcs being built
+     * differently then [see init()]. */
+
+    bool repairBasis() {
+      if (_has_lower || _sum_supply != 0) return false;
+      Value sum = 0;
+      for (int u = 0; u != _node_num; ++u) sum += _supply[u];
+      if (sum != 0) return false;
+
+      // what each node has to send along the tree: its supply, net of the
+      // flow of the arcs out of the tree, each at the bound it sits at
+      std::vector<Value> net(_node_num + 1, 0);
+      for (int u = 0; u != _node_num; ++u) net[u] = _supply[u];
+      for (int e = 0; e != _arc_num; ++e) {
+        if (_state[e] == STATE_TREE) continue;
+        if (_state[e] == STATE_UPPER && _cap[e] >= MAX)
+          _state[e] = STATE_LOWER;  // an upper bound no longer there
+        _flow[e] = _state[e] == STATE_UPPER ? _cap[e] : 0;
+        net[_source[e]] -= _flow[e];
+        net[_target[e]] += _flow[e];
+      }
+      for (int e = _arc_num; e != _all_arc_num; ++e)
+        if (_state[e] != STATE_TREE) _flow[e] = 0;
+
+      // the flow of the tree arcs, from the leaves up, i.e., in the reverse
+      // order of the thread, which gives every node after its subtree
+      for (int u = _rev_thread[_root]; u != _root; u = _rev_thread[u]) {
+        int e = _pred[u];
+        Value n = net[u];
+        if (e < _arc_num) {
+          const int p = _parent[u];
+          const Value f = _pred_dir[u] == DIR_UP ? n : -n;
+          if (f >= 0 && f <= _cap[e]) {
+            _flow[e] = f;
+            net[p] += n;
+            continue;
+          }
+          // the arc leaves the tree at the bound it violates, and what it
+          // carries there goes from u to p
+          _state[e] = f < 0 ? STATE_LOWER : STATE_UPPER;
+          _flow[e] = f < 0 ? 0 : _cap[e];
+          const Value s = _pred_dir[u] == DIR_UP ? _flow[e] : -_flow[e];
+          n -= s;
+          net[p] += s;
+          e = _arc_num + u;
+          _state[e] = STATE_TREE;
+          _parent[u] = _root;
+          _pred[u] = e;
+        }
+        // u hangs from the root by its artificial arc, directed as n says
+        if (n >= 0) {
+          _pred_dir[u] = DIR_UP;
+          _source[e] = u;
+          _target[e] = _root;
+          _flow[e] = n;
+          _cost[e] = 0;
+        } else {
+          _pred_dir[u] = DIR_DOWN;
+          _source[e] = _root;
+          _target[e] = u;
+          _flow[e] = -n;
+          _cost[e] = 1;  // nonzero, runWarm() gives it the artificial cost
+        }
+        net[_root] += n;
+      }
+
+      // the thread and its reverse, the sizes of the subtrees and their last
+      // nodes, from the fathers, by a depth-first visit from the root
+      std::vector<int> child(_node_num + 1, -1), sibling(_node_num + 1, -1);
+      for (int u = _node_num - 1; u >= 0; --u) {
+        sibling[u] = child[_parent[u]];
+        child[_parent[u]] = u;
+      }
+      std::vector<int> order, stack(1, _root);
+      order.reserve(_node_num + 1);
+      while (!stack.empty()) {
+        const int u = stack.back();
+        stack.pop_back();
+        order.push_back(u);
+        for (int v = child[u]; v != -1; v = sibling[v]) stack.push_back(v);
+      }
+      const int k = static_cast<int>(order.size());
+      if (k != _node_num + 1) return false;  // not a tree: cannot happen
+
+      for (int i = 0; i != k; ++i) {
+        const int u = order[i], v = order[(i + 1) % k];
+        _thread[u] = v;
+        _rev_thread[v] = u;
+        _succ_num[u] = 1;
+      }
+      for (int i = k - 1; i > 0; --i)
+        _succ_num[_parent[order[i]]] += _succ_num[order[i]];
+      for (int i = 0; i != k; ++i)
+        _last_succ[order[i]] = order[i + _succ_num[order[i]] - 1];
+
+      return true;
       }
 
     /// the cycle that proves the instance unbounded

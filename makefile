@@ -149,12 +149,13 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
 	  -e 's/else if \(c >= 0\) \{/else if (c >= -_eps) {/' \
 	  -e 's@^      // Check feasibility@      const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
 	  -e 's/if \(_flow\[e\] != 0\) return/if (_flow[e] > feps || _flow[e] < -feps) return/' \
-	  -e 's/^    int _root;$$/    int _root; bool _warm; int _unb_arc;/' \
-	  -e 's@^      // Check the number types@      _warm = false; _unb_arc = -1; // Check the number types@' \
+	  -e 's/^    int _root;$$/    int _root; bool _warm; bool _repair; int _unb_arc;/' \
+	  -e 's@^      // Check the number types@      _warm = false; _repair = false; _unb_arc = -1; // Check the number types@' \
 	  -e 's/if \(!initialPivots\(\)\) return UNBOUNDED;/if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }/' \
 	  -e 's/if \(delta >= MAX\) return UNBOUNDED;/if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }/' \
 	  -e 's@^        _upper\[_arc_id\[a\]\] = map\[a\];$$@        warmUpper(_arc_id[a], map[a]);@' \
-	  -e 's/^(    NetworkSimplex\& (lowerMap|supplyMap)\(const .*\& map\) \{)$$/\1 _warm = false;/' \
+	  -e 's@^        _supply\[_node_id\[n\]\] = map\[n\];$$@        warmSupply(_node_id[n], map[n]);@' \
+	  -e 's/^(    NetworkSimplex\& lowerMap\(const .*\& map\) \{)$$/\1 _warm = false;/' \
 	  -e 's/^(    NetworkSimplex\& stSupply\(const Node\& s, const Node\& t, Value k\) \{)$$/\1 _warm = false;/' \
 	  -e 's/^(    NetworkSimplex\& reset\(\) \{)$$/\1 _warm = false;/' \
 	  -e '/^namespace lemon \{$$/r $(MCFLESDR)/shim/ns_eps.inc' \
