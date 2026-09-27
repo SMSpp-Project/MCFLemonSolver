@@ -121,11 +121,20 @@ LEMON_SHIM_SED = \
 $(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) $< > $@
+	@$(LEMON_SHIM_CHECK)
 
 # the warm start of capacity_scaling.h, cost_scaling.h and cycle_canceling.h,
 # the same as the CMake build: their runWarm(), whose code lives in shim/ and
 # is inserted after the declaration of _sum_supply, the basis of the warm start
 # dropped by run() and by reset() [see shim/README.md]
+# every rewrite has to have found its anchor, the same check as the CMake
+# build [see shim/markers.txt]: the header is removed, and make stops, if a
+# text it has to contain after the rewrite is not there
+LEMON_SHIM_CHECK = grep '^$(notdir $@)|' $(MCFLESDR)/shim/markers.txt | \
+	  cut -d'|' -f2- | while IFS= read -r m; do grep -qF -- "$$m" $@ || \
+	  { echo "MCFLemonSolver: lemon/$(notdir $@) lacks \"$$m\" [see shim/markers.txt]" >&2; \
+	    rm -f $@; exit 1; }; done
+
 LEMON_SHIM_WARM = \
 	  -e 's/^(    [A-Za-z]+\& reset\(\) \{)$$/\1 _warm = false;/' \
 	  -e 's/^      ProblemType pt = init\(\);$$/      _warm = false; ProblemType pt = init();/'
@@ -141,6 +150,7 @@ $(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h 
 	  -e 's@(#include <lemon/core.h>)@\1\n#include <lemon/maps.h>@' \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/capsc_runwarm.inc' \
 	  $< > $@
+	@$(LEMON_SHIM_CHECK)
 
 # cost_scaling.h also gets the rank of its price refinement bounded: the rank
 # of a node is a sum of ranks along a path, each below _max_rank but not their
@@ -152,6 +162,7 @@ $(MCFLESHIM)/lemon/cost_scaling.h: $(LEMON_INCDIR)/lemon/cost_scaling.h \
 	  -e 's/int new_rank_v = rank_u \+ static_cast<int>\(nrc\);/int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);/' \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cs_runwarm.inc' \
 	  $< > $@
+	@$(LEMON_SHIM_CHECK)
 
 $(MCFLESHIM)/lemon/cycle_canceling.h: $(LEMON_INCDIR)/lemon/cycle_canceling.h \
 	  $(MCFLESDR)/shim/cc_runwarm.inc
@@ -159,6 +170,7 @@ $(MCFLESHIM)/lemon/cycle_canceling.h: $(LEMON_INCDIR)/lemon/cycle_canceling.h \
 	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cc_runwarm.inc' \
 	  $< > $@
+	@$(LEMON_SHIM_CHECK)
 
 # network_simplex.h needs the base rewrites plus the two of its own, the same
 # as the CMake build: the tolerances of the pivot rules and of the feasibility
@@ -179,6 +191,7 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
 	  -e 's/else if \(c >= 0\) \{/else if (c >= -_eps) {/' \
 	  -e 's@^      // Check feasibility@      const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
 	  -e 's/if \(_flow\[e\] != 0\) return/if (_flow[e] > feps || _flow[e] < -feps) return/' \
+	  -e 's/if \(_cost\[i\] > ART_COST\) ART_COST = _cost\[i\];/& else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];/' \
 	  -e 's/^    int _root;$$/    int _root; bool _warm; bool _repair; int _unb_arc;/' \
 	  -e 's@^      // Check the number types@      _warm = false; _repair = false; _unb_arc = -1; // Check the number types@' \
 	  -e 's/if \(!initialPivots\(\)\) return UNBOUNDED;/if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }/' \
@@ -192,6 +205,7 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
 	  -e '/^      return start\(pivot_rule\);$$/{r $(MCFLESDR)/shim/ns_runwarm.inc' \
 	  -e 'd}' \
 	  $< > $@
+	@$(LEMON_SHIM_CHECK)
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
 

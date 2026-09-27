@@ -20,9 +20,13 @@ it at the same anchor, so that the two agree by construction:
 | `cc_runwarm.inc` | the declaration of `_sum_supply` in `cycle_canceling.h` | `runWarm()` of `CycleCanceling`: if the flow of the last run is still feasible, the circulation that finds one anew is skipped and the negative cycles are canceled from it |
 
 The anchors are lines of LEMON as it is released: if a new version of LEMON
-moves them the build finds nothing to replace, the rewrite does not happen
-and the compilation fails on the name that is missing, which is the loud
-failure one wants rather than a silent one.
+moves one of them the build finds nothing to replace and the rewrite does
+not happen. `markers.txt` lists, for each rewritten header, what it has to
+contain once rewritten, and both builds check it and stop, naming the text
+that is missing, rather than go on with a header rewritten in part: an
+inserted block would make the compilation fail anyway, but a rewrite of one
+token (a tolerance, a hook that keeps the warm start informed of a change)
+would not, and would leave the algorithm silently wrong.
 
 The rewrites are idempotent: applied to an already patched LEMON they are
 no-ops, since each of them looks for what only the unpatched header has.

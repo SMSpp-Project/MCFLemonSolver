@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- the network simplex of LEMON declared infeasible some feasible instances
+  with negative costs of a floating-point type: the cost of its artificial
+  arcs is larger than that of any path of nonnegative cost, not of any path,
+  and with negative costs a cycle through the root could cost less than
+  zero and keep flow on the artificial arcs; the cost is now computed on the
+  absolute values, both at the start and in the warm start (11 wrong answers
+  out of 3000 random instances before, none after)
+
+- the basis that the warm start of the network simplex repairs is strongly
+  feasible, which the anti-cycling rule of its pivots relies upon: a tree
+  arc left at the bound that would make the tree not strongly feasible (at
+  its capacity if directed towards the root, at zero if away from it) leaves
+  the tree as one outside its bounds does, and so does a tree arc closed at
+  zero flow
+
+- the warm start of cost scaling starts from the phase after the largest
+  violation of the optimality conditions, the pair of the last run being
+  already that close to optimal, rather than refining to where it already is
+
+- the warm start of capacity scaling shifts the potentials of the last run
+  so that the smallest is zero, which leaves the reduced costs as they are
+  and keeps their values from drifting over a long sequence of runs
+
+- cost scaling, cycle canceling and capacity scaling are given integer costs
+  as they are, with scale 1, as they are given integer capacities and
+  supplies: they were always multiplied by the largest power of 2 that the
+  bounds of the arithmetic allow, which on integer data only added phases to
+  cost scaling and to the cancel-and-tighten method of cycle canceling
+
+- the build stops, naming what is missing, if a rewrite of a header of LEMON
+  has not found its anchor [see shim/markers.txt], rather than going on
+  with a header rewritten in part
+
 ### Added
 
 - the tester of this directory carries the label of the module, so that the

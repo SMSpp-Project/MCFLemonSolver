@@ -31,14 +31,17 @@
         _repair = false;
       }
 
-      // the artificial arcs keep a cost larger than any of the real ones,
-      // which the change may have made larger than it was
+      // the artificial arcs keep a cost larger than that of any path, of
+      // either sign, which the change may have made larger than it was [see
+      // the same in init()]
       Cost art = 0;
       if (std::numeric_limits<Cost>::is_exact) {
         art = std::numeric_limits<Cost>::max() / 2 + 1;
       } else {
-        for (int i = 0; i != _arc_num; ++i)
+        for (int i = 0; i != _arc_num; ++i) {
           if (_cost[i] > art) art = _cost[i];
+          else if (-_cost[i] > art) art = -_cost[i];
+        }
         art = (art + 1) * _node_num;
       }
       for (int e = _arc_num; e != _all_arc_num; ++e)
@@ -61,11 +64,13 @@
     /// takes in the new upper bound of an arc, keeping the basis if it can
     /** Takes in the new upper bound of the arc of internal index i, as
      * upperMap() gives it. The basis of the last run is kept as it is if the
-     * flow the arc holds stays inside the new bound and the arc does not sit
-     * at its upper bound, which is the case of the arc that is closed while
-     * it carries no flow and of the one that is opened again; otherwise the
-     * flow of the tree has to be recomputed, which runWarm() does before
-     * starting [see repairBasis()]. With lower bounds the basis is dropped
+     * flow the arc holds stays inside the new bound, the arc does not sit at
+     * its upper bound and, if it is in the tree, the tree stays strongly
+     * feasible (i.e., the arc is not directed towards the root with its flow
+     * at the new bound), which is the case of the arc out of the tree that is
+     * closed while it carries no flow and of the one that is opened again;
+     * otherwise the flow of the tree has to be recomputed, which runWarm()
+     * does before starting [see repairBasis()]. With lower bounds the basis is dropped
      * instead, the capacity the algorithm works on being that of the problem
      * the lower bounds have been taken out of, as init() computes it. */
 
@@ -86,7 +91,11 @@
         cap = up;
       }
 
-      const bool moves = _state[i] == STATE_UPPER || _flow[i] > cap;
+      bool moves = _state[i] == STATE_UPPER || _flow[i] > cap;
+      if (!moves && _state[i] == STATE_TREE && _flow[i] >= cap) {
+        const int u = _pred[_source[i]] == i ? _source[i] : _target[i];
+        moves = _pred_dir[u] == DIR_UP;
+      }
       if (moves && _has_lower) { _warm = false; return; }
       _cap[i] = cap;
       if (moves) _repair = true;
@@ -109,8 +118,12 @@
      * of the capacities or of the supplies, keeping its tree: every arc out
      * of the tree is put at the bound it sits at, and the flow of the tree
      * arcs is recomputed from the leaves up, each carrying what the subtree
-     * below it has to send. An arc whose flow falls outside its bounds leaves
-     * the tree at the bound it violates, and the subtree below it is hung
+     * below it has to send. An arc whose flow falls outside its bounds, or
+     * sits at the bound that would leave the tree not strongly feasible
+     * (i.e., at its capacity if directed towards the root, at zero if
+     * directed away from it), which the anti-cycling rule of the pivots
+     * [see findLeavingArc()] relies upon, leaves the tree at that bound,
+     * and the subtree below it is hung
      * from the root by the artificial arc of its top node, directed as the
      * flow it has to carry and with the cost init() would give it, i.e.,
      * zero towards the root and larger than any real one from it, so that
@@ -150,15 +163,17 @@
         if (e < _arc_num) {
           const int p = _parent[u];
           const Value f = _pred_dir[u] == DIR_UP ? n : -n;
-          if (f >= 0 && f <= _cap[e]) {
+          // strongly feasible: flow can still be sent from u to the root
+          if (_pred_dir[u] == DIR_UP ? f >= 0 && f < _cap[e]
+                                     : f > 0 && f <= _cap[e]) {
             _flow[e] = f;
             net[p] += n;
             continue;
           }
-          // the arc leaves the tree at the bound it violates, and what it
-          // carries there goes from u to p
-          _state[e] = f < 0 ? STATE_LOWER : STATE_UPPER;
-          _flow[e] = f < 0 ? 0 : _cap[e];
+          // the arc leaves the tree at the bound it violates, or at the one
+          // it is degenerate at, and what it carries there goes from u to p
+          _state[e] = f <= 0 ? STATE_LOWER : STATE_UPPER;
+          _flow[e] = f <= 0 ? 0 : _cap[e];
           const Value s = _pred_dir[u] == DIR_UP ? _flow[e] : -_flow[e];
           n -= s;
           net[p] += s;
@@ -233,8 +248,12 @@
 
       std::vector<int> ids;
       ids.push_back(_unb_arc);
+      // the flow goes from v_in up to join, and then from join down to u_in,
+      // i.e., along the path from u_in to join taken backwards
       for (int u = v_in; u != join; u = _parent[u]) ids.push_back(_pred[u]);
-      for (int u = u_in; u != join; u = _parent[u]) ids.push_back(_pred[u]);
+      std::vector<int> down;
+      for (int u = u_in; u != join; u = _parent[u]) down.push_back(_pred[u]);
+      ids.insert(ids.end(), down.rbegin(), down.rend());
 
       // an artificial arc is none of the instance
       for (std::size_t i = 0; i != ids.size(); ++i)

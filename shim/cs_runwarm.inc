@@ -8,8 +8,9 @@
      * costs, it is kept, the potentials are scaled back to the costs the
      * algorithm works on, and the scaling starts from the largest amount by
      * which a residual arc violates the optimality conditions under them,
-     * rather than from the largest cost, so that a small change of the costs
-     * costs a few phases at small epsilon. It does what run() does if the
+     * rather than from the largest cost (the first phase being the one after
+     * it, since the pair is already that close to optimal), so that a small
+     * change of the costs costs a few phases at small epsilon. It does what run() does if the
      * last run did not end at an optimal flow, if the flow is no longer
      * feasible (after a change of the capacities or of the supplies, which
      * a feasible flow has to be found for anew [see init()]), with lower
@@ -56,6 +57,12 @@
         const LargeCost rc = _cost[j] + _pi[_source[j]] - _pi[_target[j]];
         if (-rc > _epsilon) _epsilon = -rc;
       }
+
+      // the pair is already epsilon-optimal, hence the first phase is the
+      // one after epsilon, as the loop of start() would take it, rather than
+      // a refinement to where the pair already is
+      _epsilon = _epsilon >= _alpha ? _epsilon / _alpha
+                                    : (_epsilon >= 1 ? 1 : _epsilon);
 
       _max_rank = _alpha * _res_node_num;
       _buckets.resize(_max_rank);

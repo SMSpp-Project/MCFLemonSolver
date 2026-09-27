@@ -273,6 +273,10 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
   * keeps max |c| * 16 * n^2 below 2^62; CycleCanceling sums them along
   * cycles, and CapacityScaling along the shortest paths of its potentials,
   * of at most n arcs, hence the scale keeps max |c| * 16 * n below 2^52.
+  * Integer costs within these bounds are given as they are, with scale 1,
+  * as the capacities and the supplies are [see pass_flows()]: a larger
+  * scale would only add phases to CostScaling and to the cancel-and-tighten
+  * method of CycleCanceling, whose epsilon starts from the largest cost.
   * The value and the potentials are brought back to the true costs [see
   * get_ub()]. */
  constexpr bool scaled = std::is_floating_point< C >::value &&
@@ -297,7 +301,12 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
 		     std::exp2( 62 ) / ( max * 16 * n * n ) );
   else
    bound = std::exp2( 52 ) / ( max * n * 16 );
-  f_cost_scale = std::exp2( std::floor( std::log2( bound ) ) );
+  bool integer = bound >= 1;
+  for( typename GR::ArcIt a( *dgp ) ; integer && ( a != INVALID ) ; ++a )
+   if( (*cm)[ a ] != std::floor( (*cm)[ a ] ) )
+    integer = false;
+
+  f_cost_scale = integer ? 1 : std::exp2( std::floor( std::log2( bound ) ) );
   if( ! icm )
    icm = new typename GR::template ArcMap< V >( *dgp , 0 );
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )

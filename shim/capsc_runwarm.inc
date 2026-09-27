@@ -29,6 +29,13 @@
       for (int i = 0; i != _root; ++i) _excess[i] = _supply[i];
       _excess[_root] = 0;
 
+      // the potentials of the last run, shifted so that the smallest is zero,
+      // which leaves the reduced costs as they are and keeps their values
+      // from drifting over a long sequence of runs
+      Cost pmin = _pi[0];
+      for (int i = 1; i <= _root; ++i) if (_pi[i] < pmin) pmin = _pi[i];
+      for (int i = 0; i <= _root; ++i) _pi[i] -= pmin;
+
       // the flow of the last run, within the new bounds and at the one the
       // reduced cost says; the last arc out of a node is the one to the root
       for (int u = 0; u != _root; ++u) {

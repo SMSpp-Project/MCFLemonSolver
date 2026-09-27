@@ -226,6 +226,13 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             string(REPLACE "if (_flow[e] != 0) return"
                     "if (_flow[e] > feps || _flow[e] < -feps) return"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            # the cost of the artificial arcs, larger than that of any path of
+            # either sign rather than of any path of nonnegative cost, which
+            # with negative costs let a cycle through the root cost less than
+            # zero and a feasible instance be declared infeasible
+            string(REPLACE "if (_cost[i] > ART_COST) ART_COST = _cost[i];"
+                    "if (_cost[i] > ART_COST) ART_COST = _cost[i]; else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
             # the basis the warm start reuses, and what drops it; the arc
             # whose pivot cannot be performed, which the certificate of
             # unboundedness is made of [see unbCycle()]
@@ -256,6 +263,26 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             string(REPLACE "      return start(pivot_rule);" "${_ns_warm}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
+        # every rewrite has to have found its anchor [see shim/markers.txt];
+        # the ';' of the markers are kept out of the way of the CMake lists
+        file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/markers.txt _shim_markers)
+        string(REPLACE ";" "<semicolon>" _shim_markers "${_shim_markers}")
+        string(REPLACE "\n" ";" _shim_markers "${_shim_markers}")
+        foreach (_shim_marker IN LISTS _shim_markers)
+            string(FIND "${_shim_marker}" "${_lemon_hdr}|" _shim_pos)
+            if (NOT _shim_pos EQUAL 0)
+                continue ()
+            endif ()
+            string(LENGTH "${_lemon_hdr}|" _shim_pos)
+            string(SUBSTRING "${_shim_marker}" ${_shim_pos} -1 _shim_marker)
+            string(REPLACE "<semicolon>" ";" _shim_marker "${_shim_marker}")
+            string(FIND "${_lemon_hdr_content}" "${_shim_marker}" _shim_pos)
+            if (_shim_pos EQUAL -1)
+                message(FATAL_ERROR "MCFLemonSolver: the rewrite of lemon/${_lemon_hdr} "
+                        "has not produced \"${_shim_marker}\": this version of LEMON "
+                        "has moved its anchor [see shim/markers.txt]")
+            endif ()
+        endforeach ()
         file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
     endif ()
 endforeach ()
