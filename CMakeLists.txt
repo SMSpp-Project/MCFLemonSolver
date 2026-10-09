@@ -44,7 +44,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # This creates an ENABLE_TESTING option (default: ON) and enables the testing
 # using the ctest executable.
 # See: https://cmake.org/cmake/help/latest/manual/ctest.1.html
-#include(CTest)
+include(CTest)
 
 # Sets the default build type (if none was specified).
 # See: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
@@ -103,9 +103,9 @@ endif ()
 find_package(LEMON REQUIRED)
 
 # ----- Compatibility shim for an unpatched LEMON --------------------------- #
-# The packaged LEMON needs three compiler-portability fixes that we apply, at
-# configure time, to private copies of the affected headers, shadowing the
-# system ones through an include directory searched first (see
+# The packaged LEMON needs three compiler-portability fixes and a numerical one
+# that we apply, at configure time, to private copies of the affected headers,
+# shadowing the system ones through an include directory searched first (see
 # target_include_directories below):
 #   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
 #     std::allocator::construct/destroy members removed in C++20;
@@ -113,11 +113,22 @@ find_package(LEMON REQUIRED)
 #     compile under MSVC;
 #   * missing include: lemon/capacity_scaling.h uses RangeMap (from lemon/maps.h)
 #     but some packagings (e.g. MacPorts coinor-liblemon) omit that include, so
-#     it fails to compile under stricter (two-phase lookup) compilers.
+#     it fails to compile under stricter (two-phase lookup) compilers;
+#   * floating-point data: lemon/network_simplex.h takes the sign of a reduced
+#     cost, and the flow left on its artificial arcs, exactly, so that with
+#     fractional costs a reduced cost that is zero but computed a few ulp below
+#     it makes a degenerate pivot for ever, and a few ulp of flow on an
+#     artificial arc make the problem infeasible; the rewrite compares them
+#     against a tolerance relative to the largest cost, and to the largest
+#     supply, which is zero when the type is exact, so that on integer data the
+#     algorithm is unchanged. Only the pivot rules and start() change, and they
+#     are instantiated only in this library, while the layout of the class is
+#     the same as the one the users of MCFLemonSolver.h see.
 # All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
 set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
-foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h)
+foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
+                    cost_scaling.h cycle_canceling.h network_simplex.h)
     unset(_lemon_hdr_src CACHE)
     find_file(_lemon_hdr_src lemon/${_lemon_hdr}
             PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -146,6 +157,132 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h)
                     "#include <lemon/core.h>\n#include <lemon/maps.h>"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
+        # capacity_scaling.h, cost_scaling.h and cycle_canceling.h: the warm
+        # start, whose code lives in shim/ and is inserted after the
+        # declaration of _sum_supply, the basis of the warm start dropped by
+        # run() and by reset(), the same rewrite as the sed of the makefile
+        # [see shim/README.md]
+        set(_ns_warm_inc "")
+        if (_lemon_hdr STREQUAL "capacity_scaling.h")
+            set(_ns_warm_inc capsc_runwarm.inc)
+        elseif (_lemon_hdr STREQUAL "cost_scaling.h")
+            set(_ns_warm_inc cs_runwarm.inc)
+        elseif (_lemon_hdr STREQUAL "cycle_canceling.h")
+            set(_ns_warm_inc cc_runwarm.inc)
+        endif ()
+        # cost_scaling.h only: the rank of a node in the price refinement is
+        # a sum of ranks along a path, each below _max_rank but not their sum,
+        # which then indexes past the end of the buckets; it is bounded, the
+        # rank being a lower bound on how far the potential has to go down
+        if (_lemon_hdr STREQUAL "cost_scaling.h")
+            string(REPLACE "int new_rank_v = rank_u + static_cast<int>(nrc);"
+                    "int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        if (_ns_warm_inc AND NOT _lemon_hdr_content MATCHES "runWarm")
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc} _warm_code)
+            string(REPLACE "    Value _sum_supply;"
+                    "    Value _sum_supply;\n${_warm_code}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      ProblemType pt = init();"
+                    "      _warm = false; ProblemType pt = init();"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REGEX REPLACE "(    [A-Za-z]+& reset\\(\\) {)"
+                    "\\1 _warm = false;"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        # network_simplex.h only: the tolerances of the pivot rules and of the
+        # feasibility check, the same rewrite as the sed of the makefile
+        if (_lemon_hdr STREQUAL "network_simplex.h"
+                AND NOT _lemon_hdr_content MATCHES "ns_pivot_eps")
+            # the two rewrites of network_simplex.h, the tolerances of the
+            # pivot rules and of the feasibility check and the warm start,
+            # whose code lives in shim/ and is inserted at its anchor, so
+            # that it is written once and read as C++ [see shim/README.md]
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_eps.inc _ns_eps)
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_runwarm.inc _ns_warm)
+            string(REPLACE "namespace lemon {"
+                    "namespace lemon {\n\n${_ns_eps}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      int _search_arc_num;"
+                    "      int _search_arc_num; Cost _eps;"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "_search_arc_num(ns._search_arc_num)"
+                    "_search_arc_num(ns._search_arc_num),
+        _eps(ns_pivot_eps(ns._cost, ns._arc_num))"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (c < 0)" "if (c < -_eps)"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "min < 0" "min < -_eps"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (min >= 0) return" "if (min >= -_eps) return"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "else if (c >= 0) {" "else if (c >= -_eps) {"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      // Check feasibility"
+                    "      const Value feps = ns_flow_eps(_supply, _node_num);
+      // Check feasibility"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (_flow[e] != 0) return"
+                    "if (_flow[e] > feps || _flow[e] < -feps) return"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            # the cost of the artificial arcs, larger than that of any path of
+            # either sign rather than of any path of nonnegative cost, which
+            # with negative costs let a cycle through the root cost less than
+            # zero and a feasible instance be declared infeasible
+            string(REPLACE "if (_cost[i] > ART_COST) ART_COST = _cost[i];"
+                    "if (_cost[i] > ART_COST) ART_COST = _cost[i]; else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            # the basis the warm start reuses, and what drops it; the arc
+            # whose pivot cannot be performed, which the certificate of
+            # unboundedness is made of [see unbCycle()]
+            string(REPLACE "    int _root;"
+                    "    int _root; bool _warm; bool _repair; int _unb_arc;"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "      // Check the number types"
+                    "      _warm = false;\n      _repair = false;\n      _unb_arc = -1;\n      // Check the number types"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (!initialPivots()) return UNBOUNDED;"
+                    "if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "if (delta >= MAX) return UNBOUNDED;"
+                    "if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "        _upper[_arc_id[a]] = map[a];"
+                    "        warmUpper(_arc_id[a], map[a]);"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            string(REPLACE "        _supply[_node_id[n]] = map[n];"
+                    "        warmSupply(_node_id[n], map[n]);"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            foreach (_ns_drop "NetworkSimplex& lowerMap(const LowerMap& map) {"
+                              "NetworkSimplex& stSupply(const Node& s, const Node& t, Value k) {"
+                              "NetworkSimplex& reset() {")
+                string(REPLACE "${_ns_drop}" "${_ns_drop} _warm = false;"
+                        _lemon_hdr_content "${_lemon_hdr_content}")
+            endforeach ()
+            string(REPLACE "      return start(pivot_rule);" "${_ns_warm}"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+        endif ()
+        # every rewrite has to have found its anchor [see shim/markers.txt];
+        # the ';' of the markers are kept out of the way of the CMake lists
+        file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/markers.txt _shim_markers)
+        string(REPLACE ";" "<semicolon>" _shim_markers "${_shim_markers}")
+        string(REPLACE "\n" ";" _shim_markers "${_shim_markers}")
+        foreach (_shim_marker IN LISTS _shim_markers)
+            string(FIND "${_shim_marker}" "${_lemon_hdr}|" _shim_pos)
+            if (NOT _shim_pos EQUAL 0)
+                continue ()
+            endif ()
+            string(LENGTH "${_lemon_hdr}|" _shim_pos)
+            string(SUBSTRING "${_shim_marker}" ${_shim_pos} -1 _shim_marker)
+            string(REPLACE "<semicolon>" ";" _shim_marker "${_shim_marker}")
+            string(FIND "${_lemon_hdr_content}" "${_shim_marker}" _shim_pos)
+            if (_shim_pos EQUAL -1)
+                message(FATAL_ERROR "MCFLemonSolver: the rewrite of lemon/${_lemon_hdr} "
+                        "has not produced \"${_shim_marker}\": this version of LEMON "
+                        "has moved its anchor [see shim/markers.txt]")
+            endif ()
+        endforeach ()
         file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
     endif ()
 endforeach ()
@@ -204,8 +341,25 @@ set_target_properties(${modName} PROPERTIES
         VERSION ${PROJECT_VERSION}
         SOVERSION ${soVersion})
 
-if (MSVC AND BUILD_SHARED_LIBS)
-    target_link_options(${modName} INTERFACE "/INCLUDE:SMSpp_force_load_${modName}")
+# The classes of the module register themselves in the factory from a static
+# initialiser, and a linker that drops what looks unused takes the
+# registration away with it: the target tells whoever links it to keep the
+# symbol that forces the module in, or the library as a whole where naming
+# the symbol is not enough.
+if (BUILD_SHARED_LIBS)
+    if (MSVC)
+        target_link_options(${modName} INTERFACE
+                "/INCLUDE:SMSpp_force_load_${modName}")
+    elseif (UNIX AND (NOT APPLE))
+        # the ELF linker decides by the symbols a regular object asks for, so
+        # naming the symbol is not enough and the library has to be kept
+        target_link_options(${modName} INTERFACE "LINKER:--no-as-needed")
+    elseif (APPLE)
+        # ld64 keeps a dylib that provides a symbol to the link, one asked
+        # for by -u included, even under -dead_strip_dylibs
+        target_link_options(${modName} INTERFACE
+                "LINKER:-u,_SMSpp_force_load_${modName}")
+    endif ()
 endif ()
 
 # Add the /bigobj flag for LEMON
@@ -240,10 +394,17 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<INSTALL_INTERFACE:include/${modNamespace}>)
 
-# When using an installed LEMON, the C++20-rewritten headers (see the LEMON
-# section above) must be found before the system ones: prepend the shim dir.
+# When using an installed LEMON, the rewritten headers (see the LEMON section
+# above) must be found before the system ones: prepend the shim dir, for this
+# library and for whatever is built against it, here (e.g., the tester) or
+# against the installed package, since MCFLemonSolver.h includes the LEMON
+# headers and calls what only the rewritten ones have (e.g., runWarm()). The
+# installed copies are those of the LEMON the library was built with [see the
+# install of the headers below].
 if (DEFINED LEMON_CXX20_SHIM_DIR)
-    target_include_directories(${modName} BEFORE PRIVATE ${LEMON_CXX20_SHIM_DIR})
+    target_include_directories(${modName} BEFORE PUBLIC
+            $<BUILD_INTERFACE:${LEMON_CXX20_SHIM_DIR}>
+            $<INSTALL_INTERFACE:include/${modNamespace}/lemon-shim>)
 endif ()
 
 # When linking other targets to the library with target_link_libraries(),
@@ -265,7 +426,7 @@ add_library(${modNamespace}::${modName} ALIAS ${modName})
 
 # ----- Subdirectories ------------------------------------------------------ #
 if (BUILD_TESTING)
-    # Just consuming BUILD_TESTING to avoid warnings
+    add_subdirectory(test)
 endif ()
 
 # ----- Install instructions ------------------------------------------------ #
@@ -285,6 +446,13 @@ install(TARGETS ${modName}
 # Install the headers
 install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
+
+# Install the rewritten LEMON headers, which the installed MCFLemonSolver.h
+# has to find before the system ones (see target_include_directories above).
+if (DEFINED LEMON_CXX20_SHIM_DIR)
+    install(DIRECTORY ${LEMON_CXX20_SHIM_DIR}/
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace}/lemon-shim)
+endif ()
 
 # Install the auto-generated configuration header (see above).
 install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h

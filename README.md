@@ -21,10 +21,13 @@ LEMON project
 
 Each solver is instantiated on two different types of graphs:
 `SmartDigraph`, which is more efficient but static (it does not allow
-to add/remove, open/close arcs) and `MCFListDigraph` (a small ad-hoc
+to add/remove arcs) and `MCFListDigraph` (a small ad-hoc
 improvement of the original `ListDigraph`), which can be less efficient
-but allows to add/remove, open/close arcs. These already make 8 variants,
-each of which can be implemented with different of costs and capacities
+but allows to add/remove arcs. Closing and re-opening an arc, which the
+`MCFBlock` does by fixing and un-fixing its flow `Variable`, both graphs
+take: a closed arc is one of zero capacity, hence the graph is left alone
+and the algorithm need not be reset. These already make 8 variants,
+each of which can be instantiated with different types of flows and costs
 on the arcs, which can be `int`, `double` or `long`. Although `int` is
 supported, for large graphs (or large costs/capacities/deficits on small
 graphs) it risks overflows.
@@ -32,7 +35,7 @@ graphs) it risks overflows.
 Thus, up to 72 variants can be inserted in the `Solver` factory, with the
 general form
 
-    A<G,C,V>
+    A<G,V,C>
 
 with A chosen in
 
@@ -41,8 +44,8 @@ with A chosen in
     MCFLemonSolverCostScaling ,
     MCFLemonSolverCapacityScaling ,
 
-G chosen in `SmartDigraph`, `MCFListDigraph`, and C, V chosen in `int`,
-`double` or `long` (the first being the cost type, the second the flows
+G chosen in `SmartDigraph`, `MCFListDigraph`, and V, C chosen in `int`,
+`double` or `long` (the first being the flow type, the second the cost
 type). Since these can be many, the macro `SMSpp_which_insert_LEMON`
 in `MCFLemonSolver.cpp` allows to restrict them to only a subset of the
 supported cost / flow types. The value is numeric and coded bitwise:
@@ -51,18 +54,19 @@ supported cost / flow types. The value is numeric and coded bitwise:
 
  - bit 1 ( + 2 ): long costs and/or flows
 
- - bit 2 ( + 3 ): int costs and/or flows
+ - bit 2 ( + 4 ): int costs and/or flows
 
 With only one bit set to 1, the 8 variants having only that type as flows
 and costs are inserted. With two bits set to 1, 8 variants are inserted for
 each of the 4 possible combinations of the two types as flows and costs
 (i.e., 32 variants). With all three bits set to 1, 8 variants are inserted
 for each of the 9 possible combinations of the three types as flows and
-costs (i.e., 72 variants. The macro can be changed in the `makefile`.
+costs (i.e., 72 variants). The macro is set by the CMake variable of the
+same name, or by `which_insert_LEMON` in the `makefile`.
 
 The solvers provided by the LEMON project are used through a thin interface in
 `MCFLemonSolver.h`. LEMON has not had a release since 1.3.1 (2014), so its
-headers need a few portability fixes:
+headers need a few portability fixes, and a numerical one:
 
 - **C++20**: `lemon/bits/array_map.h` and `lemon/path.h` still call the
   `std::allocator::construct`/`destroy` members that were *removed* in C++20;
@@ -70,20 +74,75 @@ headers need a few portability fixes:
   not compile under MSVC;
 - **missing include**: `lemon/capacity_scaling.h` uses `RangeMap` from
   `lemon/maps.h`, which some packagings (e.g. MacPorts `coinor-liblemon`) fail
-  to include.
+  to include;
+- **floating-point data**: `lemon/network_simplex.h` takes the sign of a
+  reduced cost, and the flow left on its artificial arcs, exactly, so that with
+  fractional costs it can make degenerate pivots for ever, or report as
+  infeasible a problem that is not; the rewrite compares them against a
+  tolerance relative to the largest cost and the largest supply, which is zero
+  for integer types, so that on integer data the algorithm is unchanged;
+- **no re-optimization**: the `run()` of every algorithm of LEMON calls its
+  `init()`, i.e., each call starts from scratch, and nothing of the previous
+  call is reused; `network_simplex.h` gets `runWarm()`, which re-optimizes
+  from the basis of the last run: after a change of the costs it recomputes
+  the potentials on its tree, and after a change of the capacities or of the
+  supplies it first recomputes the flow of the tree, hanging from the root by
+  its artificial arc the subtree below an arc whose flow falls outside its
+  bounds, a change of the graph dropping that basis; `capacity_scaling.h`,
+  `cost_scaling.h` and `cycle_canceling.h` get a `runWarm()` as well, the
+  first starting from the flow and the potentials of the last run after any
+  change, the other two from the flow of the last run when it is still
+  feasible, i.e., after a change of the costs;
+- **price refinement of cost scaling**: the rank of a node is a sum of ranks
+  along a path, each of them checked against the number of buckets but not
+  their sum, which then indexes past the end of the buckets; the rewrite
+  bounds it, the rank being a lower bound on how far the potential of the
+  node has to go down.
+
+The code of the warm starts lives in [shim](shim), read as C++ and inserted
+at its anchor by both the CMake build and the makefiles.
+
+CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
+too, and for them no header is rewritten: `MCFLemonSolver` gives them the
+costs scaled by a power of 2 and rounded, which are integer, with an integer
+large cost type for CostScaling, and gives back the value and the potentials
+of the true costs.
+In the same way CostScaling, CycleCanceling and CapacityScaling, which are
+exact only on integer capacities and supplies, are given fractional ones
+scaled and rounded, and an infinite capacity as a finite bound that no optimal
+flow reaches, since the three of them saturate the arcs of negative cost. By
+default CostScaling runs its `AUGMENT` method on scaled flows, on which its
+`PARTIAL_AUGMENT` method is much slower, and the latter on the others.
 
 Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
-package provided by your platform (see *Requirements* below) and applies a tiny,
-self-contained **compatibility shim** at build time: it rewrites private copies
-of just those headers and puts them on the include path *before* the system ones
-so they shadow them. The rewrites are idempotent (no-ops on an already-patched
-LEMON) and are applied identically by both the CMake build and the makefiles, so
-nothing has to be done by hand on any platform — no manual download of LEMON,
-and no manual edit of its headers.
+package provided by your platform (see *Requirements* below) and applies a
+small, self-contained compatibility shim at build time: it rewrites private
+copies of just those headers and puts them on the include path *before* the
+system ones so they shadow them. The rewrites are idempotent (no-ops on an
+already-patched LEMON) and are applied identically by both the CMake build and
+the makefiles, so nothing has to be done by hand on any platform (no manual
+download of LEMON, and no manual edit of its headers).
 
 ## Getting started
 
 These instructions will let you build `MCFLemonSolver` on your system.
+
+The module also comes ready-made, in any of
+
+```sh
+sudo add-apt-repository ppa:smspp-project/smspp   # Ubuntu
+sudo apt install libsmspp-mcflemon-dev
+
+conda install -c conda-forge smspp-project        # Linux, macOS, Windows
+
+brew tap SMSpp-Project/smspp                      # macOS, Linux
+brew install smspp
+
+vcpkg install "smspp[core,mcflemon]"              # from the sources
+```
+
+where apt and the port give the module alone, while conda and the tap carry
+the whole framework. What follows is about building it yourself.
 
 ### Requirements
 
@@ -95,12 +154,12 @@ These instructions will let you build `MCFLemonSolver` on your system.
   `MCFLemonSolver` provides its own).
 
 - The [LEMON graph library](https://lemon.cs.elte.hu/trac/lemon), installed as a
-  system package — no manual download is needed, and its C++20 incompatibility is
+  system package: no manual download is needed, and its C++20 incompatibility is
   handled automatically by the build (see above):
   - **Linux** (apt): `liblemon-dev`
-  - **macOS** (MacPorts): `coinor-liblemon` — note that Homebrew's `lemon` is the
+  - **macOS** (MacPorts): `coinor-liblemon` (note that Homebrew's `lemon` is the
     unrelated LALR parser generator; the community tap
-    `donn/lemon-graph/lemon-graph` also exists but is unmaintained
+    `donn/lemon-graph/lemon-graph` also exists but is unmaintained)
   - **Windows** (vcpkg): `liblemon` (already listed in the project `vcpkg.json`)
 
 ### Build and install with CMake
@@ -121,7 +180,7 @@ You can also choose the following configuration options:
 
 | Variable                   | Description                                                          | Default value |
 |----------------------------|----------------------------------------------------------------------|---------------|
-| `SMSpp_which_insert_LEMON` | 1, i.e., double costs<br/>2, i.e., long costs<br/>3, i.e., int costs | 3             |
+| `SMSpp_which_insert_LEMON` | bit-wise: + 1 double, + 2 long, + 4 int flows and costs              | 3             |
 
 You can set them with:
 
@@ -156,22 +215,22 @@ a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
 Like CMake, the makefiles use the installed LEMON package directly (no manual
 download) and generate the same C++20 shim. By default they look for LEMON under
-the `/usr` prefix; for other locations override `LEMON_ROOT` — or, more finely,
-`LEMON_INCDIR`/`LEMON_LIBDIR` — on the `make` command line or in the environment,
+the `/usr` prefix; for other locations override `LEMON_ROOT` (or, more finely,
+`LEMON_INCDIR`/`LEMON_LIBDIR`) on the `make` command line or in the environment,
 for example:
 
 ```sh
 make -f makefile LEMON_ROOT=/opt/local
 ```
 
-Each executable using `LEMONSolver` has to include a "main makefile" of the
+Each executable using `MCFLemonSolver` has to include a "main makefile" of the
 module, which typically is either [makefile-c](makefile-c) including all
-necessary libraries comprised the "core SMS++" one, or
+necessary libraries comprising the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
-modules that already include them). One relevant case is the `test/MCFBlock`
-tester that compares different solvers for `MCFBlock` (be them specialised
-or general-purpose). The makefiles in turn recursively include all the
+modules that already include them). One relevant case is the `tests/MCFBlock`
+tester of the umbrella project, which compares different solvers for
+`MCFBlock` (be them specialised or general-purpose). The makefiles in turn recursively include all the
 required other makefiles, hence one should only need to edit the "main
 makefile" for compilation type (C++ compiler and its options) and it all
 should be good to go. In case some of the external libraries are not at their
@@ -185,7 +244,7 @@ for further details.
 ## Getting help
 
 If you need support, you want to submit bugs or propose a new feature, you can
-[open a new issue](https://gitlab.com/smspp/lemonsolver/-/issues/new).
+[open a new issue](https://gitlab.com/smspp/mcflemonsolver/-/issues/new).
 
 
 ## Contributing

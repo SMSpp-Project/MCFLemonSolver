@@ -1,0 +1,35 @@
+# what each rewritten header of LEMON has to contain after the rewrite, one
+# "<header>|<text>" per line: both builds check them, and stop if one is not
+# there, since an anchor that a new version of LEMON has moved would leave
+# the rewrite undone, and possibly the header wrong, without a word
+capacity_scaling.h|#include <lemon/maps.h>
+capacity_scaling.h|_warm = false; ProblemType pt = init();
+capacity_scaling.h|reset() { _warm = false;
+capacity_scaling.h|runWarm(
+cost_scaling.h|std::min(rank_u + static_cast<int>(nrc), _max_rank - 1)
+cost_scaling.h|_warm = false; ProblemType pt = init();
+cost_scaling.h|reset() { _warm = false;
+cost_scaling.h|runWarm(
+cycle_canceling.h|_warm = false; ProblemType pt = init();
+cycle_canceling.h|reset() { _warm = false;
+cycle_canceling.h|runWarm(
+network_simplex.h|ns_pivot_eps(
+network_simplex.h|int _search_arc_num; Cost _eps;
+network_simplex.h|_eps(ns_pivot_eps(ns._cost, ns._arc_num))
+network_simplex.h|if (c < -_eps)
+network_simplex.h|min < -_eps
+network_simplex.h|if (min >= -_eps) return
+network_simplex.h|else if (c >= -_eps) {
+network_simplex.h|const Value feps = ns_flow_eps(_supply, _node_num);
+network_simplex.h|if (_flow[e] > feps || _flow[e] < -feps) return
+network_simplex.h|else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];
+network_simplex.h|int _root; bool _warm; bool _repair; int _unb_arc;
+network_simplex.h|_unb_arc = -1;
+network_simplex.h|if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }
+network_simplex.h|if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }
+network_simplex.h|warmUpper(_arc_id[a], map[a]);
+network_simplex.h|warmSupply(_node_id[n], map[n]);
+network_simplex.h|map) { _warm = false;
+network_simplex.h|Value k) { _warm = false;
+network_simplex.h|reset() { _warm = false;
+network_simplex.h|ProblemType runWarm(
