@@ -859,7 +859,7 @@ class MCFLemonSolver : public CDASolver
  void process_outstanding_Modification( void );
 
 /*--------------------------------------------------------------------------*/
-/*---------------------------- PROTECTED FIELDS ---------------------------*/
+/*---------------------------- PROTECTED FIELDS ----------------------------*/
 /*--------------------------------------------------------------------------*/
 
   std::string f_dmx_file;  ///< string for DMX file output

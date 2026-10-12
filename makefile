@@ -21,7 +21,7 @@
 #   which is passed in the compilation of MCFLemonSolver.cpp as              #
 #   SMSpp_which_insert_LEMON and whose value, coded bit-wise, controls       #
 #   which variants of the algorithm, in terms of allowed types of costs and  #
-#   flows, are added to the factory
+#   flows, are added to the factory                                          #
 #                                                                            #
 #   Input:  $(CC)          = compiler command                                #
 #           $(SW)          = compiler options                                #
