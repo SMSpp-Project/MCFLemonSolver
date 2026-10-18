@@ -3,7 +3,7 @@
 [![Pipeline](https://gitlab.com/smspp/mcflemonsolver/badges/develop/pipeline.svg)](https://gitlab.com/smspp/mcflemonsolver/-/pipelines?ref=develop)
 [![Documentation](https://img.shields.io/badge/docs-Doxygen-blue)](https://smspp.gitlab.io/smspp-project/)
 [![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![License: LGPL v2.1](https://img.shields.io/badge/License-LGPL_v2.1-blue.svg)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
 This project implements `MCFLemonSolver`, a SMS++ `:Solver` for
 [MCFBlock](https://gitlab.com/smspp/mcfblock) based on interfacing
