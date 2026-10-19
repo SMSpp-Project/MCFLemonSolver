@@ -46,17 +46,24 @@ endif ()
 if (NOT LEMON_FOUND)
 
     # ----- Find the LEMON include directory -------------------------------- #
+    # LEMON_ROOT is a hint, searched before the system directories, so that
+    # the LEMON it points to wins over another one installed in the system
     find_path(LEMON_INCLUDE_DIR
             NAMES lemon/config.h lemon/network_simplex.h
-            PATHS ${LEMON_ROOT}
+            HINTS ${LEMON_ROOT}
             PATH_SUFFIXES include
             DOC "LEMON include directory.")
 
     # ----- Find the LEMON library ------------------------------------------ #
+    # the library is named lemon by the distributions and emon by the CMake
+    # build of LEMON: NAMES_PER_DIR looks for both names in a directory
+    # before the next one, so that the emon of LEMON_ROOT is not passed over
+    # for the lemon of the system
     if (UNIX)
         find_library(LEMON_LIBRARY
                 NAMES lemon emon
-                PATHS ${LEMON_ROOT}/lib
+                NAMES_PER_DIR
+                HINTS ${LEMON_ROOT}/lib
                 DOC "LEMON library.")
 
         set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
@@ -64,6 +71,7 @@ if (NOT LEMON_FOUND)
     elseif (WIN32)
         find_library(LEMON_LIBRARY
                 NAMES lemon emon
+                NAMES_PER_DIR
                 PATHS
                 ${LEMON_ROOT}/lib
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
@@ -73,6 +81,7 @@ if (NOT LEMON_FOUND)
 
         find_library(LEMON_LIBRARY_DEBUG
                 NAMES lemon emon
+                NAMES_PER_DIR
                 PATHS
                 ${LEMON_ROOT}/debug/lib
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib

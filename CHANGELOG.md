@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - the licence is the GNU Lesser General Public License version 3.0
 
+### Fixed
+
+- FindLEMON looks in `LEMON_ROOT` before the directories of the system, and
+  for both names of the library (`lemon` of the distributions, `emon` of the
+  CMake build of LEMON) in a directory before the next one, so that the
+  LEMON of `LEMON_ROOT` is not passed over for a `liblemon` of the system
+
 ## [0.3.0] - 2026-10-09
 
 ### Added
