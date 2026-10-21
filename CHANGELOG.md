@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- the C++20 module `smspp.mcflemonsolver` (`src/MCFLemonSolver.cppm`), which
+  exports every name that the headers declare at namespace scope and
+  re-exports `smspp.mcfblock`, so that a source file can write `import
+  smspp.mcflemonsolver;` in place of the `#include` of the headers; it is
+  built with the CMake option `SMSpp_BUILD_MODULE`, as the target
+  `SMS++::MCFLemonSolver_module`
+
 ### Changed
 
 - the licence is the GNU Lesser General Public License version 3.0
