@@ -88,6 +88,12 @@ MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
 MCFLELIB = $(libLEMONLIB)
 
+# the C++20 module smspp.mcflemonsolver - - - - - - - - - - - - - - - - - - -
+# [see makefile-mod of SMS++]
+
+$(eval $(call SMSppMODrule,MCFLE,$(MCFLESDR),MCFLemonSolver,\
+	smspp.mcflemonsolver,$(MCFBkMOD)))
+
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
