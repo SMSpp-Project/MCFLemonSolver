@@ -63,7 +63,7 @@ namespace SMSpp_di_unipi_it
 {
  using namespace lemon;
 
- /** @} ---------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
  /*------------------------------- CLASSES ----------------------------------*/
  /*--------------------------------------------------------------------------*/
  /** @defgroup MCFLemonSolver_CLASSES Classes in MCFLemonSolver.h
@@ -321,8 +321,7 @@ class MCFListDigraph : public ListDigraph
   * trait.
   *
   * Thus, the concept LEMONGraph is defined that only allows all possible
-  * types of LEMON graphs, i.e., SmartDigraph and MCFListDigraph.
-  *  @{ */
+  * types of LEMON graphs, i.e., SmartDigraph and MCFListDigraph. */
 
  /// concept for "one of the LEMON graphs"
  template< typename Type >
@@ -802,7 +801,7 @@ class MCFLemonSolver : public CDASolver
 
  void add_Modification( sp_Mod& mod ) override;
 
-/*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
