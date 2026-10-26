@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the pipeline builds the module also with its makefiles, after CMake, and
+  runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
+
 - `SMSpp_BUILD_MODULE` no longer stops the configuration when the C++20
   module cannot be built, i.e., with a CMake older than 3.28, a generator
   other than Ninja or Visual Studio, a compiler other than Clang 16 (with
@@ -32,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the licence is the GNU Lesser General Public License version 3.0
 
 ### Fixed
+
+- the makefiles of the tests and of the tools build also with g++: they
+  take the option that stops at the first error and the one of the
+  debugging information, which clang++ and g++ spell differently
+  (`-ferror-limit=1` and `-glldb` against `-fmax-errors=1` and `-ggdb`),
+  from `SMSppSWERR` and `SMSppSWDBG` of `lib/makefile-OS` of SMS++
 
 - FindLEMON looks in `LEMON_ROOT` before the directories of the system, and
   for both names of the library (`lemon` of the distributions, `emon` of the

@@ -54,21 +54,22 @@
 # extlib/makefile-paths) and turned into $(libLEMONINC)/$(libLEMONLIB) here.
 include $(MCFLESDR)/../extlib/makefile-libLEMON
 
-# bare LEMON include dir (no -I, no quotes) used as the source for the shim rule;
-# $(libLEMONBSCDIR) is the unquoted LEMON base dir exported by makefile-libLEMON
+# bare LEMON include dir (no -I, no quotes) used as the source for the shim
+# rule; $(libLEMONBSCDIR) is the unquoted LEMON base dir exported by
+# makefile-libLEMON
 LEMON_INCDIR = $(libLEMONBSCDIR)/include
 
 # Compatibility shim: the packaged LEMON needs a C++20 fix (array_map.h, path.h
 # still call the removed std::allocator::construct/destroy), an MSVC fix
 # (adaptors.h LEMON_SCOPE_FIX), a missing-include fix (capacity_scaling.h uses
-# RangeMap but some packagings, e.g. MacPorts, omit #include <lemon/maps.h>) and
-# a numerical one (network_simplex.h takes the sign of a reduced cost, and the
-# flow left on its artificial arcs, exactly, which with fractional costs makes
-# it pivot for ever or report infeasibility). We
-# rewrite private copies of those headers (see the rules below) and put
-# $(MCFLESHIM) on the include path *before* $(LEMON_INCDIR) so they shadow the
-# system ones. Mirrors the CMake build; all rewrites are idempotent and harmless
-# on non-matching headers.
+# RangeMap but some packagings, e.g. MacPorts, omit #include <lemon/maps.h>)
+# and a numerical one (network_simplex.h takes the sign of a reduced cost, and
+# the flow left on its artificial arcs, exactly, which with fractional costs
+# makes it pivot for ever or report infeasibility). We rewrite private copies
+# of those headers (see the rules below) and put $(MCFLESHIM) on the include
+# path *before* $(LEMON_INCDIR) so they shadow the system ones. Mirrors the
+# CMake build; all rewrites are idempotent and harmless on non-matching
+# headers.
 MCFLESHIM = $(MCFLESDR)/lemon-cxx20-shim
 LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
                   $(MCFLESHIM)/lemon/path.h \
@@ -92,7 +93,7 @@ MCFLELIB = $(libLEMONLIB)
 # [see makefile-mod of SMS++]
 
 $(eval $(call SMSppMODrule,MCFLE,$(MCFLESDR),MCFLemonSolver,\
-	smspp.mcflemonsolver,$(MCFBkMOD)))
+	smspp.mcflemonsolver,MCFBk))
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -114,11 +115,12 @@ which_insert_LEMON = 3
 
 # Compatibility shim: rewrite the offending LEMON headers into $(MCFLESHIM) —
 # the C++20 "<alloc>.construct(...)"/"<alloc>.destroy(...)" calls into the
-# std::allocator_traits<decltype(<alloc>)>::construct/destroy form, and the MSVC
-# LEMON_SCOPE_FIX definition into its portable form. Each rewrite is idempotent
-# and harmless on non-matching headers, matching the CMake build.
-# NOTE: '#' is escaped as '\#' because this is a make *variable* (unlike a recipe
-# line, an unescaped '#' would start a make comment and truncate the value).
+# std::allocator_traits<decltype(<alloc>)>::construct/destroy form, and the
+# MSVC LEMON_SCOPE_FIX definition into its portable form. Each rewrite is
+# idempotent and harmless on non-matching headers, matching the CMake build.
+# NOTE: '#' is escaped as '\#' because this is a make *variable* (unlike a
+# recipe line, an unescaped '#' would start a make comment and truncate the
+# value).
 LEMON_SHIM_SED = \
 	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.construct\(/std::allocator_traits<decltype(\1)>::construct(\1, /g' \
 	  -e 's/([A-Za-z_][A-Za-z0-9_]*)\.destroy\(/std::allocator_traits<decltype(\1)>::destroy(\1, /g' \
@@ -138,17 +140,20 @@ $(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h
 # text it has to contain after the rewrite is not there
 LEMON_SHIM_CHECK = grep '^$(notdir $@)|' $(MCFLESDR)/shim/markers.txt | \
 	  cut -d'|' -f2- | while IFS= read -r m; do grep -qF -- "$$m" $@ || \
-	  { echo "MCFLemonSolver: lemon/$(notdir $@) lacks \"$$m\" [see shim/markers.txt]" >&2; \
+	  { echo "MCFLemonSolver: lemon/$(notdir $@) lacks \"$$m\"" \
+	    "[see shim/markers.txt]" >&2; \
 	    rm -f $@; exit 1; }; done
 
 LEMON_SHIM_WARM = \
 	  -e 's/^(    [A-Za-z]+\& reset\(\) \{)$$/\1 _warm = false;/' \
 	  -e 's/^      ProblemType pt = init\(\);$$/      _warm = false; ProblemType pt = init();/'
 
-# capacity_scaling.h needs the base rewrites plus the maps.h include (RangeMap);
-# this explicit rule overrides the generic one above for that single header. The
-# extra expression adds #include <lemon/maps.h> right after #include <lemon/core.h>.
-$(MCFLESHIM)/lemon/capacity_scaling.h: $(LEMON_INCDIR)/lemon/capacity_scaling.h \
+# capacity_scaling.h needs the base rewrites plus the maps.h include
+# (RangeMap); this explicit rule overrides the generic one above for that
+# single header. The extra expression adds #include <lemon/maps.h> right after
+# #include <lemon/core.h>.
+$(MCFLESHIM)/lemon/capacity_scaling.h: \
+	$(LEMON_INCDIR)/lemon/capacity_scaling.h \
 	  $(MCFLESDR)/shim/capsc_runwarm.inc
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
