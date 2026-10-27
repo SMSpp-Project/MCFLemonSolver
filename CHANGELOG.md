@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `get_var_solution()` writes the flows into the `MCFBlock` all at once, with
+  `set_x()` of the whole vector, instead of one arc at a time: the dynamic
+  arcs of the `MCFBlock` are a list, which setting the flow of one arc scans
+  up to it, so that writing a solution took time quadratic in the number of
+  arcs; the closed arcs, which LEMON does not enumerate, get flow 0
+
 - the makefiles of the tests and of the tools build also with g++: they
   take the option that stops at the first error and the one of the
   debugging information, which clang++ and g++ spell differently

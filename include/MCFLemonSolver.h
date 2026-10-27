@@ -575,12 +575,17 @@ class MCFLemonSolver : public CDASolver
   /* The arc is identified by its LEMON id, which is the position it was
    * created in and therefore the index it has in the MCFBlock: ArcIt does
    * *not* enumerate the arcs in that order, and using the order of the
-   * enumeration would silently give the right flows on the wrong arcs. */
+   * enumeration would silently give the right flows on the wrong arcs. The
+   * flows are written all at once, since the dynamic arcs of the MCFBlock
+   * are a list that setting them one by one would scan once per arc; the
+   * closed arcs, which ArcIt does not enumerate, have flow 0. */
+  MCFBlock::Vec_FNumber X( MCFB->get_NArcs() , 0 );
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
    auto i = Index( dgp->id( a ) );
-   if( i < MCFB->get_NArcs() )
-    MCFB->set_x( i , f_algo->flow( a ) / f_flow_scale );
+   if( i < X.size() )
+    X[ i ] = f_algo->flow( a ) / f_flow_scale;
    }
+  MCFB->set_x( X.cbegin() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
