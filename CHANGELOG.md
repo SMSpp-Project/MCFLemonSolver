@@ -52,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- CostScaling and CycleCanceling on integer flows are given the capacities
+  anew before each run: they replace an infinite capacity by the sum of the
+  deficits in the vector of the capacities they are given, so that the run
+  after the deficits had grown past that bound answered "infeasible"
+
 - `get_var_solution()` writes the flows into the `MCFBlock` all at once, with
   `set_x()` of the whole vector, instead of one arc at a time: the dynamic
   arcs of the `MCFBlock` are a list, which setting the flow of one arc scans

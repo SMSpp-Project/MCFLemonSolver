@@ -439,6 +439,46 @@ static void test_negative_costs( void )
  }
 
 /*--------------------------------------------------------------------------*/
+/* Integer flows and costs, on the instance with no capacities, whose
+ * deficits then grow tenfold: the optimum goes from 12 to 120, 4 and then 40
+ * units along 1-2-3-4. CostScaling and CycleCanceling bound an infinite
+ * capacity by the sum of the deficits in the vector of the capacities they
+ * are given, and the run after the deficits have grown has to see the
+ * capacity infinite again rather than the bound of the run before; the
+ * variants on long are there only if the build inserts them in the factory
+ * [see SMSpp_which_insert_LEMON]. */
+
+static void test_integer_infinite_capacity( void )
+{
+ MCFBlock mcf;
+ load( mcf , false );
+ const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
+ mcf.chg_costs( c.begin() );
+
+ std::vector< Solver * > slvs;
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = Solver::new_Solver( "MCFLemonSolver" + algo + "<" + gr +
+				  ",long,long>" );
+   if( ! slv )
+    continue;
+   mcf.register_Solver( slv );
+   slvs.push_back( slv );
+   }
+
+ for( auto slv : slvs )
+  check_value( slv , 12 , "integer data, no capacities" );
+
+ const MCFBlock::Vec_FNumber b = { -40 , 0 , 0 , 40 };
+ mcf.chg_dfcts( b.begin() , Block::Range( 0 , 4 ) );
+ for( auto slv : slvs )
+  check_value( slv , 120 , "integer data, no capacities, deficits grown" );
+
+ for( auto slv : slvs )
+  mcf.unregister_Solver( slv , true );
+ }
+
+/*--------------------------------------------------------------------------*/
 /// a Solver that never saw a MCFBlock is destroyed, of every kind
 
 static void test_unattached( void )
@@ -570,6 +610,7 @@ int main( void )
  test_fractional_costs_paths();
  test_fractional_flows();
  test_negative_costs();
+ test_integer_infinite_capacity();
  test_unbounded_direction();
  test_scale_out_of_range();
  test_cost_scaling_methods();

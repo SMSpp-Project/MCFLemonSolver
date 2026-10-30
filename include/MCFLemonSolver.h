@@ -940,6 +940,12 @@ class MCFLemonSolver : public CDASolver
      || std::is_same< Algo< GR , V , C > ,
                       SMSppCapacityScaling< GR , V , C > >::value );
 
+  /// true if the Algo bounds an infinite capacity in the vector of the
+  /// capacities it is given, which a later run would read [see compute()]
+  static constexpr bool f_bounds_inf_cap =
+   std::is_same< Algo< GR , V , C > , SMSppCostScaling< GR , V , C > >::value
+   || std::is_same< Algo< GR , V , C > , CycleCanceling< GR , V , C > >::value;
+
 /*--------------------------------------------------------------------------*/
 
  }; // end( class MCFLemonSolver< Algo , GR , C , V > )
