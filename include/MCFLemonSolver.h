@@ -1407,8 +1407,10 @@ class MCFLemonSolverCycleCanceling : public
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
  /* With kReopt the negative cycles are canceled from the flow of the last
-  * run, if it is still feasible [see runWarm() in the shim of the build];
-  * without, each run finds a feasible flow anew. */
+  * run, which after a change of the capacities or of the supplies is put
+  * within the new bounds and made to meet the new supplies [see runWarm()
+  * in the shim of the build]; without, each run finds a feasible flow
+  * anew. */
 
  void guts_of_compute( void ) override {
   status = f_reopt ? f_algo->runWarm( CCMethod( f_method ) )
@@ -1807,8 +1809,9 @@ class MCFLemonSolverCostScaling : public
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
  /* With kReopt the scaling starts from the flow and the potentials of the
-  * last run, if the flow is still feasible, and from the largest violation
-  * of the optimality conditions under them [see runWarm() in the shim of the
+  * last run, the flow put within the new bounds and made to meet the new
+  * supplies after a change of them, and from the largest violation of the
+  * optimality conditions under them [see runWarm() in the shim of the
   * build]; without, each run finds a feasible flow anew and starts from the
   * largest cost. */
 

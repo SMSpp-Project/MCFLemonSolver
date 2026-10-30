@@ -3,38 +3,34 @@
 
     /// re-optimizes from the flow and the potentials of the last run
     /** Re-optimizes from the flow and the potentials of the last run instead
-     * of starting from a flow found anew and the zero potentials: if the
-     * flow of the last run is still feasible, i.e., after a change of the
-     * costs, it is kept, the potentials are scaled back to the costs the
-     * algorithm works on, and the scaling starts from the largest amount by
-     * which a residual arc violates the optimality conditions under them,
-     * rather than from the largest cost (the first phase being the one after
-     * it, since the pair is already that close to optimal), so that a small
-     * change of the costs costs a few phases at small epsilon. It does what run() does if the
-     * last run did not end at an optimal flow, if the flow is no longer
-     * feasible (after a change of the capacities or of the supplies, which
-     * a feasible flow has to be found for anew [see init()]), with lower
-     * bounds and when the supplies do not sum to zero. */
+     * of starting from a flow found anew and the zero potentials: the flow
+     * of the last run is put within the new bounds, and what this and a
+     * change of the supplies leave at the nodes is sent where it is due
+     * [see feasibleFlow()], which after a change of the costs alone is
+     * nothing; the potentials are scaled back to the costs the algorithm
+     * works on, and the scaling starts from the largest amount by which a
+     * residual arc violates the optimality conditions under them, rather
+     * than from the largest cost (the first phase being the one after it,
+     * since the pair is already that close to optimal), so that a small
+     * change costs a few phases at small epsilon. It does what run() does
+     * if the last run did not end at an optimal flow, with lower bounds,
+     * with an infinite upper bound, which init() bounds by the deficits,
+     * when the supplies do not sum to zero and when no flow meets the new
+     * bounds and supplies, which run() then proves. */
 
     ProblemType runWarm(Method method = PARTIAL_AUGMENT, int factor = 16) {
       if (!_warm || _has_lower || _sum_supply != 0)
         return runCold(method, factor);
 
       const Value MAX = std::numeric_limits<Value>::max();
-
-      // the flow of the last run has to fit the bounds and the supplies
-      ValueVector ex(_res_node_num, 0);
-      for (int i = 0; i != _root; ++i) ex[i] = _supply[i];
-      for (int j = 0; j != _res_arc_num; ++j) {
-        if (!_forward[j] || _source[j] == _root || _target[j] == _root)
-          continue;
-        const Value x = _res_cap[_reverse[j]];
-        if (_upper[j] >= MAX || x > _upper[j]) return runCold(method, factor);
-        ex[_source[j]] -= x;
-        ex[_target[j]] += x;
-      }
-      for (int i = 0; i != _res_node_num; ++i)
-        if (ex[i] != 0) return runCold(method, factor);
+      Value sum = 0;
+      for (int i = 0; i != _root; ++i) sum += _supply[i];
+      if (sum != 0) return runCold(method, factor);
+      for (int j = 0; j != _res_arc_num; ++j)
+        if (_forward[j] && _source[j] != _root && _upper[j] >= MAX)
+          return runCold(method, factor);
+      if (!feasibleFlow(true, Value(0), _sup_node_num))
+        return runCold(method, factor);
 
       _alpha = factor;
       const LargeCost scale = static_cast<LargeCost>(_res_node_num) * _alpha;
@@ -43,13 +39,12 @@
         _pi[i] *= scale;
       }
 
-      // the residual capacities under the new upper bounds, the costs the
-      // algorithm works on, and how far the potentials are from optimal
+      // the costs the algorithm works on, and how far the potentials are
+      // from optimal
       _epsilon = 0;
       for (int j = 0; j != _res_arc_num; ++j) {
         const int u = _source[j], v = _target[j];
         if (u == _root || v == _root) continue;
-        if (_forward[j]) _res_cap[j] = _upper[j] - _res_cap[_reverse[j]];
         _cost[j] = static_cast<LargeCost>(_scost[j]) * scale;
       }
       for (int j = 0; j != _res_arc_num; ++j) {

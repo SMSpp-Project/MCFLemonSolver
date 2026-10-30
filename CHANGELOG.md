@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than always on the subtree, and brings the potential of the root
   back to zero at the end [see `shim/ns_potential.inc`]
 
+- CostScaling and CycleCanceling find the feasible flow they start from with
+  a push-relabel algorithm on their own residual network, rather than with the
+  `Circulation` of LEMON on the graph and its maps, and their re-optimization
+  after a change of the capacities or of the supplies starts it from the flow
+  of the last run put within the new bounds, rather than finding a feasible
+  flow anew [see `shim/cs_feasible.inc`]
+
 ### Fixed
 
 - `get_var_solution()` writes the flows into the `MCFBlock` all at once, with

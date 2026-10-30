@@ -125,7 +125,9 @@ find_package(LEMON REQUIRED)
 #     are instantiated only in this library, while the layout of the class is
 #     the same as the one the users of MCFLemonSolver.h see;
 #   * speed: lemon/network_simplex.h updates the potentials of a pivot on the
-#     smaller of the subtree the pivot moves and the rest of the tree.
+#     smaller of the subtree the pivot moves and the rest of the tree, and
+#     lemon/cost_scaling.h and lemon/cycle_canceling.h find their first
+#     feasible flow on their residual network rather than with Circulation.
 # All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
 set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
@@ -201,6 +203,29 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
         endif ()
         if (_ns_warm_inc AND NOT _lemon_hdr_content MATCHES "runWarm")
             file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc} _warm_code)
+            # cost_scaling.h and cycle_canceling.h: the feasible flow that
+            # init() finds with Circulation on the graph is found on the
+            # residual network instead, from the flow of the last run when
+            # runWarm() asks for it [see shim/cs_feasible.inc]
+            if (_lemon_hdr STREQUAL "cost_scaling.h"
+                    OR _lemon_hdr STREQUAL "cycle_canceling.h")
+                file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/cs_feasible.inc
+                        _feas_code)
+                string(APPEND _warm_code "${_feas_code}")
+                if (_lemon_hdr STREQUAL "cost_scaling.h")
+                    string(CONCAT _feas_call "      if (!feasibleFlow(false, "
+                            "Value(0), _sup_node_num)) return INFEASIBLE;\n\n")
+                    set(_feas_end "      // Initialize data structures")
+                else ()
+                    string(CONCAT _feas_call "      int sup_num;\n"
+                            "      if (!feasibleFlow(false, Value(1), "
+                            "sup_num)) return INFEASIBLE;\n\n")
+                    set(_feas_end "      return OPTIMAL;")
+                endif ()
+                lemon_shim_cut(_lemon_hdr_content
+                        "      // Initialize maps for Circulation"
+                        "${_feas_end}" "${_feas_call}")
+            endif ()
             string(REPLACE "    Value _sum_supply;"
                     "    Value _sum_supply;\n${_warm_code}"
                     _lemon_hdr_content "${_lemon_hdr_content}")

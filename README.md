@@ -97,8 +97,9 @@ headers need a few portability fixes, and a numerical one:
   bounds, a change of the graph dropping that basis; `capacity_scaling.h`,
   `cost_scaling.h` and `cycle_canceling.h` get a `runWarm()` as well, the
   first starting from the flow and the potentials of the last run after any
-  change, the other two from the flow of the last run when it is still
-  feasible, i.e., after a change of the costs;
+  change, the other two from the flow of the last run, which after a change
+  of the capacities or of the supplies is put within the new bounds and made
+  to meet the new supplies by sending on only what the change displaces;
 - **price refinement of cost scaling**: the rank of a node is a sum of ranks
   along a path, each of them checked against the number of buckets but not
   their sum, which then indexes past the end of the buckets; the rewrite
@@ -106,7 +107,10 @@ headers need a few portability fixes, and a numerical one:
   node has to go down;
 - **speed**: `network_simplex.h` updates the potentials of a pivot on the
   smaller of the subtree that the pivot moves and the rest of the tree, the
-  reduced costs being the same either way.
+  reduced costs being the same either way, and `cost_scaling.h` and
+  `cycle_canceling.h` find the feasible flow they start from with a
+  push-relabel algorithm on the residual network they work on, rather than
+  with the `Circulation` of LEMON on the graph and its maps.
 
 The code of the warm starts, and of the rewrites for speed, lives in
 [shim](shim), read as C++ and inserted at its anchor by both the CMake build

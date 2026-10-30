@@ -10,9 +10,13 @@ cost_scaling.h|std::min(rank_u + static_cast<int>(nrc), _max_rank - 1)
 cost_scaling.h|_warm = false; ProblemType pt = init();
 cost_scaling.h|reset() { _warm = false;
 cost_scaling.h|runWarm(
+cost_scaling.h|bool feasibleFlow(bool warm, Value root_cap, int& sup_num) {
+cost_scaling.h|if (!feasibleFlow(false, Value(0), _sup_node_num)) return INFEASIBLE;
 cycle_canceling.h|_warm = false; ProblemType pt = init();
 cycle_canceling.h|reset() { _warm = false;
 cycle_canceling.h|runWarm(
+cycle_canceling.h|bool feasibleFlow(bool warm, Value root_cap, int& sup_num) {
+cycle_canceling.h|if (!feasibleFlow(false, Value(1), sup_num)) return INFEASIBLE;
 network_simplex.h|ns_pivot_eps(
 network_simplex.h|int _search_arc_num; Cost _eps;
 network_simplex.h|_eps(ns_pivot_eps(ns._cost, ns._arc_num))

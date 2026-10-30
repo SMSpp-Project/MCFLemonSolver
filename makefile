@@ -163,23 +163,40 @@ $(MCFLESHIM)/lemon/capacity_scaling.h: \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 
+# cost_scaling.h and cycle_canceling.h find the feasible flow that their
+# init() finds with Circulation on the graph on their residual network
+# instead, from the flow of the last run when runWarm() asks for it, the same
+# as the CMake build: the code lives in shim/, and a call to it replaces the
+# lines of init() from the comment that opens the maps of the Circulation up
+# to those that follow the setting of the residual capacities
+CSFEAS = $(MCFLESDR)/shim/cs_feasible.inc
+CIRC = ^      \/\/ Initialize maps for Circulation
+CSCALL = if (!feasibleFlow(false, Value(0), _sup_node_num)) return INFEASIBLE;
+CCCALL = if (!feasibleFlow(false, Value(1), sup_num)) return INFEASIBLE;
+
 # cost_scaling.h also gets the rank of its price refinement bounded: the rank
 # of a node is a sum of ranks along a path, each below _max_rank but not their
 # sum, which then indexes past the end of the buckets [see priceRefinement()]
 $(MCFLESHIM)/lemon/cost_scaling.h: $(LEMON_INCDIR)/lemon/cost_scaling.h \
-	  $(MCFLESDR)/shim/cs_runwarm.inc
+	  $(MCFLESDR)/shim/cs_runwarm.inc $(CSFEAS)
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
 	  -e 's/int new_rank_v = rank_u \+ static_cast<int>\(nrc\);/int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);/' \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cs_runwarm.inc' \
+	  -e '/^    Value _sum_supply;$$/r $(CSFEAS)' \
+	  -e '/$(CIRC)/,/^      \/\/ Initialize data/{/$(CIRC)|data/!d}' \
+	  -e 's@$(CIRC).*@      $(CSCALL)\n@' \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 
 $(MCFLESHIM)/lemon/cycle_canceling.h: $(LEMON_INCDIR)/lemon/cycle_canceling.h \
-	  $(MCFLESDR)/shim/cc_runwarm.inc
+	  $(MCFLESDR)/shim/cc_runwarm.inc $(CSFEAS)
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cc_runwarm.inc' \
+	  -e '/^    Value _sum_supply;$$/r $(CSFEAS)' \
+	  -e '/$(CIRC)/,/^      return OPTIMAL;/{/$(CIRC)|OPTIMAL/!d}' \
+	  -e 's@$(CIRC).*@      int sup_num;\n      $(CCCALL)\n@' \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 
