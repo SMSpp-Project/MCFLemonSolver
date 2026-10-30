@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shortest path searches, rather than the binary one of the default trait,
   through the trait `SMSppCapacityScalingTraits`
 
+- the network simplex of LEMON updates the potentials of a pivot on the
+  smaller of the subtree that the pivot moves and the rest of the tree,
+  rather than always on the subtree, and brings the potential of the root
+  back to zero at the end [see `shim/ns_potential.inc`]
+
 ### Fixed
 
 - `get_var_solution()` writes the flows into the `MCFBlock` all at once, with

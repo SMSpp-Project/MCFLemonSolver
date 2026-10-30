@@ -46,6 +46,7 @@
       }
       for (int e = _arc_num; e != _all_arc_num; ++e)
         if (_cost[e] != 0) _cost[e] = art;
+      _pi_lim = ns_pi_lim(art);
 
       // the potentials of the basis tree, in the order of the thread, which
       // gives every node after its own father

@@ -103,10 +103,14 @@ headers need a few portability fixes, and a numerical one:
   along a path, each of them checked against the number of buckets but not
   their sum, which then indexes past the end of the buckets; the rewrite
   bounds it, the rank being a lower bound on how far the potential of the
-  node has to go down.
+  node has to go down;
+- **speed**: `network_simplex.h` updates the potentials of a pivot on the
+  smaller of the subtree that the pivot moves and the rest of the tree, the
+  reduced costs being the same either way.
 
-The code of the warm starts lives in [shim](shim), read as C++ and inserted
-at its anchor by both the CMake build and the makefiles.
+The code of the warm starts, and of the rewrites for speed, lives in
+[shim](shim), read as C++ and inserted at its anchor by both the CMake build
+and the makefiles.
 
 CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
 too, and for them no header is rewritten: `MCFLemonSolver` gives them the

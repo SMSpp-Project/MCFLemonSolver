@@ -33,3 +33,6 @@ network_simplex.h|map) { _warm = false;
 network_simplex.h|Value k) { _warm = false;
 network_simplex.h|reset() { _warm = false;
 network_simplex.h|ProblemType runWarm(
+network_simplex.h|ns_pi_align(_pi, _root);
+network_simplex.h|_pi_lim = ns_pi_lim(ART_COST);
+network_simplex.h|int beg = u_in, end = _thread[_last_succ[u_in]];

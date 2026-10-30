@@ -183,15 +183,18 @@ $(MCFLESHIM)/lemon/cycle_canceling.h: $(LEMON_INCDIR)/lemon/cycle_canceling.h \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 
-# network_simplex.h needs the base rewrites plus the two of its own, the same
-# as the CMake build: the tolerances of the pivot rules and of the feasibility
-# check, zero for an exact type so that on integer data the algorithm is
-# unchanged, and the warm start of the basis. The code of both lives in shim/
-# and sed inserts it at its anchor, so that it is written once and read as
-# C++ [see shim/README.md].
+# network_simplex.h needs the base rewrites plus the three of its own, the
+# same as the CMake build: the tolerances of the pivot rules and of the
+# feasibility check, zero for an exact type so that on integer data the
+# algorithm is unchanged, the warm start of the basis, and the potentials of
+# a pivot updated on the smaller of the subtree it moves and the rest of the
+# tree. The code of the three lives in shim/ and sed inserts it at its
+# anchor, so that it is written once and read as C++ [see shim/README.md].
+
+NSPOT = $(MCFLESDR)/shim/ns_potential.inc
 
 $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
-	  $(MCFLESDR)/shim/ns_eps.inc $(MCFLESDR)/shim/ns_runwarm.inc
+	  $(MCFLESDR)/shim/ns_eps.inc $(MCFLESDR)/shim/ns_runwarm.inc $(NSPOT)
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) \
 	  -e 's/^      int _search_arc_num;$$/      int _search_arc_num; Cost _eps;/' \
@@ -200,7 +203,10 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
 	  -e 's/min < 0/min < -_eps/g' \
 	  -e 's/if \(min >= 0\) return/if (min >= -_eps) return/' \
 	  -e 's/else if \(c >= 0\) \{/else if (c >= -_eps) {/' \
-	  -e 's@^      // Check feasibility@      const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
+	  -e 's@^      // Check feasibility@      ns_pi_align(_pi, _root); const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
+	  -e 's@^      // Initialize arc maps$$@      _pi_lim = ns_pi_lim(ART_COST); &@' \
+	  -e '/^    \/\/ Update potentials in the/,/^    \}$$/{/^    \}/r $(NSPOT)' \
+	  -e 'd}' \
 	  -e 's/if \(_flow\[e\] != 0\) return/if (_flow[e] > feps || _flow[e] < -feps) return/' \
 	  -e 's/if \(_cost\[i\] > ART_COST\) ART_COST = _cost\[i\];/& else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];/' \
 	  -e 's/^    int _root;$$/    int _root; bool _warm; bool _repair; int _unb_arc;/' \

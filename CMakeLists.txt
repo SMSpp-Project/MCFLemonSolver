@@ -123,10 +123,30 @@ find_package(LEMON REQUIRED)
 #     supply, which is zero when the type is exact, so that on integer data the
 #     algorithm is unchanged. Only the pivot rules and start() change, and they
 #     are instantiated only in this library, while the layout of the class is
-#     the same as the one the users of MCFLemonSolver.h see.
+#     the same as the one the users of MCFLemonSolver.h see;
+#   * speed: lemon/network_simplex.h updates the potentials of a pivot on the
+#     smaller of the subtree the pivot moves and the rest of the tree.
 # All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
 set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
+# replaces in the variable named var the text from the first occurrence of
+# from up to the first occurrence of to after it, the latter excluded, with
+# text, and leaves it as it is if either of the two is not there, which the
+# markers then find [see shim/markers.txt]
+function(lemon_shim_cut var from to text)
+    string(FIND "${${var}}" "${from}" _a)
+    if (_a EQUAL -1)
+        return ()
+    endif ()
+    string(SUBSTRING "${${var}}" ${_a} -1 _tail)
+    string(FIND "${_tail}" "${to}" _b)
+    if (_b EQUAL -1)
+        return ()
+    endif ()
+    string(SUBSTRING "${_tail}" ${_b} -1 _tail)
+    string(SUBSTRING "${${var}}" 0 ${_a} _head)
+    set(${var} "${_head}${text}${_tail}" PARENT_SCOPE)
+endfunction ()
 foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
                     cost_scaling.h cycle_canceling.h network_simplex.h)
     unset(_lemon_hdr_src CACHE)
@@ -201,6 +221,8 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             # that it is written once and read as C++ [see shim/README.md]
             file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_eps.inc _ns_eps)
             file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_runwarm.inc _ns_warm)
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_potential.inc
+                    _ns_pot)
             string(REPLACE "namespace lemon {"
                     "namespace lemon {\n\n${_ns_eps}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
@@ -219,9 +241,26 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "else if (c >= 0) {" "else if (c >= -_eps) {"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            # the potentials shifted back so that the one of the root is
+            # zero, which the update of a pivot on the part of the tree that
+            # is not the subtree it moves has made it not to be, and the
+            # tolerance on the flow left on the artificial arcs
             string(REPLACE "      // Check feasibility"
-                    "      const Value feps = ns_flow_eps(_supply, _node_num);
+                    "      ns_pi_align(_pi, _root);
+      const Value feps = ns_flow_eps(_supply, _node_num);
       // Check feasibility"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            # the potentials of a pivot updated on the smaller of the subtree
+            # it moves and the rest of the tree, the code of which lives in
+            # shim/ and replaces the whole of updatePotential(), and how far
+            # that may move the potential of the root from zero, set with the
+            # cost of the artificial arcs
+            lemon_shim_cut(_lemon_hdr_content
+                    "    // Update potentials in the subtree"
+                    "\n    // Heuristic initial pivots" "${_ns_pot}")
+            string(REPLACE "      // Initialize arc maps"
+                    "      _pi_lim = ns_pi_lim(ART_COST);
+      // Initialize arc maps"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "if (_flow[e] != 0) return"
                     "if (_flow[e] > feps || _flow[e] < -feps) return"
