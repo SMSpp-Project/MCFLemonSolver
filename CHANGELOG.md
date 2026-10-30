@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - the licence is the GNU Lesser General Public License version 3.0
 
+- `SMSppCapacityScaling` runs CapacityScaling with a 4-ary heap in its
+  shortest path searches, rather than the binary one of the default trait,
+  through the trait `SMSppCapacityScalingTraits`
+
 ### Fixed
 
 - `get_var_solution()` writes the flows into the `MCFBlock` all at once, with

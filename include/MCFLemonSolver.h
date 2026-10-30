@@ -45,6 +45,8 @@
 
 #include "lemon/network_simplex.h"
 
+#include <lemon/quad_heap.h>
+
 #include <lemon/list_graph.h>
 
 #include <lemon/smart_graph.h>
@@ -317,8 +319,8 @@ class MCFListDigraph : public ListDigraph
   * "traits" for this which are another scaling parameter. However, we prefer
   * that the MCFLemonSolver class is always template over the first three
   * parameters only, which is why we define SMSppCapacityScaling and
-  * SMSppCostScaling as template over < GR , V , C > and using the default
-  * trait.
+  * SMSppCostScaling as template over < GR , V , C >, each with the trait
+  * it is given below.
   *
   * Thus, the concept LEMONGraph is defined that only allows all possible
   * types of LEMON graphs, i.e., SmartDigraph and MCFListDigraph. */
@@ -328,14 +330,30 @@ class MCFListDigraph : public ListDigraph
  concept LEMONGraph = std::is_same< Type , SmartDigraph >::value ||
                       std::is_same< Type , MCFListDigraph >::value;
 
- /// CapacityScaling algorithm using the default trait
+ /// the trait of CapacityScaling with a 4-ary heap
+ /** The default trait of CapacityScaling with the heap of the shortest path
+  * searches being a 4-ary heap rather than a binary one: a search may make
+  * a decrease-key for every arc it relaxes and a delete-min for every node,
+  * and the 4-ary heap, half as tall as the binary one, makes the former
+  * cheaper at the price of comparing four children rather than two in the
+  * latter. */
  template< LEMONGraph GR, typename V , typename C >
- class SMSppCapacityScaling : public CapacityScaling< GR , V , C >
+ struct SMSppCapacityScalingTraits
+  : public CapacityScalingDefaultTraits< GR , V , C >
+ {
+  using Heap = QuadHeap< C , RangeMap< int > >;  ///< the heap
+  };
+
+ /// CapacityScaling algorithm using the trait with a 4-ary heap
+ template< LEMONGraph GR, typename V , typename C >
+ class SMSppCapacityScaling : public
+  CapacityScaling< GR , V , C , SMSppCapacityScalingTraits< GR , V , C > >
  {
   public:
 
   SMSppCapacityScaling( const GR& dgp )
-    : CapacityScaling< GR , V , C >( dgp ) {}
+   : CapacityScaling< GR , V , C ,
+		      SMSppCapacityScalingTraits< GR , V , C > >( dgp ) {}
 
   ~SMSppCapacityScaling() = default;
   };
@@ -427,10 +445,10 @@ class MCFListDigraph : public ListDigraph
   *   to which combination of V and C is used, and there are different
   *   "traits" for this which are another scaling parameter. However, in order
   *   to make MCFLemonSolver class template over always the same number of
-  *   template parameters we fix the use of the default trait, which is why
+  *   template parameters we fix the trait, which is why
   *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
-  *   < GR , V , C >) that are meant to be used instead of the original
-  *   CapacityScaling and CostScaling.
+  *   < GR , V , C >, each with its own trait) that are meant to be used
+  *   instead of the original CapacityScaling and CostScaling.
   *
   * LEMON requires the data to be integer even when V and C are double: all
   * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities

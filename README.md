@@ -112,7 +112,8 @@ CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
 too, and for them no header is rewritten: `MCFLemonSolver` gives them the
 costs scaled by a power of 2 and rounded, which are integer, with an integer
 large cost type for CostScaling, and gives back the value and the potentials
-of the true costs.
+of the true costs; CapacityScaling is also given a 4-ary heap in its
+shortest path searches, rather than the binary one of its default trait.
 In the same way CostScaling, CycleCanceling and CapacityScaling, which are
 exact only on integer capacities and supplies, are given fractional ones
 scaled and rounded, and an infinite capacity as a finite bound that no optimal
