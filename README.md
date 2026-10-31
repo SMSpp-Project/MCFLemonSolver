@@ -136,7 +136,11 @@ copies of just those headers and puts them on the include path *before* the
 system ones so they shadow them. The rewrites are idempotent (no-ops on an
 already-patched LEMON) and are applied identically by both the CMake build and
 the makefiles, so nothing has to be done by hand on any platform (no manual
-download of LEMON, and no manual edit of its headers).
+download of LEMON, and no manual edit of its headers). With
+[lemon-ng](https://github.com/dmeoli/lemon-ng), the maintained fork of LEMON
+that has all of this in its own headers, the build recognises it (by
+`lemon/bits/mcf_feasible_flow.h`, which only the fork has) and uses its
+headers as they are, rewriting none.
 
 ## Getting started
 
@@ -175,7 +179,8 @@ the whole framework. What follows is about building it yourself.
   - **macOS** (MacPorts): `coinor-liblemon` (note that Homebrew's `lemon` is the
     unrelated LALR parser generator; the community tap
     `donn/lemon-graph/lemon-graph` also exists but is unmaintained)
-  - **Windows** (vcpkg): `liblemon` (already listed in the project `vcpkg.json`)
+  - **Windows** (vcpkg): `lemon-ng`, from the vcpkg registry of SMS++ (already
+    listed in the project `vcpkg.json`)
 
 ### Build and install with CMake
 
@@ -229,10 +234,10 @@ convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
 Like CMake, the makefiles use the installed LEMON package directly (no manual
-download) and generate the same C++20 shim. By default they look for LEMON under
-the `/usr` prefix; for other locations override `LEMON_ROOT` (or, more finely,
-`LEMON_INCDIR`/`LEMON_LIBDIR`) on the `make` command line or in the environment,
-for example:
+download) and generate the same C++20 shim, or none with lemon-ng. By default
+they look for LEMON under the `/usr` prefix; for other locations override
+`LEMON_ROOT` (or, more finely, `LEMON_INCDIR`/`LEMON_LIBDIR`) on the `make`
+command line or in the environment, for example:
 
 ```sh
 make -f makefile LEMON_ROOT=/opt/local

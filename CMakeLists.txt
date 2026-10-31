@@ -130,7 +130,19 @@ find_package(LEMON REQUIRED)
 #     feasible flow on their residual network rather than with Circulation.
 # All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
-set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
+# lemon-ng, the maintained fork of LEMON, has all of this in its own headers,
+# which are used as they are: it is told by lemon/bits/mcf_feasible_flow.h,
+# which only it has, and no header is rewritten.
+find_file(_lemon_ng_hdr lemon/bits/mcf_feasible_flow.h
+        PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
+if (_lemon_ng_hdr)
+    set(_lemon_shim_hdrs "")
+else ()
+    set(_lemon_shim_hdrs bits/array_map.h path.h adaptors.h capacity_scaling.h
+            cost_scaling.h cycle_canceling.h network_simplex.h)
+    set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
+endif ()
+unset(_lemon_ng_hdr CACHE)
 # replaces in the variable named var the text from the first occurrence of
 # from up to the first occurrence of to after it, the latter excluded, with
 # text, and leaves it as it is if either of the two is not there, which the
@@ -149,8 +161,7 @@ function(lemon_shim_cut var from to text)
     string(SUBSTRING "${${var}}" 0 ${_a} _head)
     set(${var} "${_head}${text}${_tail}" PARENT_SCOPE)
 endfunction ()
-foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
-                    cost_scaling.h cycle_canceling.h network_simplex.h)
+foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
     unset(_lemon_hdr_src CACHE)
     find_file(_lemon_hdr_src lemon/${_lemon_hdr}
             PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -299,7 +310,7 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
                     _lemon_hdr_content "${_lemon_hdr_content}")
             # the basis the warm start reuses, and what drops it; the arc
             # whose pivot cannot be performed, which the certificate of
-            # unboundedness is made of [see unbCycle()]
+            # unboundedness is made of [see unboundedCycle()]
             string(REPLACE "    int _root;"
                     "    int _root; bool _warm; bool _repair; int _unb_arc;"
                     _lemon_hdr_content "${_lemon_hdr_content}")

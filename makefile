@@ -70,7 +70,11 @@ LEMON_INCDIR = $(libLEMONBSCDIR)/include
 # path *before* $(LEMON_INCDIR) so they shadow the system ones. Mirrors the
 # CMake build; all rewrites are idempotent and harmless on non-matching
 # headers.
+# lemon-ng, the maintained fork of LEMON, has all of this in its own headers,
+# which are used as they are: it is told by lemon/bits/mcf_feasible_flow.h,
+# which only it has, and no header is rewritten.
 MCFLESHIM = $(MCFLESDR)/lemon-cxx20-shim
+ifeq ($(wildcard $(LEMON_INCDIR)/lemon/bits/mcf_feasible_flow.h),)
 LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
                   $(MCFLESHIM)/lemon/path.h \
                   $(MCFLESHIM)/lemon/adaptors.h \
@@ -78,12 +82,17 @@ LEMON_SHIM_HDRS = $(MCFLESHIM)/lemon/bits/array_map.h \
                   $(MCFLESHIM)/lemon/cost_scaling.h \
                   $(MCFLESHIM)/lemon/cycle_canceling.h \
                   $(MCFLESHIM)/lemon/network_simplex.h
+LEMON_SHIM_INC = -I$(MCFLESHIM)
+else
+LEMON_SHIM_HDRS =
+LEMON_SHIM_INC =
+endif
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MCFLEOBJ = $(MCFLESDR)/obj/MCFLemonSolver.o
 
-MCFLEINC = -I$(MCFLESDR)/include -I$(MCFLESHIM) $(libLEMONINC)
+MCFLEINC = -I$(MCFLESDR)/include $(LEMON_SHIM_INC) $(libLEMONINC)
 
 MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 

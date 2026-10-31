@@ -243,17 +243,19 @@
      * with UNBOUNDED or if the cycle goes through an artificial arc, which is
      * no cycle of the instance. */
 
-    std::vector<Arc> unbCycle() const {
+    std::vector<Arc> unboundedCycle() const {
       std::vector<Arc> cycle;
       if (_unb_arc < 0) return cycle;
 
       std::vector<int> ids;
       ids.push_back(_unb_arc);
-      // the flow goes from v_in up to join, and then from join down to u_in,
-      // i.e., along the path from u_in to join taken backwards
-      for (int u = v_in; u != join; u = _parent[u]) ids.push_back(_pred[u]);
+      // the entering arc goes from v_in to u_in, as findLeavingArc() sets
+      // them when no arc leaves; the flow goes on from u_in up to join, and
+      // then from join down to v_in, i.e., along the path from v_in to join
+      // taken backwards
+      for (int u = u_in; u != join; u = _parent[u]) ids.push_back(_pred[u]);
       std::vector<int> down;
-      for (int u = u_in; u != join; u = _parent[u]) down.push_back(_pred[u]);
+      for (int u = v_in; u != join; u = _parent[u]) down.push_back(_pred[u]);
       ids.insert(ids.end(), down.rbegin(), down.rend());
 
       // an artificial arc is none of the instance

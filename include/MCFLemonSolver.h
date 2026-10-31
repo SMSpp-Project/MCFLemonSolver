@@ -144,13 +144,16 @@ class MCFListDigraph : public ListDigraph
 
  /// return true if the arc is closed
 
- bool isClosed( int n ) { return( arcs[ n ].source < 0 ); }
+ bool isClosed( int n ) { return( arc_store()[ n ].source < 0 ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
  /// add a new arc with given endpoints
 
  MCFArc addArc( int u , int v )
  {
+  auto & arcs = arc_store();
+  auto & nodes = node_store();
+
   int n;
 
   if( first_free_arc == -1 ) {  // no previously deleted arcs
@@ -230,6 +233,9 @@ class MCFListDigraph : public ListDigraph
 
  void closeArc( int n )
  {
+  auto & arcs = arc_store();
+  auto & nodes = node_store();
+
   // like in delete, remove from FS and BS lists
   if( arcs[ n ].next_in != -1 )
    arcs[ arcs[ n ].next_in ].prev_in = arcs[ n ].prev_in;
@@ -256,6 +262,9 @@ class MCFListDigraph : public ListDigraph
 
  void openArc( int n )
  {
+  auto & arcs = arc_store();
+  auto & nodes = node_store();
+
   // restore the original source
   arcs[ n ].source = -( arcs[ n ].source + 1 );
   auto uid = arcs[ n ].source;
@@ -280,10 +289,45 @@ class MCFListDigraph : public ListDigraph
 
  void eraseClosed( int n )
  {
+  auto & arcs = arc_store();
+
   // just do the little that closeArc() did not
   arcs[ n ].next_in = first_free_arc;
   first_free_arc = n;
   arcs[ n ].prev_in = -2;
+  }
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ protected:
+
+/*--------------------------------------------------------------------------*/
+ /// the storage of the arcs of ListDigraphBase
+ /** The vector is arcs in LEMON 1.3.1 and _arcs in the later versions (and
+  * in lemon-ng), where arcs() is the range of a loop on the arcs: the one
+  * that the base has is taken. */
+
+ template< class G = MCFListDigraph >
+ std::vector< ArcT > & arc_store( void ) {
+  G & g = *this;
+  if constexpr( requires { g._arcs; } )
+   return( g._arcs );
+  else
+   return( g.arcs );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ /// the storage of the nodes of ListDigraphBase [see arc_store()]
+
+ template< class G = MCFListDigraph >
+ std::vector< NodeT > & node_store( void ) {
+  G & g = *this;
+  if constexpr( requires { g._nodes; } )
+   return( g._nodes );
+  else
+   return( g.nodes );
   }
 
  };  // end( class( MCFListDigraph ) )
@@ -1127,13 +1171,14 @@ class MCFLemonSolverNetworkSimplex : public
  /// writes one unit of flow along that cycle in the flow Variable
  /** Writes in the flow Variable of the MCFBlock one unit of flow along the
   * cycle of negative cost and infinite capacity that the network simplex
-  * gives as the certificate of unboundedness [see unbCycle() in the shim of
-  * the build], and tells the MCFBlock that what they hold is a direction
-  * [see MCFBlock::is_direction()]. The Configuration says which part to
-  * write, as in MCFBlock::get_Solution(): a value of 2 asks for the dual
-  * part alone, and then nothing is done. Throws if the last run did not end
-  * declaring the instance unbounded, or if the cycle goes through an
-  * artificial arc and is therefore none of the instance. */
+  * gives as the certificate of unboundedness [see unboundedCycle() of
+  * lemon-ng, or of the shim of the build], and tells the MCFBlock that what
+  * they hold is a direction [see MCFBlock::is_direction()]. The
+  * Configuration says which part to write, as in MCFBlock::get_Solution():
+  * a value of 2 asks for the dual part alone, and then nothing is done.
+  * Throws if the last run did not end declaring the instance unbounded, or
+  * if the cycle goes through an artificial arc and is therefore none of the
+  * instance. */
 
  void get_var_direction( Configuration * dirc = nullptr ) override {
   if( ! f_Block )  // no [MCF]Block to write to
@@ -1221,7 +1266,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( ! f_Block )
    return( false );
 
-  auto cycle = f_algo->unbCycle();
+  auto cycle = f_algo->unboundedCycle();
   if( cycle.empty() )
    return( false );
 

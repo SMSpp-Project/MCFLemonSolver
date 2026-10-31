@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- lemon-ng, the maintained fork of LEMON, is used as it is: the CMake build
+  and the makefiles recognise it by `lemon/bits/mcf_feasible_flow.h`, which
+  only the fork has, and rewrite none of its headers, which already have
+  what the shim writes into the ones of LEMON; `MCFListDigraph` names the
+  storage of `ListDigraphBase` with a using-declaration, which the ranges
+  `nodes()` and `arcs()` of the graphs of lemon-ng would hide otherwise
+
 - the makefiles build the C++20 module `smspp.mcflemonsolver` when
   `SMSppMOD` is not empty (e.g., `make SMSppMOD=1`), with clang++ 16 or
   later [see `lib/makefile-mod` of SMS++]
@@ -21,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SMS++::MCFLemonSolver_module`
 
 ### Changed
+
+- the certificate of unboundedness of the network simplex is
+  `unboundedCycle()`, the name it has in lemon-ng, also in the shim, which
+  gives the cycle in the direction of the flow as lemon-ng does
 
 - the pipeline builds the module also with its makefiles, after CMake, and
   runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
