@@ -52,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `cmake/FindLEMON.cmake` drops the cached paths of LEMON when one of them
+  does not exist any more (e.g., in a build directory configured once outside
+  and once inside a container, or after an upgrade), so that all of them are
+  searched again; the stale include directory was kept, since `find_path()`
+  does not search a cached one again, and the configuration went on with a
+  LEMON that is not there
+
 - CostScaling and CycleCanceling on integer flows are given the capacities
   anew before each run: they replace an infinite capacity by the sum of the
   deficits in the vector of the capacities they are given, so that the run

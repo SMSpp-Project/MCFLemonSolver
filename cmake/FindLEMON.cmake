@@ -38,6 +38,27 @@ include(FindPackageHandleStandardArgs)
 # LEMON's lock primitives (lemon/bits/lock.h) may pull in pthreads.
 find_package(Threads QUIET)
 
+# Drop the cached paths if one of them does not exist any more, so that
+# they are all searched again from the same place
+set(_LEMON_cached LEMON_INCLUDE_DIR LEMON_LIBRARY LEMON_LIBRARY_DEBUG)
+foreach (_var ${_LEMON_cached})
+    foreach (_path ${${_var}})
+        if (IS_ABSOLUTE "${_path}" AND NOT EXISTS "${_path}")
+            set(_LEMON_stale TRUE)
+        endif ()
+    endforeach ()
+endforeach ()
+if (_LEMON_stale)
+    message(STATUS "Cached LEMON paths not found, searching again")
+    foreach (_var ${_LEMON_cached})
+        unset(${_var} CACHE)
+    endforeach ()
+endif ()
+unset(_LEMON_cached)
+unset(_LEMON_stale)
+unset(_var)
+unset(_path)
+
 # Check if already in cache
 if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG AND LEMON_VERSION)
     set(LEMON_FOUND TRUE)
