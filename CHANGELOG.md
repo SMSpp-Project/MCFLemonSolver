@@ -63,6 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- with the compilers of MinGW (MSYS2) the target asks whoever links it
+  for the symbol that forces the module in, as with MSVC and on macOS:
+  the linker imports a DLL only for the symbols asked for, so that a
+  program that used none had the module left out and its classes
+  missing from the factory
+
 - `cmake/FindLEMON.cmake` keeps the version of a found library in the cache,
   with the include directory it is read from, and reads it again when that
   directory changes: the check of the cache wanted the version, which was not
