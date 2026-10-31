@@ -154,7 +154,7 @@ LEMON_SHIM_CHECK = grep '^$(notdir $@)|' $(MCFLESDR)/shim/markers.txt | \
 	    rm -f $@; exit 1; }; done
 
 LEMON_SHIM_WARM = \
-	  -e 's/^(    [A-Za-z]+\& reset\(\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^(    [A-Za-z]+& reset\(\) \{)$$/\1 _warm = false;/' \
 	  -e 's/^      ProblemType pt = init\(\);$$/      _warm = false; ProblemType pt = init();/'
 
 # capacity_scaling.h needs the base rewrites plus the maps.h include
@@ -167,7 +167,8 @@ $(MCFLESHIM)/lemon/capacity_scaling.h: \
 	mkdir -p $(dir $@)
 	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
 	  -e '/#include <lemon\/maps.h>/d' \
-	  -e 's@(#include <lemon/core.h>)@\1\n#include <lemon/maps.h>@' \
+	  -e '/#include <lemon\/core.h>/{' -e 'G' \
+	  -e 's/$$/#include <lemon\/maps.h>/' -e '}' \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/capsc_runwarm.inc' \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
@@ -193,8 +194,9 @@ $(MCFLESHIM)/lemon/cost_scaling.h: $(LEMON_INCDIR)/lemon/cost_scaling.h \
 	  -e 's/int new_rank_v = rank_u \+ static_cast<int>\(nrc\);/int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);/' \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cs_runwarm.inc' \
 	  -e '/^    Value _sum_supply;$$/r $(CSFEAS)' \
-	  -e '/$(CIRC)/,/^      \/\/ Initialize data/{/$(CIRC)|data/!d}' \
-	  -e 's@$(CIRC).*@      $(CSCALL)\n@' \
+	  -e '/$(CIRC)/,/^      \/\/ Initialize data/{' \
+	  -e '/$(CIRC)|data/!d' -e '}' \
+	  -e '/$(CIRC)/{' -e 's@.*@      $(CSCALL)@' -e 'G' -e '}' \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 
@@ -204,8 +206,10 @@ $(MCFLESHIM)/lemon/cycle_canceling.h: $(LEMON_INCDIR)/lemon/cycle_canceling.h \
 	sed -E $(LEMON_SHIM_SED) $(LEMON_SHIM_WARM) \
 	  -e '/^    Value _sum_supply;$$/r $(MCFLESDR)/shim/cc_runwarm.inc' \
 	  -e '/^    Value _sum_supply;$$/r $(CSFEAS)' \
-	  -e '/$(CIRC)/,/^      return OPTIMAL;/{/$(CIRC)|OPTIMAL/!d}' \
-	  -e 's@$(CIRC).*@      int sup_num;\n      $(CCCALL)\n@' \
+	  -e '/$(CIRC)/,/^      return OPTIMAL;/{' \
+	  -e '/$(CIRC)|OPTIMAL/!d' -e '}' \
+	  -e '/$(CIRC)/{' -e 's@.*@      int sup_num;@' -e 'G' \
+	  -e 's@$$@      $(CCCALL)@' -e 'G' -e '}' \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 
@@ -231,8 +235,8 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
 	  -e 's/else if \(c >= 0\) \{/else if (c >= -_eps) {/' \
 	  -e 's@^      // Check feasibility@      ns_pi_align(_pi, _root); const Value feps = ns_flow_eps(_supply, _node_num); // Check feasibility@' \
 	  -e 's@^      // Initialize arc maps$$@      _pi_lim = ns_pi_lim(ART_COST); &@' \
-	  -e '/^    \/\/ Update potentials in the/,/^    \}$$/{/^    \}/r $(NSPOT)' \
-	  -e 'd}' \
+	  -e '/^    \/\/ Update potentials in the/,/^    \}$$/{' \
+	  -e '/^    \}/r $(NSPOT)' -e 'd' -e '}' \
 	  -e 's/if \(_flow\[e\] != 0\) return/if (_flow[e] > feps || _flow[e] < -feps) return/' \
 	  -e 's/if \(_cost\[i\] > ART_COST\) ART_COST = _cost\[i\];/& else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];/' \
 	  -e 's/^    int _root;$$/    int _root; bool _warm; bool _repair; int _unb_arc;/' \
@@ -241,12 +245,12 @@ $(MCFLESHIM)/lemon/network_simplex.h: $(LEMON_INCDIR)/lemon/network_simplex.h \
 	  -e 's/if \(delta >= MAX\) return UNBOUNDED;/if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }/' \
 	  -e 's@^        _upper\[_arc_id\[a\]\] = map\[a\];$$@        warmUpper(_arc_id[a], map[a]);@' \
 	  -e 's@^        _supply\[_node_id\[n\]\] = map\[n\];$$@        warmSupply(_node_id[n], map[n]);@' \
-	  -e 's/^(    NetworkSimplex\& lowerMap\(const .*\& map\) \{)$$/\1 _warm = false;/' \
-	  -e 's/^(    NetworkSimplex\& stSupply\(const Node\& s, const Node\& t, Value k\) \{)$$/\1 _warm = false;/' \
-	  -e 's/^(    NetworkSimplex\& reset\(\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^(    NetworkSimplex& lowerMap\(const .*& map\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^(    NetworkSimplex& stSupply\(const Node& s, const Node& t, Value k\) \{)$$/\1 _warm = false;/' \
+	  -e 's/^(    NetworkSimplex& reset\(\) \{)$$/\1 _warm = false;/' \
 	  -e '/^namespace lemon \{$$/r $(MCFLESDR)/shim/ns_eps.inc' \
-	  -e '/^      return start\(pivot_rule\);$$/{r $(MCFLESDR)/shim/ns_runwarm.inc' \
-	  -e 'd}' \
+	  -e '/^      return start\(pivot_rule\);$$/{' \
+	  -e 'r $(MCFLESDR)/shim/ns_runwarm.inc' -e 'd' -e '}' \
 	  $< > $@
 	@$(LEMON_SHIM_CHECK)
 

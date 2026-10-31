@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the makefile rewrites the headers of LEMON also with the sed of BSD (e.g.,
+  on macOS): a block of commands closes on a line of its own and a new line
+  of a replacement is made with `G`, as BSD wants, the headers being the
+  same as before with GNU sed
+
 - with the compilers of MinGW (MSYS2) the target asks whoever links it
   for the symbol that forces the module in, as with MSVC and on macOS:
   the linker imports a DLL only for the symbols asked for, so that a
