@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the README leaves the channels that distribute SMS++ to the
+  installation guide of the wiki (Installing-SMS++), keeping the names
+  of the packages of the module
+
 - the certificate of unboundedness of the network simplex is
   `unboundedCycle()`, the name it has in lemon-ng, also in the shim, which
   gives the cycle in the direction of the flow as lemon-ng does
