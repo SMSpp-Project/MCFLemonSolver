@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- on Windows, the executables that copy their DLLs next to themselves
+  are linked one at a time (a job pool of Ninja), since two copies of the
+  same DLL into one directory collided (e.g., with the clang++ of MSYS2)
+
 - the makefile rewrites the headers of LEMON also with the sed of BSD (e.g.,
   on macOS): a block of commands closes on a line of its own and a new line
   of a replacement is made with `G`, as BSD wants, the headers being the
