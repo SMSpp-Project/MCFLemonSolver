@@ -40,7 +40,8 @@ find_package(Threads QUIET)
 
 # Drop the cached paths if one of them does not exist any more, so that
 # they are all searched again from the same place
-set(_LEMON_cached LEMON_INCLUDE_DIR LEMON_LIBRARY LEMON_LIBRARY_DEBUG)
+set(_LEMON_cached LEMON_INCLUDE_DIR LEMON_LIBRARY LEMON_LIBRARY_DEBUG
+        LEMON_VERSION)
 foreach (_var ${_LEMON_cached})
     foreach (_path ${${_var}})
         if (IS_ABSOLUTE "${_path}" AND NOT EXISTS "${_path}")
@@ -58,6 +59,12 @@ unset(_LEMON_cached)
 unset(_LEMON_stale)
 unset(_var)
 unset(_path)
+
+# The cached version is the one of the include directory it was read from
+if (NOT "${LEMON_INCLUDE_DIR}" STREQUAL
+        "${_LEMON_VERSION_INCLUDE_DIR}")
+    unset(LEMON_VERSION CACHE)
+endif ()
 
 # Check if already in cache
 if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG AND LEMON_VERSION)
@@ -143,6 +150,15 @@ if (NOT LEMON_FOUND)
             LEMON
             REQUIRED_VARS LEMON_LIBRARY LEMON_INCLUDE_DIR
             VERSION_VAR LEMON_VERSION)
+endif ()
+
+# A found package keeps its version in the cache, with the include
+# directory it was read from
+if (LEMON_FOUND)
+    set(LEMON_VERSION "${LEMON_VERSION}" CACHE INTERNAL
+            "LEMON version.")
+    set(_LEMON_VERSION_INCLUDE_DIR "${LEMON_INCLUDE_DIR}"
+            CACHE INTERNAL "Include directory of the LEMON version.")
 endif ()
 
 # ----- Export the target --------------------------------------------------- #
