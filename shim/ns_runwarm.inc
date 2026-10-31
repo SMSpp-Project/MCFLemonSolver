@@ -71,9 +71,10 @@
      * at the new bound), which is the case of the arc out of the tree that is
      * closed while it carries no flow and of the one that is opened again;
      * otherwise the flow of the tree has to be recomputed, which runWarm()
-     * does before starting [see repairBasis()]. With lower bounds the basis is dropped
-     * instead, the capacity the algorithm works on being that of the problem
-     * the lower bounds have been taken out of, as init() computes it. */
+     * does before starting [see repairBasis()]. With lower bounds the basis is
+     * dropped instead, the capacity the algorithm works on being that of the
+     * problem the lower bounds have been taken out of, as init() computes
+     * it. */
 
     void warmUpper(int i, Value up) {
       if (up == _upper[i]) return;

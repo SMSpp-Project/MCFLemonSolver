@@ -58,7 +58,8 @@ include(FindPackageHandleStandardArgs)
 if (WIN32)
     # PThreads4WConfig.cmake given if `pthreads` installed via vcpkg..
     find_package(PThreads4W QUIET)
-    # ... otherwise, overrides macros in Conda to find the `pthreads-win32` package
+    # ... otherwise, overrides macros in Conda to find the `pthreads-win32`
+    # package
     if (NOT PThreads4W_FOUND)
 
         find_path(PThreads4W_INCLUDE_DIR
@@ -97,9 +98,9 @@ if (NOT hasParent)
 endif ()
 
 # ----- LEMON --------------------------------------------------------------- #
-# LEMON is consumed as an installed package; we neither redistribute nor rebuild
-# its sources. It is resolved by our cmake/FindLEMON.cmake module, which defines
-# the imported target LEMON::LEMON.
+# LEMON is consumed as an installed package; we neither redistribute nor
+# rebuild its sources. It is resolved by our cmake/FindLEMON.cmake module,
+# which defines the imported target LEMON::LEMON.
 find_package(LEMON REQUIRED)
 
 # ----- Compatibility shim for an unpatched LEMON --------------------------- #
@@ -109,11 +110,12 @@ find_package(LEMON REQUIRED)
 # target_include_directories below):
 #   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
 #     std::allocator::construct/destroy members removed in C++20;
-#   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does not
-#     compile under MSVC;
-#   * missing include: lemon/capacity_scaling.h uses RangeMap (from lemon/maps.h)
-#     but some packagings (e.g. MacPorts coinor-liblemon) omit that include, so
-#     it fails to compile under stricter (two-phase lookup) compilers;
+#   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does
+#     not compile under MSVC;
+#   * missing include: lemon/capacity_scaling.h uses RangeMap (from
+#     lemon/maps.h) but some packagings (e.g. MacPorts coinor-liblemon) omit
+#     that include, so it fails to compile under stricter (two-phase lookup)
+#     compilers;
 #   * floating-point data: lemon/network_simplex.h takes the sign of a reduced
 #     cost, and the flow left on its artificial arcs, exactly, so that with
 #     fractional costs a reduced cost that is zero but computed a few ulp below
@@ -175,9 +177,11 @@ foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
                 "([A-Za-z_][A-Za-z0-9_]*)\\.destroy\\("
                 "std::allocator_traits<decltype(\\1)>::destroy(\\1, "
                 _lemon_hdr_content "${_lemon_hdr_content}")
+        string(CONCAT _lemon_new "#define LEMON_SCOPE_FIX(OUTER, NESTED) "
+                "typename OUTER::template NESTED")
         string(REGEX REPLACE
                 "#define LEMON_SCOPE_FIX\\(OUTER, NESTED\\) OUTER::NESTED"
-                "#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED"
+                "${_lemon_new}"
                 _lemon_hdr_content "${_lemon_hdr_content}")
         # capacity_scaling.h only: ensure lemon/maps.h (RangeMap) is included.
         # Scoped because other shimmed headers also include lemon/core.h and
@@ -208,12 +212,15 @@ foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
         # which then indexes past the end of the buckets; it is bounded, the
         # rank being a lower bound on how far the potential has to go down
         if (_lemon_hdr STREQUAL "cost_scaling.h")
+            string(CONCAT _lemon_new "int new_rank_v = "
+                    "std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);")
             string(REPLACE "int new_rank_v = rank_u + static_cast<int>(nrc);"
-                    "int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);"
+                    "${_lemon_new}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
         if (_ns_warm_inc AND NOT _lemon_hdr_content MATCHES "runWarm")
-            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc} _warm_code)
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc}
+                    _warm_code)
             # cost_scaling.h and cycle_canceling.h: the feasible flow that
             # init() finds with Circulation on the graph is found on the
             # residual network instead, from the flow of the last run when
@@ -305,8 +312,11 @@ foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
             # either sign rather than of any path of nonnegative cost, which
             # with negative costs let a cycle through the root cost less than
             # zero and a feasible instance be declared infeasible
+            string(CONCAT _lemon_new
+                    "if (_cost[i] > ART_COST) ART_COST = _cost[i]; "
+                    "else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];")
             string(REPLACE "if (_cost[i] > ART_COST) ART_COST = _cost[i];"
-                    "if (_cost[i] > ART_COST) ART_COST = _cost[i]; else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];"
+                    "${_lemon_new}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             # the basis the warm start reuses, and what drops it; the arc
             # whose pivot cannot be performed, which the certificate of
@@ -314,14 +324,17 @@ foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
             string(REPLACE "    int _root;"
                     "    int _root; bool _warm; bool _repair; int _unb_arc;"
                     _lemon_hdr_content "${_lemon_hdr_content}")
-            string(REPLACE "      // Check the number types"
-                    "      _warm = false;\n      _repair = false;\n      _unb_arc = -1;\n      // Check the number types"
+            string(CONCAT _lemon_new "      _warm = false;\n"
+                    "      _repair = false;\n      _unb_arc = -1;\n"
+                    "      // Check the number types")
+            string(REPLACE "      // Check the number types" "${_lemon_new}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            set(_lemon_unb "_unb_arc = in_arc; return UNBOUNDED;")
             string(REPLACE "if (!initialPivots()) return UNBOUNDED;"
-                    "if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    "if (!initialPivots()) { ${_lemon_unb} }"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "if (delta >= MAX) return UNBOUNDED;"
-                    "if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    "if (delta >= MAX) { ${_lemon_unb} }"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "        _upper[_arc_id[a]] = map[a];"
                     "        warmUpper(_arc_id[a], map[a]);"
@@ -329,8 +342,10 @@ foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
             string(REPLACE "        _supply[_node_id[n]] = map[n];"
                     "        warmSupply(_node_id[n], map[n]);"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            string(CONCAT _lemon_st "NetworkSimplex& stSupply("
+                    "const Node& s, const Node& t, Value k) {")
             foreach (_ns_drop "NetworkSimplex& lowerMap(const LowerMap& map) {"
-                              "NetworkSimplex& stSupply(const Node& s, const Node& t, Value k) {"
+                              "${_lemon_st}"
                               "NetworkSimplex& reset() {")
                 string(REPLACE "${_ns_drop}" "${_ns_drop} _warm = false;"
                         _lemon_hdr_content "${_lemon_hdr_content}")
@@ -353,12 +368,14 @@ foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
             string(REPLACE "<semicolon>" ";" _shim_marker "${_shim_marker}")
             string(FIND "${_lemon_hdr_content}" "${_shim_marker}" _shim_pos)
             if (_shim_pos EQUAL -1)
-                message(FATAL_ERROR "MCFLemonSolver: the rewrite of lemon/${_lemon_hdr} "
-                        "has not produced \"${_shim_marker}\": this version of LEMON "
-                        "has moved its anchor [see shim/markers.txt]")
+                message(FATAL_ERROR "MCFLemonSolver: the rewrite of "
+                        "lemon/${_lemon_hdr} has not produced "
+                        "\"${_shim_marker}\": this version of LEMON has "
+                        "moved its anchor [see shim/markers.txt]")
             endif ()
         endforeach ()
-        file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
+        file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr}
+                "${_lemon_hdr_content}")
     endif ()
 endforeach ()
 unset(_lemon_hdr_src CACHE)
@@ -369,12 +386,14 @@ if (NOT TARGET lemon)
 endif ()
 
 # if SMSpp_which_insert_LEMON is *not* given in input as CMake option...
-# (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not `add_compile_definitions( )`)
+# (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not
+# `add_compile_definitions( )`)
 if (NOT DEFINED SMSpp_which_insert_LEMON)
     # ... then use 3 in MCFLemonSolver
     add_compile_definitions(SMSpp_which_insert_LEMON=3)
 else ()
-    add_compile_definitions(SMSpp_which_insert_LEMON=${SMSpp_which_insert_LEMON})
+    add_compile_definitions(
+            SMSpp_which_insert_LEMON=${SMSpp_which_insert_LEMON})
 endif ()
 
 # ----- Configuration header ------------------------------------------------ #
@@ -583,8 +602,9 @@ install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
 # LEMON is consumed as an installed (imported) package, so it is neither
-# installed nor exported here: it is already discoverable via find_package(LEMON)
-# (see the find_dependency(LEMON) injected into the package config below).
+# installed nor exported here: it is already discoverable via
+# find_package(LEMON) (see the find_dependency(LEMON) injected into the
+# package config below).
 
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
@@ -600,9 +620,10 @@ write_basic_package_version_file(
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY AnyNewerVersion)
 
-# Downstream projects that do find_package(MCFLemonSolver) must also be able to
-# locate LEMON: inject a find_dependency(LEMON) into the generated config, which
-# is resolved there by the FindLEMON module we install alongside it (see below).
+# Downstream projects that do find_package(MCFLemonSolver) must also be able
+# to locate LEMON: inject a find_dependency(LEMON) into the generated config,
+# which is resolved there by the FindLEMON module we install alongside it
+# (see below).
 set(LEMON_FIND_DEPENDENCY "find_dependency(LEMON)")
 
 # Generate the package configuration file, that allows other

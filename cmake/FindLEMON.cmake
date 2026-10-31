@@ -67,7 +67,8 @@ if (NOT "${LEMON_INCLUDE_DIR}" STREQUAL
 endif ()
 
 # Check if already in cache
-if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG AND LEMON_VERSION)
+if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG
+        AND LEMON_VERSION)
     set(LEMON_FOUND TRUE)
 endif ()
 
@@ -125,11 +126,13 @@ if (NOT LEMON_FOUND)
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
-    # lemon/config.h carries a single string macro: #define LEMON_VERSION "1.3.1".
+    # lemon/config.h carries a single string macro, e.g.,
+    # #define LEMON_VERSION "1.3.1".
     if (LEMON_INCLUDE_DIR AND EXISTS "${LEMON_INCLUDE_DIR}/lemon/config.h")
         file(STRINGS
                 "${LEMON_INCLUDE_DIR}/lemon/config.h"
-                _LEMON_version_line REGEX "#define[ \t]+LEMON_VERSION[ \t]+\"[^\"]")
+                _LEMON_version_line
+                REGEX "#define[ \t]+LEMON_VERSION[ \t]+\"[^\"]")
 
         if (_LEMON_version_line)
             string(REGEX REPLACE ".*\"([^\"]+)\".*" "\\1"
@@ -143,7 +146,8 @@ if (NOT LEMON_FOUND)
     # options passed to find_package(). It also sets <PackageName>_FOUND if
     # REQUIRED_VARS are set.
     # REQUIRED_VARS should be cache entries and not output variables. See:
-    # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
+    # https://cmake.org/cmake/help/latest/module/
+    #   FindPackageHandleStandardArgs.html
     # The debug library is optional (it falls back to the release one above),
     # so it is deliberately kept out of REQUIRED_VARS.
     find_package_handle_standard_args(
