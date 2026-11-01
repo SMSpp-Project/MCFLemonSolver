@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the tester passes the costs and the deficits to `MCFBlock` as spans
+
 - the README leaves the channels that distribute SMS++ to the
   installation guide of the wiki (Installing-SMS++), keeping the names
   of the packages of the module

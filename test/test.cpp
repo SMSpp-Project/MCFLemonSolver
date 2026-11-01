@@ -240,7 +240,8 @@ static void test_empty_data( void )
  check_all( mcf , 0 , "no costs, no capacities" );
 
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );  // uncapacitated: 4 units along 1-2-3-4
+ // uncapacitated: 4 units along 1-2-3-4
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
  check_all( mcf , 12 , "costs given" );
 
  mcf.chg_ucap( 2 , 2 );       // 2 along 1-2-3-4, 2 along 1-3-4
@@ -349,7 +350,7 @@ static void test_unbounded_direction( void )
  MCFBlock mcf;
  load( mcf , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
  mcf.add_arc( 3 , 2 , -2 );   // a negative cycle of infinite capacity
 
  for( const auto & algo : ALGOS ) {
@@ -430,7 +431,7 @@ static void test_negative_costs( void )
  MCFBlock mcf;
  load( mcf , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
  check( mcf.add_arc( 3 , 2 , -0.5 ) == 5 , "name of the negative arc" );
  check_all( mcf , 12 , "negative cost, finite optimum" );
 
@@ -453,7 +454,7 @@ static void test_integer_infinite_capacity( void )
  MCFBlock mcf;
  load( mcf , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
 
  std::vector< Solver * > slvs;
  for( const auto & gr : GRAPHS )
@@ -470,7 +471,7 @@ static void test_integer_infinite_capacity( void )
   check_value( slv , 12 , "integer data, no capacities" );
 
  const MCFBlock::Vec_FNumber b = { -40 , 0 , 0 , 40 };
- mcf.chg_dfcts( b.begin() , Block::Range( 0 , 4 ) );
+ mcf.chg_dfcts( Block::MF_dbl_sp( b ) , Block::Range( 0 , 4 ) );
  for( auto slv : slvs )
   check_value( slv , 120 , "integer data, no capacities, deficits grown" );
 
@@ -545,7 +546,7 @@ static void test_cost_scaling_methods( void )
  MCFBlock neg;
  load( neg , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- neg.chg_costs( c.begin() );
+ neg.chg_costs( Block::MF_dbl_sp( c ) );
  neg.add_arc( 3 , 2 , -0.5 );
 
  for( int m = 0 ; m <= 3 ; ++m ) {
