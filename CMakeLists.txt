@@ -58,7 +58,8 @@ include(FindPackageHandleStandardArgs)
 if (WIN32)
     # PThreads4WConfig.cmake given if `pthreads` installed via vcpkg..
     find_package(PThreads4W QUIET)
-    # ... otherwise, overrides macros in Conda to find the `pthreads-win32` package
+    # ... otherwise, overrides macros in Conda to find the `pthreads-win32`
+    # package
     if (NOT PThreads4W_FOUND)
 
         find_path(PThreads4W_INCLUDE_DIR
@@ -97,9 +98,9 @@ if (NOT hasParent)
 endif ()
 
 # ----- LEMON --------------------------------------------------------------- #
-# LEMON is consumed as an installed package; we neither redistribute nor rebuild
-# its sources. It is resolved by our cmake/FindLEMON.cmake module, which defines
-# the imported target LEMON::LEMON.
+# LEMON is consumed as an installed package; we neither redistribute nor
+# rebuild its sources. It is resolved by our cmake/FindLEMON.cmake module,
+# which defines the imported target LEMON::LEMON.
 find_package(LEMON REQUIRED)
 
 # ----- Compatibility shim for an unpatched LEMON --------------------------- #
@@ -109,11 +110,12 @@ find_package(LEMON REQUIRED)
 # target_include_directories below):
 #   * C++20: lemon/bits/array_map.h and lemon/path.h still call the
 #     std::allocator::construct/destroy members removed in C++20;
-#   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does not
-#     compile under MSVC;
-#   * missing include: lemon/capacity_scaling.h uses RangeMap (from lemon/maps.h)
-#     but some packagings (e.g. MacPorts coinor-liblemon) omit that include, so
-#     it fails to compile under stricter (two-phase lookup) compilers;
+#   * MSVC: lemon/adaptors.h selects an LEMON_SCOPE_FIX definition that does
+#     not compile under MSVC;
+#   * missing include: lemon/capacity_scaling.h uses RangeMap (from
+#     lemon/maps.h) but some packagings (e.g. MacPorts coinor-liblemon) omit
+#     that include, so it fails to compile under stricter (two-phase lookup)
+#     compilers;
 #   * floating-point data: lemon/network_simplex.h takes the sign of a reduced
 #     cost, and the flow left on its artificial arcs, exactly, so that with
 #     fractional costs a reduced cost that is zero but computed a few ulp below
@@ -123,12 +125,45 @@ find_package(LEMON REQUIRED)
 #     supply, which is zero when the type is exact, so that on integer data the
 #     algorithm is unchanged. Only the pivot rules and start() change, and they
 #     are instantiated only in this library, while the layout of the class is
-#     the same as the one the users of MCFLemonSolver.h see.
+#     the same as the one the users of MCFLemonSolver.h see;
+#   * speed: lemon/network_simplex.h updates the potentials of a pivot on the
+#     smaller of the subtree the pivot moves and the rest of the tree, and
+#     lemon/cost_scaling.h and lemon/cycle_canceling.h find their first
+#     feasible flow on their residual network rather than with Circulation.
 # All rewrites are idempotent (no-ops on an already-patched LEMON) and harmless
 # on headers that do not match, so they are always safe to apply.
-set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
-foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
-                    cost_scaling.h cycle_canceling.h network_simplex.h)
+# lemon-ng, the maintained fork of LEMON, has all of this in its own headers,
+# which are used as they are: it is told by lemon/bits/mcf_feasible_flow.h,
+# which only it has, and no header is rewritten.
+find_file(_lemon_ng_hdr lemon/bits/mcf_feasible_flow.h
+        PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
+if (_lemon_ng_hdr)
+    set(_lemon_shim_hdrs "")
+else ()
+    set(_lemon_shim_hdrs bits/array_map.h path.h adaptors.h capacity_scaling.h
+            cost_scaling.h cycle_canceling.h network_simplex.h)
+    set(LEMON_CXX20_SHIM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lemon-cxx20-shim)
+endif ()
+unset(_lemon_ng_hdr CACHE)
+# replaces in the variable named var the text from the first occurrence of
+# from up to the first occurrence of to after it, the latter excluded, with
+# text, and leaves it as it is if either of the two is not there, which the
+# markers then find [see shim/markers.txt]
+function(lemon_shim_cut var from to text)
+    string(FIND "${${var}}" "${from}" _a)
+    if (_a EQUAL -1)
+        return ()
+    endif ()
+    string(SUBSTRING "${${var}}" ${_a} -1 _tail)
+    string(FIND "${_tail}" "${to}" _b)
+    if (_b EQUAL -1)
+        return ()
+    endif ()
+    string(SUBSTRING "${_tail}" ${_b} -1 _tail)
+    string(SUBSTRING "${${var}}" 0 ${_a} _head)
+    set(${var} "${_head}${text}${_tail}" PARENT_SCOPE)
+endfunction ()
+foreach (_lemon_hdr IN LISTS _lemon_shim_hdrs)
     unset(_lemon_hdr_src CACHE)
     find_file(_lemon_hdr_src lemon/${_lemon_hdr}
             PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
@@ -142,9 +177,11 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
                 "([A-Za-z_][A-Za-z0-9_]*)\\.destroy\\("
                 "std::allocator_traits<decltype(\\1)>::destroy(\\1, "
                 _lemon_hdr_content "${_lemon_hdr_content}")
+        string(CONCAT _lemon_new "#define LEMON_SCOPE_FIX(OUTER, NESTED) "
+                "typename OUTER::template NESTED")
         string(REGEX REPLACE
                 "#define LEMON_SCOPE_FIX\\(OUTER, NESTED\\) OUTER::NESTED"
-                "#define LEMON_SCOPE_FIX(OUTER, NESTED) typename OUTER::template NESTED"
+                "${_lemon_new}"
                 _lemon_hdr_content "${_lemon_hdr_content}")
         # capacity_scaling.h only: ensure lemon/maps.h (RangeMap) is included.
         # Scoped because other shimmed headers also include lemon/core.h and
@@ -175,12 +212,38 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
         # which then indexes past the end of the buckets; it is bounded, the
         # rank being a lower bound on how far the potential has to go down
         if (_lemon_hdr STREQUAL "cost_scaling.h")
+            string(CONCAT _lemon_new "int new_rank_v = "
+                    "std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);")
             string(REPLACE "int new_rank_v = rank_u + static_cast<int>(nrc);"
-                    "int new_rank_v = std::min(rank_u + static_cast<int>(nrc), _max_rank - 1);"
+                    "${_lemon_new}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
         endif ()
         if (_ns_warm_inc AND NOT _lemon_hdr_content MATCHES "runWarm")
-            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc} _warm_code)
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/${_ns_warm_inc}
+                    _warm_code)
+            # cost_scaling.h and cycle_canceling.h: the feasible flow that
+            # init() finds with Circulation on the graph is found on the
+            # residual network instead, from the flow of the last run when
+            # runWarm() asks for it [see shim/cs_feasible.inc]
+            if (_lemon_hdr STREQUAL "cost_scaling.h"
+                    OR _lemon_hdr STREQUAL "cycle_canceling.h")
+                file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/cs_feasible.inc
+                        _feas_code)
+                string(APPEND _warm_code "${_feas_code}")
+                if (_lemon_hdr STREQUAL "cost_scaling.h")
+                    string(CONCAT _feas_call "      if (!feasibleFlow(false, "
+                            "Value(0), _sup_node_num)) return INFEASIBLE;\n\n")
+                    set(_feas_end "      // Initialize data structures")
+                else ()
+                    string(CONCAT _feas_call "      int sup_num;\n"
+                            "      if (!feasibleFlow(false, Value(1), "
+                            "sup_num)) return INFEASIBLE;\n\n")
+                    set(_feas_end "      return OPTIMAL;")
+                endif ()
+                lemon_shim_cut(_lemon_hdr_content
+                        "      // Initialize maps for Circulation"
+                        "${_feas_end}" "${_feas_call}")
+            endif ()
             string(REPLACE "    Value _sum_supply;"
                     "    Value _sum_supply;\n${_warm_code}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
@@ -201,6 +264,8 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             # that it is written once and read as C++ [see shim/README.md]
             file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_eps.inc _ns_eps)
             file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_runwarm.inc _ns_warm)
+            file(READ ${CMAKE_CURRENT_SOURCE_DIR}/shim/ns_potential.inc
+                    _ns_pot)
             string(REPLACE "namespace lemon {"
                     "namespace lemon {\n\n${_ns_eps}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
@@ -219,9 +284,26 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "else if (c >= 0) {" "else if (c >= -_eps) {"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            # the potentials shifted back so that the one of the root is
+            # zero, which the update of a pivot on the part of the tree that
+            # is not the subtree it moves has made it not to be, and the
+            # tolerance on the flow left on the artificial arcs
             string(REPLACE "      // Check feasibility"
-                    "      const Value feps = ns_flow_eps(_supply, _node_num);
+                    "      ns_pi_align(_pi, _root);
+      const Value feps = ns_flow_eps(_supply, _node_num);
       // Check feasibility"
+                    _lemon_hdr_content "${_lemon_hdr_content}")
+            # the potentials of a pivot updated on the smaller of the subtree
+            # it moves and the rest of the tree, the code of which lives in
+            # shim/ and replaces the whole of updatePotential(), and how far
+            # that may move the potential of the root from zero, set with the
+            # cost of the artificial arcs
+            lemon_shim_cut(_lemon_hdr_content
+                    "    // Update potentials in the subtree"
+                    "\n    // Heuristic initial pivots" "${_ns_pot}")
+            string(REPLACE "      // Initialize arc maps"
+                    "      _pi_lim = ns_pi_lim(ART_COST);
+      // Initialize arc maps"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "if (_flow[e] != 0) return"
                     "if (_flow[e] > feps || _flow[e] < -feps) return"
@@ -230,23 +312,29 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             # either sign rather than of any path of nonnegative cost, which
             # with negative costs let a cycle through the root cost less than
             # zero and a feasible instance be declared infeasible
+            string(CONCAT _lemon_new
+                    "if (_cost[i] > ART_COST) ART_COST = _cost[i]; "
+                    "else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];")
             string(REPLACE "if (_cost[i] > ART_COST) ART_COST = _cost[i];"
-                    "if (_cost[i] > ART_COST) ART_COST = _cost[i]; else if (-_cost[i] > ART_COST) ART_COST = -_cost[i];"
+                    "${_lemon_new}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             # the basis the warm start reuses, and what drops it; the arc
             # whose pivot cannot be performed, which the certificate of
-            # unboundedness is made of [see unbCycle()]
+            # unboundedness is made of [see unboundedCycle()]
             string(REPLACE "    int _root;"
                     "    int _root; bool _warm; bool _repair; int _unb_arc;"
                     _lemon_hdr_content "${_lemon_hdr_content}")
-            string(REPLACE "      // Check the number types"
-                    "      _warm = false;\n      _repair = false;\n      _unb_arc = -1;\n      // Check the number types"
+            string(CONCAT _lemon_new "      _warm = false;\n"
+                    "      _repair = false;\n      _unb_arc = -1;\n"
+                    "      // Check the number types")
+            string(REPLACE "      // Check the number types" "${_lemon_new}"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            set(_lemon_unb "_unb_arc = in_arc; return UNBOUNDED;")
             string(REPLACE "if (!initialPivots()) return UNBOUNDED;"
-                    "if (!initialPivots()) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    "if (!initialPivots()) { ${_lemon_unb} }"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "if (delta >= MAX) return UNBOUNDED;"
-                    "if (delta >= MAX) { _unb_arc = in_arc; return UNBOUNDED; }"
+                    "if (delta >= MAX) { ${_lemon_unb} }"
                     _lemon_hdr_content "${_lemon_hdr_content}")
             string(REPLACE "        _upper[_arc_id[a]] = map[a];"
                     "        warmUpper(_arc_id[a], map[a]);"
@@ -254,8 +342,10 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             string(REPLACE "        _supply[_node_id[n]] = map[n];"
                     "        warmSupply(_node_id[n], map[n]);"
                     _lemon_hdr_content "${_lemon_hdr_content}")
+            string(CONCAT _lemon_st "NetworkSimplex& stSupply("
+                    "const Node& s, const Node& t, Value k) {")
             foreach (_ns_drop "NetworkSimplex& lowerMap(const LowerMap& map) {"
-                              "NetworkSimplex& stSupply(const Node& s, const Node& t, Value k) {"
+                              "${_lemon_st}"
                               "NetworkSimplex& reset() {")
                 string(REPLACE "${_ns_drop}" "${_ns_drop} _warm = false;"
                         _lemon_hdr_content "${_lemon_hdr_content}")
@@ -278,12 +368,14 @@ foreach (_lemon_hdr bits/array_map.h path.h adaptors.h capacity_scaling.h
             string(REPLACE "<semicolon>" ";" _shim_marker "${_shim_marker}")
             string(FIND "${_lemon_hdr_content}" "${_shim_marker}" _shim_pos)
             if (_shim_pos EQUAL -1)
-                message(FATAL_ERROR "MCFLemonSolver: the rewrite of lemon/${_lemon_hdr} "
-                        "has not produced \"${_shim_marker}\": this version of LEMON "
-                        "has moved its anchor [see shim/markers.txt]")
+                message(FATAL_ERROR "MCFLemonSolver: the rewrite of "
+                        "lemon/${_lemon_hdr} has not produced "
+                        "\"${_shim_marker}\": this version of LEMON has "
+                        "moved its anchor [see shim/markers.txt]")
             endif ()
         endforeach ()
-        file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr} "${_lemon_hdr_content}")
+        file(WRITE ${LEMON_CXX20_SHIM_DIR}/lemon/${_lemon_hdr}
+                "${_lemon_hdr_content}")
     endif ()
 endforeach ()
 unset(_lemon_hdr_src CACHE)
@@ -294,12 +386,14 @@ if (NOT TARGET lemon)
 endif ()
 
 # if SMSpp_which_insert_LEMON is *not* given in input as CMake option...
-# (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not `add_compile_definitions( )`)
+# (`NOT DEFINED SMSpp_which_insert_LEMON` tests `set( )`, not
+# `add_compile_definitions( )`)
 if (NOT DEFINED SMSpp_which_insert_LEMON)
     # ... then use 3 in MCFLemonSolver
     add_compile_definitions(SMSpp_which_insert_LEMON=3)
 else ()
-    add_compile_definitions(SMSpp_which_insert_LEMON=${SMSpp_which_insert_LEMON})
+    add_compile_definitions(
+            SMSpp_which_insert_LEMON=${SMSpp_which_insert_LEMON})
 endif ()
 
 # ----- Configuration header ------------------------------------------------ #
@@ -359,6 +453,11 @@ if (BUILD_SHARED_LIBS)
         # for by -u included, even under -dead_strip_dylibs
         target_link_options(${modName} INTERFACE
                 "LINKER:-u,_SMSpp_force_load_${modName}")
+    elseif (MINGW)
+        # the PE linker imports a DLL for the symbols asked for, -u
+        # included
+        target_link_options(${modName} INTERFACE
+                "LINKER:-u,SMSpp_force_load_${modName}")
     endif ()
 endif ()
 
@@ -424,6 +523,39 @@ endif ()
 # the library with this notation.
 add_library(${modNamespace}::${modName} ALIAS ${modName})
 
+# ----- C++20 module -------------------------------------------------------- #
+# The module smspp.mcflemonsolver (src/MCFLemonSolver.cppm) exports the names
+# of the headers and re-exports smspp.mcfblock; like the module smspp of the
+# core, it is built when SMSpp_BUILD_MODULE is ON, which needs CMake 3.28 or
+# later, the Ninja or Visual Studio generator and a compiler that scans the
+# dependencies of the modules.
+# Where these are missing, or a module it imports is not there, the option
+# is turned off with a warning [see CheckModule.cmake of SMS++].
+smspp_check_module(${modNamespace}::MCFBlock_module)
+if (SMSpp_BUILD_MODULE)
+    # the scan of the module dependencies, and $<LINK_ONLY> honoured also for
+    # the target itself, which cmake_policy(VERSION 3.15) above leaves off
+    cmake_policy(SET CMP0155 NEW)
+    cmake_policy(SET CMP0131 NEW)
+
+    add_library(${modName}_module)
+    target_sources(${modName}_module PUBLIC
+            FILE_SET CXX_MODULES
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+            FILES src/${modName}.cppm)
+    target_compile_features(${modName}_module PUBLIC cxx_std_20)
+    # the interface takes the include paths and the definitions of the
+    # library, but not its compile options (e.g., the -fopenmp of a source,
+    # which no header needs), so that it agrees with the module it imports
+    target_include_directories(${modName}_module PRIVATE
+            $<TARGET_PROPERTY:${modName},INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_definitions(${modName}_module PRIVATE
+            $<TARGET_PROPERTY:${modName},INTERFACE_COMPILE_DEFINITIONS>)
+    target_link_libraries(${modName}_module PUBLIC $<LINK_ONLY:${modName}>
+            ${modNamespace}::MCFBlock_module)
+    add_library(${modNamespace}::${modName}_module ALIAS ${modName}_module)
+endif ()
+
 # ----- Subdirectories ------------------------------------------------------ #
 if (BUILD_TESTING)
     add_subdirectory(test)
@@ -443,6 +575,17 @@ install(TARGETS ${modName}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} # .so .dylib
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}) # .lib
 
+# Install the module, whose interface is compiled again by each importer
+if (SMSpp_BUILD_MODULE)
+    install(TARGETS ${modName}_module
+            EXPORT ${modName}Targets
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            FILE_SET CXX_MODULES
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace}/modules)
+endif ()
+
 # Install the headers
 install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
@@ -459,8 +602,9 @@ install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
 # LEMON is consumed as an installed (imported) package, so it is neither
-# installed nor exported here: it is already discoverable via find_package(LEMON)
-# (see the find_dependency(LEMON) injected into the package config below).
+# installed nor exported here: it is already discoverable via
+# find_package(LEMON) (see the find_dependency(LEMON) injected into the
+# package config below).
 
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
@@ -476,9 +620,10 @@ write_basic_package_version_file(
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY AnyNewerVersion)
 
-# Downstream projects that do find_package(MCFLemonSolver) must also be able to
-# locate LEMON: inject a find_dependency(LEMON) into the generated config, which
-# is resolved there by the FindLEMON module we install alongside it (see below).
+# Downstream projects that do find_package(MCFLemonSolver) must also be able
+# to locate LEMON: inject a find_dependency(LEMON) into the generated config,
+# which is resolved there by the FindLEMON module we install alongside it
+# (see below).
 set(LEMON_FIND_DEPENDENCY "find_dependency(LEMON)")
 
 # Generate the package configuration file, that allows other

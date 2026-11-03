@@ -46,6 +46,7 @@
       }
       for (int e = _arc_num; e != _all_arc_num; ++e)
         if (_cost[e] != 0) _cost[e] = art;
+      _pi_lim = ns_pi_lim(art);
 
       // the potentials of the basis tree, in the order of the thread, which
       // gives every node after its own father
@@ -70,9 +71,10 @@
      * at the new bound), which is the case of the arc out of the tree that is
      * closed while it carries no flow and of the one that is opened again;
      * otherwise the flow of the tree has to be recomputed, which runWarm()
-     * does before starting [see repairBasis()]. With lower bounds the basis is dropped
-     * instead, the capacity the algorithm works on being that of the problem
-     * the lower bounds have been taken out of, as init() computes it. */
+     * does before starting [see repairBasis()]. With lower bounds the basis is
+     * dropped instead, the capacity the algorithm works on being that of the
+     * problem the lower bounds have been taken out of, as init() computes
+     * it. */
 
     void warmUpper(int i, Value up) {
       if (up == _upper[i]) return;
@@ -242,17 +244,19 @@
      * with UNBOUNDED or if the cycle goes through an artificial arc, which is
      * no cycle of the instance. */
 
-    std::vector<Arc> unbCycle() const {
+    std::vector<Arc> unboundedCycle() const {
       std::vector<Arc> cycle;
       if (_unb_arc < 0) return cycle;
 
       std::vector<int> ids;
       ids.push_back(_unb_arc);
-      // the flow goes from v_in up to join, and then from join down to u_in,
-      // i.e., along the path from u_in to join taken backwards
-      for (int u = v_in; u != join; u = _parent[u]) ids.push_back(_pred[u]);
+      // the entering arc goes from v_in to u_in, as findLeavingArc() sets
+      // them when no arc leaves; the flow goes on from u_in up to join, and
+      // then from join down to v_in, i.e., along the path from v_in to join
+      // taken backwards
+      for (int u = u_in; u != join; u = _parent[u]) ids.push_back(_pred[u]);
       std::vector<int> down;
-      for (int u = u_in; u != join; u = _parent[u]) down.push_back(_pred[u]);
+      for (int u = v_in; u != join; u = _parent[u]) down.push_back(_pred[u]);
       ids.insert(ids.end(), down.rbegin(), down.rend());
 
       // an artificial arc is none of the instance

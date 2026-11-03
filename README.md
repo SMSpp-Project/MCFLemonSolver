@@ -1,5 +1,11 @@
 # MCFLemonSolver
 
+[![Pipeline](https://gitlab.com/smspp/mcflemonsolver/badges/develop/pipeline.svg)](https://gitlab.com/smspp/mcflemonsolver/-/pipelines?ref=develop)
+[![Release](https://gitlab.com/smspp/mcflemonsolver/-/badges/release.svg)](https://gitlab.com/smspp/mcflemonsolver/-/releases)
+[![Documentation](https://img.shields.io/badge/docs-Doxygen-blue)](https://smspp.gitlab.io/smspp-project/)
+[![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+
 This project implements `MCFLemonSolver`, a SMS++ `:Solver` for
 [MCFBlock](https://gitlab.com/smspp/mcfblock) based on interfacing
 solvers from the [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon).
@@ -91,22 +97,31 @@ headers need a few portability fixes, and a numerical one:
   bounds, a change of the graph dropping that basis; `capacity_scaling.h`,
   `cost_scaling.h` and `cycle_canceling.h` get a `runWarm()` as well, the
   first starting from the flow and the potentials of the last run after any
-  change, the other two from the flow of the last run when it is still
-  feasible, i.e., after a change of the costs;
+  change, the other two from the flow of the last run, which after a change
+  of the capacities or of the supplies is put within the new bounds and made
+  to meet the new supplies by sending on only what the change displaces;
 - **price refinement of cost scaling**: the rank of a node is a sum of ranks
   along a path, each of them checked against the number of buckets but not
   their sum, which then indexes past the end of the buckets; the rewrite
   bounds it, the rank being a lower bound on how far the potential of the
-  node has to go down.
+  node has to go down;
+- **speed**: `network_simplex.h` updates the potentials of a pivot on the
+  smaller of the subtree that the pivot moves and the rest of the tree, the
+  reduced costs being the same either way, and `cost_scaling.h` and
+  `cycle_canceling.h` find the feasible flow they start from with a
+  push-relabel algorithm on the residual network they work on, rather than
+  with the `Circulation` of LEMON on the graph and its maps.
 
-The code of the warm starts lives in [shim](shim), read as C++ and inserted
-at its anchor by both the CMake build and the makefiles.
+The code of the warm starts, and of the rewrites for speed, lives in
+[shim](shim), read as C++ and inserted at its anchor by both the CMake build
+and the makefiles.
 
 CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
 too, and for them no header is rewritten: `MCFLemonSolver` gives them the
 costs scaled by a power of 2 and rounded, which are integer, with an integer
 large cost type for CostScaling, and gives back the value and the potentials
-of the true costs.
+of the true costs; CapacityScaling is also given a 4-ary heap in its
+shortest path searches, rather than the binary one of its default trait.
 In the same way CostScaling, CycleCanceling and CapacityScaling, which are
 exact only on integer capacities and supplies, are given fractional ones
 scaled and rounded, and an infinite capacity as a finite bound that no optimal
@@ -121,28 +136,21 @@ copies of just those headers and puts them on the include path *before* the
 system ones so they shadow them. The rewrites are idempotent (no-ops on an
 already-patched LEMON) and are applied identically by both the CMake build and
 the makefiles, so nothing has to be done by hand on any platform (no manual
-download of LEMON, and no manual edit of its headers).
+download of LEMON, and no manual edit of its headers). With
+[lemon-ng](https://github.com/dmeoli/lemon-ng), the maintained fork of LEMON
+that has all of this in its own headers, the build recognises it (by
+`lemon/bits/mcf_feasible_flow.h`, which only the fork has) and uses its
+headers as they are, rewriting none.
 
 ## Getting started
 
 These instructions will let you build `MCFLemonSolver` on your system.
 
-The module also comes ready-made, in any of
-
-```sh
-sudo add-apt-repository ppa:smspp-project/smspp   # Ubuntu
-sudo apt install libsmspp-mcflemon-dev
-
-conda install -c conda-forge smspp-project        # Linux, macOS, Windows
-
-brew tap SMSpp-Project/smspp                      # macOS, Linux
-brew install smspp
-
-vcpkg install "smspp[core,mcflemon]"              # from the sources
-```
-
-where apt and the port give the module alone, while conda and the tap carry
-the whole framework. What follows is about building it yourself.
+The module also comes ready-made: on Ubuntu as `libsmspp-mcflemon-dev`, in
+vcpkg as `smspp[core,mcflemon]`, and in the other channels that the
+[installation
+guide](https://gitlab.com/smspp/smspp-project/-/wikis/Installing-SMS++) of
+SMS++ lists. What follows is about building it yourself.
 
 ### Requirements
 
@@ -160,7 +168,8 @@ the whole framework. What follows is about building it yourself.
   - **macOS** (MacPorts): `coinor-liblemon` (note that Homebrew's `lemon` is the
     unrelated LALR parser generator; the community tap
     `donn/lemon-graph/lemon-graph` also exists but is unmaintained)
-  - **Windows** (vcpkg): `liblemon` (already listed in the project `vcpkg.json`)
+  - **Windows** (vcpkg): `lemon-ng`, from the vcpkg registry of SMS++ (already
+    listed in the project `vcpkg.json`)
 
 ### Build and install with CMake
 
@@ -214,10 +223,10 @@ convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
 Like CMake, the makefiles use the installed LEMON package directly (no manual
-download) and generate the same C++20 shim. By default they look for LEMON under
-the `/usr` prefix; for other locations override `LEMON_ROOT` (or, more finely,
-`LEMON_INCDIR`/`LEMON_LIBDIR`) on the `make` command line or in the environment,
-for example:
+download) and generate the same C++20 shim, or none with lemon-ng. By default
+they look for LEMON under the `/usr` prefix; for other locations override
+`LEMON_ROOT` (or, more finely, `LEMON_INCDIR`/`LEMON_LIBDIR`) on the `make`
+command line or in the environment, for example:
 
 ```sh
 make -f makefile LEMON_ROOT=/opt/local

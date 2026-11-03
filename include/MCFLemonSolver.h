@@ -45,6 +45,8 @@
 
 #include "lemon/network_simplex.h"
 
+#include <lemon/quad_heap.h>
+
 #include <lemon/list_graph.h>
 
 #include <lemon/smart_graph.h>
@@ -63,7 +65,7 @@ namespace SMSpp_di_unipi_it
 {
  using namespace lemon;
 
- /** @} ---------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
  /*------------------------------- CLASSES ----------------------------------*/
  /*--------------------------------------------------------------------------*/
  /** @defgroup MCFLemonSolver_CLASSES Classes in MCFLemonSolver.h
@@ -142,13 +144,16 @@ class MCFListDigraph : public ListDigraph
 
  /// return true if the arc is closed
 
- bool isClosed( int n ) { return( arcs[ n ].source < 0 ); }
+ bool isClosed( int n ) { return( arc_store()[ n ].source < 0 ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
  /// add a new arc with given endpoints
 
  MCFArc addArc( int u , int v )
  {
+  auto & arcs = arc_store();
+  auto & nodes = node_store();
+
   int n;
 
   if( first_free_arc == -1 ) {  // no previously deleted arcs
@@ -228,6 +233,9 @@ class MCFListDigraph : public ListDigraph
 
  void closeArc( int n )
  {
+  auto & arcs = arc_store();
+  auto & nodes = node_store();
+
   // like in delete, remove from FS and BS lists
   if( arcs[ n ].next_in != -1 )
    arcs[ arcs[ n ].next_in ].prev_in = arcs[ n ].prev_in;
@@ -254,6 +262,9 @@ class MCFListDigraph : public ListDigraph
 
  void openArc( int n )
  {
+  auto & arcs = arc_store();
+  auto & nodes = node_store();
+
   // restore the original source
   arcs[ n ].source = -( arcs[ n ].source + 1 );
   auto uid = arcs[ n ].source;
@@ -278,10 +289,45 @@ class MCFListDigraph : public ListDigraph
 
  void eraseClosed( int n )
  {
+  auto & arcs = arc_store();
+
   // just do the little that closeArc() did not
   arcs[ n ].next_in = first_free_arc;
   first_free_arc = n;
   arcs[ n ].prev_in = -2;
+  }
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ protected:
+
+/*--------------------------------------------------------------------------*/
+ /// the storage of the arcs of ListDigraphBase
+ /** The vector is arcs in LEMON 1.3.1 and _arcs in the later versions (and
+  * in lemon-ng), where arcs() is the range of a loop on the arcs: the one
+  * that the base has is taken. */
+
+ template< class G = MCFListDigraph >
+ std::vector< ArcT > & arc_store( void ) {
+  G & g = *this;
+  if constexpr( requires { g._arcs; } )
+   return( g._arcs );
+  else
+   return( g.arcs );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ /// the storage of the nodes of ListDigraphBase [see arc_store()]
+
+ template< class G = MCFListDigraph >
+ std::vector< NodeT > & node_store( void ) {
+  G & g = *this;
+  if constexpr( requires { g._nodes; } )
+   return( g._nodes );
+  else
+   return( g.nodes );
   }
 
  };  // end( class( MCFListDigraph ) )
@@ -317,26 +363,41 @@ class MCFListDigraph : public ListDigraph
   * "traits" for this which are another scaling parameter. However, we prefer
   * that the MCFLemonSolver class is always template over the first three
   * parameters only, which is why we define SMSppCapacityScaling and
-  * SMSppCostScaling as template over < GR , V , C > and using the default
-  * trait.
+  * SMSppCostScaling as template over < GR , V , C >, each with the trait
+  * it is given below.
   *
   * Thus, the concept LEMONGraph is defined that only allows all possible
-  * types of LEMON graphs, i.e., SmartDigraph and MCFListDigraph.
-  *  @{ */
+  * types of LEMON graphs, i.e., SmartDigraph and MCFListDigraph. */
 
  /// concept for "one of the LEMON graphs"
  template< typename Type >
  concept LEMONGraph = std::is_same< Type , SmartDigraph >::value ||
                       std::is_same< Type , MCFListDigraph >::value;
 
- /// CapacityScaling algorithm using the default trait
+ /// the trait of CapacityScaling with a 4-ary heap
+ /** The default trait of CapacityScaling with the heap of the shortest path
+  * searches being a 4-ary heap rather than a binary one: a search may make
+  * a decrease-key for every arc it relaxes and a delete-min for every node,
+  * and the 4-ary heap, half as tall as the binary one, makes the former
+  * cheaper at the price of comparing four children rather than two in the
+  * latter. */
  template< LEMONGraph GR, typename V , typename C >
- class SMSppCapacityScaling : public CapacityScaling< GR , V , C >
+ struct SMSppCapacityScalingTraits
+  : public CapacityScalingDefaultTraits< GR , V , C >
+ {
+  using Heap = QuadHeap< C , RangeMap< int > >;  ///< the heap
+  };
+
+ /// CapacityScaling algorithm using the trait with a 4-ary heap
+ template< LEMONGraph GR, typename V , typename C >
+ class SMSppCapacityScaling : public
+  CapacityScaling< GR , V , C , SMSppCapacityScalingTraits< GR , V , C > >
  {
   public:
 
   SMSppCapacityScaling( const GR& dgp )
-    : CapacityScaling< GR , V , C >( dgp ) {}
+   : CapacityScaling< GR , V , C ,
+		      SMSppCapacityScalingTraits< GR , V , C > >( dgp ) {}
 
   ~SMSppCapacityScaling() = default;
   };
@@ -428,10 +489,10 @@ class MCFListDigraph : public ListDigraph
   *   to which combination of V and C is used, and there are different
   *   "traits" for this which are another scaling parameter. However, in order
   *   to make MCFLemonSolver class template over always the same number of
-  *   template parameters we fix the use of the default trait, which is why
+  *   template parameters we fix the trait, which is why
   *   SMSppCapacityScaling and SMSppCostScaling are defined (as template over
-  *   < GR , V , C >) that are meant to be used instead of the original
-  *   CapacityScaling and CostScaling.
+  *   < GR , V , C >, each with its own trait) that are meant to be used
+  *   instead of the original CapacityScaling and CostScaling.
   *
   * LEMON requires the data to be integer even when V and C are double: all
   * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities
@@ -576,12 +637,17 @@ class MCFLemonSolver : public CDASolver
   /* The arc is identified by its LEMON id, which is the position it was
    * created in and therefore the index it has in the MCFBlock: ArcIt does
    * *not* enumerate the arcs in that order, and using the order of the
-   * enumeration would silently give the right flows on the wrong arcs. */
+   * enumeration would silently give the right flows on the wrong arcs. The
+   * flows are written all at once, since the dynamic arcs of the MCFBlock
+   * are a list that setting them one by one would scan once per arc; the
+   * closed arcs, which ArcIt does not enumerate, have flow 0. */
+  MCFBlock::Vec_FNumber X( MCFB->get_NArcs() , 0 );
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
    auto i = Index( dgp->id( a ) );
-   if( i < MCFB->get_NArcs() )
-    MCFB->set_x( i , f_algo->flow( a ) / f_flow_scale );
+   if( i < X.size() )
+    X[ i ] = f_algo->flow( a ) / f_flow_scale;
    }
+  MCFB->set_x( X.cbegin() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -802,7 +868,7 @@ class MCFLemonSolver : public CDASolver
 
  void add_Modification( sp_Mod& mod ) override;
 
-/*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -859,7 +925,7 @@ class MCFLemonSolver : public CDASolver
  void process_outstanding_Modification( void );
 
 /*--------------------------------------------------------------------------*/
-/*---------------------------- PROTECTED FIELDS ---------------------------*/
+/*---------------------------- PROTECTED FIELDS ----------------------------*/
 /*--------------------------------------------------------------------------*/
 
   std::string f_dmx_file;  ///< string for DMX file output
@@ -917,6 +983,12 @@ class MCFLemonSolver : public CDASolver
                       CycleCanceling< GR , V , C > >::value
      || std::is_same< Algo< GR , V , C > ,
                       SMSppCapacityScaling< GR , V , C > >::value );
+
+  /// true if the Algo bounds an infinite capacity in the vector of the
+  /// capacities it is given, which a later run would read [see compute()]
+  static constexpr bool f_bounds_inf_cap =
+   std::is_same< Algo< GR , V , C > , SMSppCostScaling< GR , V , C > >::value
+   || std::is_same< Algo< GR , V , C > , CycleCanceling< GR , V , C > >::value;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1099,13 +1171,14 @@ class MCFLemonSolverNetworkSimplex : public
  /// writes one unit of flow along that cycle in the flow Variable
  /** Writes in the flow Variable of the MCFBlock one unit of flow along the
   * cycle of negative cost and infinite capacity that the network simplex
-  * gives as the certificate of unboundedness [see unbCycle() in the shim of
-  * the build], and tells the MCFBlock that what they hold is a direction
-  * [see MCFBlock::is_direction()]. The Configuration says which part to
-  * write, as in MCFBlock::get_Solution(): a value of 2 asks for the dual
-  * part alone, and then nothing is done. Throws if the last run did not end
-  * declaring the instance unbounded, or if the cycle goes through an
-  * artificial arc and is therefore none of the instance. */
+  * gives as the certificate of unboundedness [see unboundedCycle() of
+  * lemon-ng, or of the shim of the build], and tells the MCFBlock that what
+  * they hold is a direction [see MCFBlock::is_direction()]. The
+  * Configuration says which part to write, as in MCFBlock::get_Solution():
+  * a value of 2 asks for the dual part alone, and then nothing is done.
+  * Throws if the last run did not end declaring the instance unbounded, or
+  * if the cycle goes through an artificial arc and is therefore none of the
+  * instance. */
 
  void get_var_direction( Configuration * dirc = nullptr ) override {
   if( ! f_Block )  // no [MCF]Block to write to
@@ -1193,7 +1266,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( ! f_Block )
    return( false );
 
-  auto cycle = f_algo->unbCycle();
+  auto cycle = f_algo->unboundedCycle();
   if( cycle.empty() )
    return( false );
 
@@ -1385,8 +1458,10 @@ class MCFLemonSolverCycleCanceling : public
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
  /* With kReopt the negative cycles are canceled from the flow of the last
-  * run, if it is still feasible [see runWarm() in the shim of the build];
-  * without, each run finds a feasible flow anew. */
+  * run, which after a change of the capacities or of the supplies is put
+  * within the new bounds and made to meet the new supplies [see runWarm()
+  * in the shim of the build]; without, each run finds a feasible flow
+  * anew. */
 
  void guts_of_compute( void ) override {
   status = f_reopt ? f_algo->runWarm( CCMethod( f_method ) )
@@ -1785,8 +1860,9 @@ class MCFLemonSolverCostScaling : public
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 
  /* With kReopt the scaling starts from the flow and the potentials of the
-  * last run, if the flow is still feasible, and from the largest violation
-  * of the optimality conditions under them [see runWarm() in the shim of the
+  * last run, the flow put within the new bounds and made to meet the new
+  * supplies after a change of them, and from the largest violation of the
+  * optimality conditions under them [see runWarm() in the shim of the
   * build]; without, each run finds a feasible flow anew and starts from the
   * largest cost. */
 

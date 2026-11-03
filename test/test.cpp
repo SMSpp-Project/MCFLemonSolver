@@ -240,7 +240,8 @@ static void test_empty_data( void )
  check_all( mcf , 0 , "no costs, no capacities" );
 
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );  // uncapacitated: 4 units along 1-2-3-4
+ // uncapacitated: 4 units along 1-2-3-4
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
  check_all( mcf , 12 , "costs given" );
 
  mcf.chg_ucap( 2 , 2 );       // 2 along 1-2-3-4, 2 along 1-3-4
@@ -349,7 +350,7 @@ static void test_unbounded_direction( void )
  MCFBlock mcf;
  load( mcf , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
  mcf.add_arc( 3 , 2 , -2 );   // a negative cycle of infinite capacity
 
  for( const auto & algo : ALGOS ) {
@@ -430,12 +431,52 @@ static void test_negative_costs( void )
  MCFBlock mcf;
  load( mcf , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- mcf.chg_costs( c.begin() );
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
  check( mcf.add_arc( 3 , 2 , -0.5 ) == 5 , "name of the negative arc" );
  check_all( mcf , 12 , "negative cost, finite optimum" );
 
  mcf.chg_cost( -2 , 5 );
  check_all( mcf , -Inf< double >() , "negative cycle of infinite capacity" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* Integer flows and costs, on the instance with no capacities, whose
+ * deficits then grow tenfold: the optimum goes from 12 to 120, 4 and then 40
+ * units along 1-2-3-4. CostScaling and CycleCanceling bound an infinite
+ * capacity by the sum of the deficits in the vector of the capacities they
+ * are given, and the run after the deficits have grown has to see the
+ * capacity infinite again rather than the bound of the run before; the
+ * variants on long are there only if the build inserts them in the factory
+ * [see SMSpp_which_insert_LEMON]. */
+
+static void test_integer_infinite_capacity( void )
+{
+ MCFBlock mcf;
+ load( mcf , false );
+ const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
+ mcf.chg_costs( Block::MF_dbl_sp( c ) );
+
+ std::vector< Solver * > slvs;
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = Solver::new_Solver( "MCFLemonSolver" + algo + "<" + gr +
+				  ",long,long>" );
+   if( ! slv )
+    continue;
+   mcf.register_Solver( slv );
+   slvs.push_back( slv );
+   }
+
+ for( auto slv : slvs )
+  check_value( slv , 12 , "integer data, no capacities" );
+
+ const MCFBlock::Vec_FNumber b = { -40 , 0 , 0 , 40 };
+ mcf.chg_dfcts( Block::MF_dbl_sp( b ) , Block::Range( 0 , 4 ) );
+ for( auto slv : slvs )
+  check_value( slv , 120 , "integer data, no capacities, deficits grown" );
+
+ for( auto slv : slvs )
+  mcf.unregister_Solver( slv , true );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -505,7 +546,7 @@ static void test_cost_scaling_methods( void )
  MCFBlock neg;
  load( neg , false );
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
- neg.chg_costs( c.begin() );
+ neg.chg_costs( Block::MF_dbl_sp( c ) );
  neg.add_arc( 3 , 2 , -0.5 );
 
  for( int m = 0 ; m <= 3 ; ++m ) {
@@ -570,6 +611,7 @@ int main( void )
  test_fractional_costs_paths();
  test_fractional_flows();
  test_negative_costs();
+ test_integer_infinite_capacity();
  test_unbounded_direction();
  test_scale_out_of_range();
  test_cost_scaling_methods();

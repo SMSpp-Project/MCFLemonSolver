@@ -504,6 +504,16 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
    cap_changed = true;
   }
 
+ /* CostScaling and CycleCanceling replace an infinite capacity by the sum
+  * of the deficits in the very vector that upperMap() fills [see init() in
+  * their headers], so that a later run would see the bound of this one and
+  * not the infinite capacity, and answer "infeasible" when the deficits have
+  * grown past it: unless they are given the capacities scaled, where no
+  * capacity is infinite [see pass_flows()], they are given them anew before
+  * each run. */
+ if constexpr( ( ! f_scaled_flows ) && f_bounds_inf_cap )
+  cap_changed = true;
+
  if( ( ! f_scaled_flows ) && cap_changed ) {
   f_algo->upperMap( *um );
   cap_changed = false;

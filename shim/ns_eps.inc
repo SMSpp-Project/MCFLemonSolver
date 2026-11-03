@@ -17,3 +17,24 @@
     for (int i = 0; i != n; ++i) m = std::max(m, s[i] < 0 ? V(-s[i]) : s[i]);
     return m * std::numeric_limits<V>::epsilon() * V(1e6);
   }
+
+  // how far the potential of the root of NetworkSimplex may move from zero,
+  // which it does when a pivot updates the part of the tree that is not the
+  // subtree it moves, given the cost of the artificial arcs: half of it for
+  // an exact type, which keeps the sums of the pivot rules within the range
+  // of the type, the cost itself otherwise, which costs the potentials no
+  // more than one bit of precision
+  template <typename C>
+  inline C ns_pi_lim(C art) {
+    return std::numeric_limits<C>::is_exact ? art / 2 : art;
+  }
+
+  // the n + 1 potentials of NetworkSimplex shifted so that the one of the
+  // root, the last, is zero
+  template <typename C>
+  inline void ns_pi_align(std::vector<C>& pi, int n) {
+    const C r = pi[n];
+    if (r == C(0)) return;
+    for (int i = 0; i != n; ++i) pi[i] -= r;
+    pi[n] = C(0);
+  }

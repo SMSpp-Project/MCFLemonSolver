@@ -38,25 +38,61 @@ include(FindPackageHandleStandardArgs)
 # LEMON's lock primitives (lemon/bits/lock.h) may pull in pthreads.
 find_package(Threads QUIET)
 
+# Drop the cached paths if one of them does not exist any more, so that
+# they are all searched again from the same place
+set(_LEMON_cached LEMON_INCLUDE_DIR LEMON_LIBRARY LEMON_LIBRARY_DEBUG
+        LEMON_VERSION)
+foreach (_var ${_LEMON_cached})
+    foreach (_path ${${_var}})
+        if (IS_ABSOLUTE "${_path}" AND NOT EXISTS "${_path}")
+            set(_LEMON_stale TRUE)
+        endif ()
+    endforeach ()
+endforeach ()
+if (_LEMON_stale)
+    message(STATUS "Cached LEMON paths not found, searching again")
+    foreach (_var ${_LEMON_cached})
+        unset(${_var} CACHE)
+    endforeach ()
+endif ()
+unset(_LEMON_cached)
+unset(_LEMON_stale)
+unset(_var)
+unset(_path)
+
+# The cached version is the one of the include directory it was read from
+if (NOT "${LEMON_INCLUDE_DIR}" STREQUAL
+        "${_LEMON_VERSION_INCLUDE_DIR}")
+    unset(LEMON_VERSION CACHE)
+endif ()
+
 # Check if already in cache
-if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG AND LEMON_VERSION)
+if (LEMON_INCLUDE_DIR AND LEMON_LIBRARY AND LEMON_LIBRARY_DEBUG
+        AND LEMON_VERSION)
     set(LEMON_FOUND TRUE)
 endif ()
 
 if (NOT LEMON_FOUND)
 
     # ----- Find the LEMON include directory -------------------------------- #
+    # LEMON_ROOT is a hint, searched before the system directories, so that
+    # the LEMON it points to wins over another one installed in the system
     find_path(LEMON_INCLUDE_DIR
             NAMES lemon/config.h lemon/network_simplex.h
-            PATHS ${LEMON_ROOT}
+            HINTS ${LEMON_ROOT}
             PATH_SUFFIXES include
             DOC "LEMON include directory.")
 
     # ----- Find the LEMON library ------------------------------------------ #
+    # the library is named lemon by the distributions and emon by the CMake
+    # build of LEMON: NAMES_PER_DIR looks for both names in a directory
+    # before the next one, so that the emon of LEMON_ROOT is not passed over
+    # for the lemon of the system
     if (UNIX)
         find_library(LEMON_LIBRARY
                 NAMES lemon emon
-                PATHS ${LEMON_ROOT}/lib
+                NAMES_PER_DIR
+                HINTS ${LEMON_ROOT}/lib
                 DOC "LEMON library.")
 
         set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
@@ -64,6 +100,7 @@ if (NOT LEMON_FOUND)
     elseif (WIN32)
         find_library(LEMON_LIBRARY
                 NAMES lemon emon
+                NAMES_PER_DIR
                 PATHS
                 ${LEMON_ROOT}/lib
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
@@ -73,6 +110,7 @@ if (NOT LEMON_FOUND)
 
         find_library(LEMON_LIBRARY_DEBUG
                 NAMES lemon emon
+                NAMES_PER_DIR
                 PATHS
                 ${LEMON_ROOT}/debug/lib
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
@@ -88,11 +126,13 @@ if (NOT LEMON_FOUND)
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
-    # lemon/config.h carries a single string macro: #define LEMON_VERSION "1.3.1".
+    # lemon/config.h carries a single string macro, e.g.,
+    # #define LEMON_VERSION "1.3.1".
     if (LEMON_INCLUDE_DIR AND EXISTS "${LEMON_INCLUDE_DIR}/lemon/config.h")
         file(STRINGS
                 "${LEMON_INCLUDE_DIR}/lemon/config.h"
-                _LEMON_version_line REGEX "#define[ \t]+LEMON_VERSION[ \t]+\"[^\"]")
+                _LEMON_version_line
+                REGEX "#define[ \t]+LEMON_VERSION[ \t]+\"[^\"]")
 
         if (_LEMON_version_line)
             string(REGEX REPLACE ".*\"([^\"]+)\".*" "\\1"
@@ -106,13 +146,23 @@ if (NOT LEMON_FOUND)
     # options passed to find_package(). It also sets <PackageName>_FOUND if
     # REQUIRED_VARS are set.
     # REQUIRED_VARS should be cache entries and not output variables. See:
-    # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
+    # https://cmake.org/cmake/help/latest/module/
+    #   FindPackageHandleStandardArgs.html
     # The debug library is optional (it falls back to the release one above),
     # so it is deliberately kept out of REQUIRED_VARS.
     find_package_handle_standard_args(
             LEMON
             REQUIRED_VARS LEMON_LIBRARY LEMON_INCLUDE_DIR
             VERSION_VAR LEMON_VERSION)
+endif ()
+
+# A found package keeps its version in the cache, with the include
+# directory it was read from
+if (LEMON_FOUND)
+    set(LEMON_VERSION "${LEMON_VERSION}" CACHE INTERNAL
+            "LEMON version.")
+    set(_LEMON_VERSION_INCLUDE_DIR "${LEMON_INCLUDE_DIR}"
+            CACHE INTERNAL "Include directory of the LEMON version.")
 endif ()
 
 # ----- Export the target --------------------------------------------------- #

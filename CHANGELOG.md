@@ -7,6 +7,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+### Added
+
+- lemon-ng, the maintained fork of LEMON, is used as it is: the CMake build
+  and the makefiles recognise it by `lemon/bits/mcf_feasible_flow.h`, which
+  only the fork has, and rewrite none of its headers, which already have
+  what the shim writes into the ones of LEMON; `MCFListDigraph` names the
+  storage of `ListDigraphBase` with a using-declaration, which the ranges
+  `nodes()` and `arcs()` of the graphs of lemon-ng would hide otherwise
+
+- the makefiles build the C++20 module `smspp.mcflemonsolver` when
+  `SMSppMOD` is not empty (e.g., `make SMSppMOD=1`), with clang++ 16 or
+  later [see `lib/makefile-mod` of SMS++]
+
+- the C++20 module `smspp.mcflemonsolver` (`src/MCFLemonSolver.cppm`), which
+  exports every name that the headers declare at namespace scope and
+  re-exports `smspp.mcfblock`, so that a source file can write `import
+  smspp.mcflemonsolver;` in place of the `#include` of the headers; it is
+  built with the CMake option `SMSpp_BUILD_MODULE`, as the target
+  `SMS++::MCFLemonSolver_module`
+
+### Changed
+
+- the tester passes the costs and the deficits to `MCFBlock` as spans
+
+- the README leaves the channels that distribute SMS++ to the
+  installation guide of the wiki (Installing-SMS++), keeping the names
+  of the packages of the module
+
+- the certificate of unboundedness of the network simplex is
+  `unboundedCycle()`, the name it has in lemon-ng, also in the shim, which
+  gives the cycle in the direction of the flow as lemon-ng does
+
+- the pipeline builds the module also with its makefiles, after CMake, and
+  runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
+
+- `SMSpp_BUILD_MODULE` no longer stops the configuration when the C++20
+  module cannot be built, i.e., with a CMake older than 3.28, a generator
+  other than Ninja or Visual Studio, a compiler other than Clang 16 (with
+  `clang-scan-deps`) or MSVC 19.34, or a module it imports that is not
+  there: the option is turned off with a warning that says why, and the
+  build goes on with the headers [see `cmake/CheckModule.cmake` of SMS++]
+
+- the licence is the GNU Lesser General Public License version 3.0
+
+- `SMSppCapacityScaling` runs CapacityScaling with a 4-ary heap in its
+  shortest path searches, rather than the binary one of the default trait,
+  through the trait `SMSppCapacityScalingTraits`
+
+- the network simplex of LEMON updates the potentials of a pivot on the
+  smaller of the subtree that the pivot moves and the rest of the tree,
+  rather than always on the subtree, and brings the potential of the root
+  back to zero at the end [see `shim/ns_potential.inc`]
+
+- CostScaling and CycleCanceling find the feasible flow they start from with
+  a push-relabel algorithm on their own residual network, rather than with the
+  `Circulation` of LEMON on the graph and its maps, and their re-optimization
+  after a change of the capacities or of the supplies starts it from the flow
+  of the last run put within the new bounds, rather than finding a feasible
+  flow anew [see `shim/cs_feasible.inc`]
+
+### Fixed
+
+- on Windows, the executables that copy their DLLs next to themselves
+  are linked one at a time (a job pool of Ninja), since two copies of the
+  same DLL into one directory collided (e.g., with the clang++ of MSYS2)
+
+- the makefile rewrites the headers of LEMON also with the sed of BSD (e.g.,
+  on macOS): a block of commands closes on a line of its own and a new line
+  of a replacement is made with `G`, as BSD wants, the headers being the
+  same as before with GNU sed
+
+- with the compilers of MinGW (MSYS2) the target asks whoever links it
+  for the symbol that forces the module in, as with MSVC and on macOS:
+  the linker imports a DLL only for the symbols asked for, so that a
+  program that used none had the module left out and its classes
+  missing from the factory
+
+- `cmake/FindLEMON.cmake` keeps the version of a found library in the cache,
+  with the include directory it is read from, and reads it again when that
+  directory changes: the check of the cache wanted the version, which was not
+  cached, so that every configure searched the library again
+
+- `cmake/FindLEMON.cmake` drops the cached paths of LEMON when one of them
+  does not exist any more (e.g., in a build directory configured once outside
+  and once inside a container, or after an upgrade), so that all of them are
+  searched again; the stale include directory was kept, since `find_path()`
+  does not search a cached one again, and the configuration went on with a
+  LEMON that is not there
+
+- CostScaling and CycleCanceling on integer flows are given the capacities
+  anew before each run: they replace an infinite capacity by the sum of the
+  deficits in the vector of the capacities they are given, so that the run
+  after the deficits had grown past that bound answered "infeasible"
+
+- `get_var_solution()` writes the flows into the `MCFBlock` all at once, with
+  `set_x()` of the whole vector, instead of one arc at a time: the dynamic
+  arcs of the `MCFBlock` are a list, which setting the flow of one arc scans
+  up to it, so that writing a solution took time quadratic in the number of
+  arcs; the closed arcs, which LEMON does not enumerate, get flow 0
+
+- the makefiles of the tests and of the tools build also with g++: they
+  take the option that stops at the first error and the one of the
+  debugging information, which clang++ and g++ spell differently
+  (`-ferror-limit=1` and `-glldb` against `-fmax-errors=1` and `-ggdb`),
+  from `SMSppSWERR` and `SMSppSWDBG` of `lib/makefile-OS` of SMS++
+
+- FindLEMON looks in `LEMON_ROOT` before the directories of the system, and
+  for both names of the library (`lemon` of the distributions, `emon` of the
+  CMake build of LEMON) in a directory before the next one, so that the
+  LEMON of `LEMON_ROOT` is not passed over for a `liblemon` of the system
+
 ## [0.3.0] - 2026-10-09
 
 ### Added
@@ -275,6 +388,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a project using the installed module needs nothing more than find_package(),
   LEMON comprised
 
-[Unreleased]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.3.0...develop
+[Unreleased]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.4.0...develop
+[0.4.0]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.3.0...0.4.0
 [0.3.0]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.2.0...0.3.0
 [0.2.0]: https://gitlab.com/smspp/mcflemonsolver/-/compare/0.1.0...0.2.0
