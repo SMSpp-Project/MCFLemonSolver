@@ -45,6 +45,8 @@
 
 #include "lemon/network_simplex.h"
 
+#include "lemon/k_best_extreme_flows.h"
+
 #include <lemon/quad_heap.h>
 
 #include <lemon/list_graph.h>
@@ -56,6 +58,8 @@
 #include <array>
 
 #include <chrono>
+
+#include <memory>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -580,27 +584,17 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- OFValue get_lb( void ) override { return( get_ub() ); }
+ /// the optimal value, whichever the current solution is
+
+ OFValue get_lb( void ) override { return( opt_value() ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the value of the current solution [see new_var_solution()]
 
  OFValue get_ub( void ) override {
-  switch( this->get_status() ) {
-   case( ThisAlgo::ProblemType::OPTIMAL ) :
-    if( ( f_cost_scale != 1 ) || ( f_flow_scale != 1 ) ) {
-     // the Algo saw the costs, or the flows, scaled and rounded [see
-     // pass_costs() and pass_flows()]: the value is taken with the true
-     // costs and flows
-     OFValue v = 0;
-     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
-      v += OFValue( f_algo->flow( a ) / f_flow_scale ) * (*cm)[ a ];
-     return( v );
-     }
-    return( OFValue( f_algo->totalCost() ) );
-   case( ThisAlgo::ProblemType::UNBOUNDED ) :
-    return( -Inf< OFValue >() );
-   default : return( Inf< OFValue >() );
-   }
+  if( f_cur >= 0 )
+   return( OFValue( f_kbest->totalCost( f_cur ) ) );
+  return( opt_value() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -613,6 +607,46 @@ class MCFLemonSolver : public CDASolver
 
  bool has_var_solution( void ) override {
   return( this->get_status() == ThisAlgo::ProblemType::OPTIMAL );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// moves to the next extreme flow, in the order of their costs
+ /** After the optimal flow that compute() gives, up to intMaxSol - 1 more
+  * flows are given, one per call, each of them a vertex of the polyhedron
+  * of the flows: first the other optimal ones, if any, then the others in
+  * the order of their costs, as long as their cost exceeds the optimal one
+  * by at most dblAAccSol and by at most dblRAccSol times the largest
+  * between 1 and the absolute value of the optimal one. They are found, the
+  * first time the method is called after compute(), by the ranking of the
+  * vertices of KBestExtremeFlows [see k_best_extreme_flows.h of abLEMON],
+  * from the optimal flow of the algorithm when it is given the data as they
+  * are, and solving the problem again with NetworkSimplex when it is given
+  * them scaled; a vertex equal to the optimal flow already given is
+  * skipped. A flow inside a face of the polyhedron is not given, since its
+  * (sub)gradient in a Lagrangian or Benders' decomposition is a convex
+  * combination of those of the vertices of the face.
+  *
+  * The ranking expands every basis of a degenerate vertex, and each basis
+  * costs O( n m ) time: intMaxSol is meant to be small. The potentials
+  * [see get_dual_solution()] remain the optimal ones. */
+
+ bool new_var_solution( void ) override {
+  if( ( f_max_sol <= 1 ) ||
+      ( this->get_status() != ThisAlgo::ProblemType::OPTIMAL ) )
+   return( false );
+
+  if( ! f_kbest )
+   run_kbest();
+
+  while( ( f_given < f_max_sol ) && ( f_next < f_kbest->flowNum() ) ) {
+   const int j = f_next++;
+   if( same_as_optimal( j ) )
+    continue;
+   f_cur = j;
+   ++f_given;
+   return( true );
+   }
+  return( false );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -640,7 +674,7 @@ class MCFLemonSolver : public CDASolver
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
    auto i = Index( dgp->id( a ) );
    if( i < X.size() )
-    X[ i ] = f_algo->flow( a ) / f_flow_scale;
+    X[ i ] = current_flow( a );
    }
   MCFB->set_x( X.cbegin() );
   }
@@ -710,7 +744,7 @@ class MCFLemonSolver : public CDASolver
     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
      auto i = Index( dgp->id( a ) );
      if( i < X.size() )
-      X[ i ] = f_algo->flow( a ) / f_flow_scale;
+      X[ i ] = current_flow( a );
      }
     sol->set_x( std::move( X ) );
     }
@@ -806,6 +840,10 @@ class MCFLemonSolver : public CDASolver
    return( f_abs_cst );
   if( par == dblAbsAcc )
    return( f_abs_flw );
+  if( par == dblRAccSol )
+   return( f_rel_sol );
+  if( par == dblAAccSol )
+   return( f_abs_sol );
   return( CDASolver::get_dbl_par( par ) );
   }
 
@@ -828,6 +866,31 @@ class MCFLemonSolver : public CDASolver
    f_abs_cst = value;
   else if( par == dblAbsAcc )
    f_abs_flw = value;
+  else if( par == dblRAccSol )
+   f_rel_sol = value;
+  else if( par == dblAAccSol )
+   f_abs_sol = value;
+  else
+   CDASolver::set_par( par , value );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// gets the @return value of the int parameter @param par
+
+ [[nodiscard]] int get_int_par( idx_type par ) const override {
+  if( par == intMaxSol )
+   return( f_max_sol );
+  return( CDASolver::get_int_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// set the int parameter @param par to @param value
+ /** intMaxSol is the largest number of the flows given [see
+  * new_var_solution()]. */
+
+ void set_par( idx_type par , int value ) override {
+  if( par == intMaxSol )
+   f_max_sol = value;
   else
    CDASolver::set_par( par , value );
   }
@@ -929,6 +992,7 @@ class MCFLemonSolver : public CDASolver
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  void guts_of_destructor( void ) {
+  forget_flows();
   delete f_algo;
   f_algo = nullptr;
   delete um;
@@ -950,6 +1014,65 @@ class MCFLemonSolver : public CDASolver
   }
 
 /*--------------------------------------------------------------------------*/
+
+ /// the optimal value, taken with the true data
+
+ OFValue opt_value( void ) {
+  switch( this->get_status() ) {
+   case( ThisAlgo::ProblemType::OPTIMAL ) :
+    if( ( f_cost_scale != 1 ) || ( f_flow_scale != 1 ) ) {
+     // the Algo saw the costs, or the flows, scaled and rounded [see
+     // pass_costs() and pass_flows()]: the value is taken with the true
+     // costs and flows
+     OFValue v = 0;
+     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+      v += OFValue( f_algo->flow( a ) / f_flow_scale ) * (*cm)[ a ];
+     return( v );
+     }
+    return( OFValue( f_algo->totalCost() ) );
+   case( ThisAlgo::ProblemType::UNBOUNDED ) :
+    return( -Inf< OFValue >() );
+   default : return( Inf< OFValue >() );
+   }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the flow on the arc a in the current solution [see new_var_solution()]
+
+ [[nodiscard]] double current_flow( typename GR::Arc a ) const {
+  if( f_cur >= 0 )
+   return( double( f_kbest->flow( f_cur , a ) ) );
+  return( double( f_algo->flow( a ) / f_flow_scale ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// true if the j-th extreme flow is the optimal one that compute() gave
+
+ [[nodiscard]] bool same_as_optimal( int j ) const {
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+   const double x = f_algo->flow( a ) / f_flow_scale;
+   if( std::abs( double( f_kbest->flow( j , a ) ) - x ) >
+       1e-9 * std::max( 1.0 , std::abs( x ) ) )
+    return( false );
+   }
+  return( true );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ void run_kbest( void );
+
+ /// drops the extreme flows, the next compute() giving its own first
+ void forget_flows( void ) {
+  f_kbest.reset();
+  f_next = 0;
+  f_cur = -1;
+  f_given = 1;
+  }
+
+ void close_supplies( MCFNodeMapV & s , typename GR::Node big , V sum );
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  virtual void guts_of_compute( void ) = 0;
 
@@ -1015,6 +1138,16 @@ class MCFLemonSolver : public CDASolver
  double f_rel_flw = 0;  ///< relative tolerance of the flows [dblFAccSol]
  double f_abs_cst = 0;  ///< absolute tolerance of the costs [dblAAccDSol]
  double f_abs_flw = 0;  ///< absolute tolerance of the flows [dblAbsAcc]
+
+ int f_max_sol = 1;  ///< largest number of the flows given [intMaxSol]
+ double f_rel_sol = Inf< double >();  ///< relative gap of them [dblRAccSol]
+ double f_abs_sol = Inf< double >();  ///< absolute gap of them [dblAAccSol]
+
+ std::unique_ptr< KBestExtremeFlows< GR , V , C > > f_kbest;
+ ///< the extreme flows [see new_var_solution()], made at its first call
+ int f_next = 0;   ///< the next of them to look at
+ int f_cur = -1;   ///< the current one, -1 for the flow of the Algo
+ int f_given = 1;  ///< the number of the flows given since compute()
 
  ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
   double f_cost_scale = 1;
@@ -1150,7 +1283,7 @@ class MCFLemonSolverNetworkSimplex : public
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1182,7 +1315,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1437,7 +1570,7 @@ class MCFLemonSolverCycleCanceling : public
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1469,7 +1602,7 @@ class MCFLemonSolverCycleCanceling : public
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1635,7 +1768,7 @@ template< typename GR , typename V , typename C >
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1669,7 +1802,7 @@ template< typename GR , typename V , typename C >
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1841,7 +1974,7 @@ class MCFLemonSolverCostScaling : public
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1873,7 +2006,7 @@ class MCFLemonSolverCostScaling : public
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/

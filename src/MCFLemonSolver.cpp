@@ -500,6 +500,9 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   return( kBlockLocked ); // return error on failure
   }
 
+ // the extreme flows of the last run are no longer those of the problem
+ forget_flows();
+
  // while [read_]locked, process any outstanding Modification
  process_outstanding_Modification();
 
@@ -596,10 +599,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   }
  else if( balanced && ( sum != 0 ) ) {
   const V supply = (*bm)[ big ];
-  bm->set( big , supply - sum );
-  if constexpr( std::is_floating_point< V >::value )
-   while( sum_of() > 0 )
-    bm->set( big , std::nextafter( (*bm)[ big ] , -Inf< V >() ) );
+  close_supplies( *bm , big , sum );
   f_algo->supplyMap( *bm );
   bm->set( big , supply );
   supply_changed = true;  // the next run passes the map as it is again
@@ -661,6 +661,73 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  return( LEMONstatus_2_sol_type[ this->get_status() ] );
 
  }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::close_supplies( MCFNodeMapV & s ,
+						  typename GR::Node big ,
+						  V sum )
+{
+ // the residual sum goes onto big, rounded itself, and then the supply of
+ // big is lowered until the sum, taken in the order of the nodes of the
+ // graph as LEMON takes it, is not positive [see compute()]
+ s.set( big , s[ big ] - sum );
+ if constexpr( std::is_floating_point< V >::value )
+  for( ;; ) {
+   V t = 0;
+   for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+    t += s[ nd ];
+   if( t <= 0 )
+    break;
+   s.set( big , std::nextafter( s[ big ] , -Inf< V >() ) );
+   }
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::run_kbest( void )
+{
+ /* The ranking is run on the true data, whatever the Algo was given: the
+  * costs and the capacities as they are, the infinite ones included, and the
+  * supplies with their residual sum moved as compute() moves it. When the
+  * Algo was given the data as they are its optimal flow is the first one,
+  * and no other algorithm is run; otherwise NetworkSimplex finds it. */
+ f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
+
+ MCFNodeMapV s( *dgp );
+ V sum = 0;
+ typename GR::Node big = INVALID;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
+  s.set( nd , (*bm)[ nd ] );
+  sum += (*bm)[ nd ];
+  if( ( big == INVALID ) ||
+      ( std::abs( (*bm)[ nd ] ) > std::abs( (*bm)[ big ] ) ) )
+   big = nd;
+  }
+ if( sum != 0 )
+  close_supplies( s , big , sum );
+
+ MCFArcMapV low( *dgp , 0 );
+ f_kbest->lowerMap( low ).upperMap( *um ).costMap( *cm ).supplyMap( s );
+
+ if( ( f_cost_scale == 1 ) && ( f_flow_scale == 1 ) ) {
+  MCFArcMapV x( *dgp );
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+   x.set( a , f_algo->flow( a ) );
+  f_kbest->initFlow( x );
+  }
+
+ // the gap is the smaller of the absolute and of the relative one, none if
+ // both are infinite
+ const double opt = opt_value();
+ const double gap = std::min( f_abs_sol ,
+			      f_rel_sol * std::max( 1.0 , std::abs( opt ) ) );
+ f_kbest->run( f_max_sol , gap < Inf< double >() ? C( gap ) : C( -1 ) );
+ }
 
 /*--------------------------------------------------------------------------*/
 

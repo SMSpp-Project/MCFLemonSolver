@@ -31,7 +31,8 @@
   int sup_num;
   _warm_flow = true;
   const bool feasible =
-    _mcf_bits::feasibleFlow( *this , Value( 1 ) , sup_num , _feps );
+    _mcf_bits::feasibleFlow( *this , Value( 1 ) , sup_num , _feps ,
+				  _cut_hint );
   _warm_flow = false;
   if( ! feasible )
    return( run( method ) );

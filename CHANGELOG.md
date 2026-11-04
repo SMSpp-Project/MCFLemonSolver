@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `new_var_solution()` gives, after the optimal flow, up to `intMaxSol` - 1
+  more extreme flows in the order of their costs, the other optimal ones
+  first, within the gap `dblAAccSol` and `dblRAccSol` from the optimal value,
+  found by `KBestExtremeFlows` of abLEMON; `get_ub()` is the cost of the
+  current flow and `get_lb()` the optimal value
+
 - the tolerances of the four algorithms on the reduced costs and on the
   flows (`tolerances()` of abLEMON) come from `dblRelAcc` and `dblFAccSol`,
   if positive, as relative ones (times the largest cost, and the largest
@@ -18,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- the module needs [abLEMON](https://github.com/dmeoli/abLEMON) 1.6.0 or
+- the module needs [abLEMON](https://github.com/dmeoli/abLEMON) 1.7.0 or
   later, the maintained fork of LEMON, and the build says so when it finds
   LEMON instead: the shim no longer writes into the headers what abLEMON has
   (the tolerances and the update of the potentials of `NetworkSimplex`, the

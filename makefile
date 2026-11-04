@@ -106,16 +106,16 @@ clean::
 
 which_insert_LEMON = 3
 
-# abLEMON is told from LEMON by lemon/bits/mcf_certificate.h, which LEMON
-# does not have; a header is not written if an anchor of its rules is not
-# there exactly once
+# abLEMON 1.7.0 is told from LEMON, and from the earlier abLEMON, by
+# lemon/k_best_extreme_flows.h; a header is not written if an anchor of its
+# rules is not there exactly once
 LEMON_SHIM_SRC = $(MCFLESDR)/shim/rewrites.txt $(MCFLESDR)/shim/rewrite.awk \
 	$(wildcard $(MCFLESDR)/shim/*.inc)
 
 $(MCFLESHIM)/lemon/%.h: $(LEMON_INCDIR)/lemon/%.h $(LEMON_SHIM_SRC)
-	@test -f $(LEMON_INCDIR)/lemon/bits/mcf_certificate.h || \
+	@test -f $(LEMON_INCDIR)/lemon/k_best_extreme_flows.h || \
 	  { echo "MCFLemonSolver: the LEMON in $(LEMON_INCDIR) is not" \
-	    "abLEMON 1.6.0 or later, which it needs" >&2; exit 1; }
+	    "abLEMON 1.7.0 or later, which it needs" >&2; exit 1; }
 	mkdir -p $(dir $@)
 	awk -v hdr=$*.h -v dir=$(MCFLESDR)/shim \
 	  -f $(MCFLESDR)/shim/rewrite.awk $(MCFLESDR)/shim/rewrites.txt $< \

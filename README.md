@@ -122,7 +122,7 @@ SMS++ lists. What follows is about building it yourself.
   requirements (but no actual `MCFSolver` are needed, since
   `MCFLemonSolver` provides its own).
 
-- [abLEMON](https://github.com/dmeoli/abLEMON) 1.6.0 or later, the maintained
+- [abLEMON](https://github.com/dmeoli/abLEMON) 1.7.0 or later, the maintained
   fork of the [LEMON graph library](https://lemon.cs.elte.hu/trac/lemon), as a
   package (`ablemon` in conda-forge, vcpkg, Conan and the Homebrew tap
   `dmeoli/ablemon`) or built from its sources; LEMON itself is not enough,

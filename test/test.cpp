@@ -20,7 +20,8 @@
  * than the other data, each method of CostScaling,
  * deficits that sum to zero only up to rounding and deficits that do not,
  * the parameters looked up by their name, the invalid values of the
- * parameters of the algorithms, and the DMX file of the instance.
+ * parameters of the algorithms, the DMX file of the instance, and the
+ * extreme flows given one after the other by new_var_solution().
  *
  * The exit code is the number of failed checks.
  *
@@ -596,6 +597,83 @@ static void test_dmx( void )
  }
 
 /*--------------------------------------------------------------------------*/
+/* One unit from node 1 to node 2 on three parallel arcs (costs,
+ * capacities):
+ *
+ *   0: 1 -> 2  (1, 1)    1: 1 -> 2  (1, 1)    2: 1 -> 2  (3, 1)
+ *
+ * The extreme flows are the unit on one arc: two optimal ones, of cost 1,
+ * and one of cost 3. They are asked for with intMaxSol, within the gap
+ * dblAAccSol, and each one given has to be a flow of the cost get_ub()
+ * says, different from those before it, the costs not decreasing, while
+ * get_lb() stays the optimal value. */
+
+static void check_flows( MCFBlock & mcf , int maxsol , double gap ,
+			 const std::vector< double > & costs ,
+			 const std::string & what )
+{
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = Solver::new_Solver( name( algo , gr ) );
+   const auto who = what + ", " + slv->classname();
+   mcf.register_Solver( slv );
+   slv->set_par( Solver::intMaxSol , maxsol );
+   slv->set_par( Solver::dblAAccSol , gap );
+   check( slv->compute() == Solver::kOK , who + ": not solved" );
+
+   std::vector< std::vector< double > > seen;
+   std::vector< double > got;
+   for( bool more = slv->has_var_solution() ; more ;
+	more = slv->new_var_solution() ) {
+    slv->get_var_solution();
+    std::vector< double > x( 3 );
+    double c = 0;
+    for( MCFBlock::Index i = 0 ; i < 3 ; ++i ) {
+     x[ i ] = mcf.get_x( i );
+     c += x[ i ] * mcf.get_C( i );
+     check( ( x[ i ] >= -1e-9 ) && ( x[ i ] <= 1 + 1e-9 ) ,
+	    who + ": flow out of its bounds" );
+     }
+    check( std::abs( x[ 0 ] + x[ 1 ] + x[ 2 ] - 1 ) <= 1e-9 ,
+	   who + ": not a flow" );
+    check( std::abs( c - slv->get_ub() ) <= 1e-9 ,
+	   who + ": cost " + std::to_string( c ) + " but ub " +
+	   std::to_string( slv->get_ub() ) );
+    check( std::abs( slv->get_lb() - costs[ 0 ] ) <= 1e-9 ,
+	   who + ": lb is not the optimal value" );
+    for( const auto & y : seen )
+     check( y != x , who + ": the same flow twice" );
+    seen.push_back( x );
+    got.push_back( c );
+    }
+
+   check( got.size() == costs.size() , who + ": " +
+	  std::to_string( got.size() ) + " flows instead of " +
+	  std::to_string( costs.size() ) );
+   for( std::size_t j = 0 ; ( j < got.size() ) && ( j < costs.size() ) ; ++j )
+    check( std::abs( got[ j ] - costs[ j ] ) <= 1e-9 ,
+	   who + ": flow " + std::to_string( j ) + " costs " +
+	   std::to_string( got[ j ] ) );
+   mcf.unregister_Solver( slv , true );
+   }
+ }
+
+static void test_multiple_flows( void )
+{
+ MCFBlock mcf;
+ mcf.load( 2 , 3 , { 2 , 2 , 2 } , { 1 , 1 , 1 } , { 1 , 1 , 1 } ,
+	   { 1 , 1 , 3 } , { -1 , 1 } , 0 , 0 , 0 , 0 );
+
+ check_flows( mcf , 1 , Inf< double >() , { 1 } , "one flow" );
+ check_flows( mcf , 2 , Inf< double >() , { 1 , 1 } , "two flows" );
+ check_flows( mcf , 10 , Inf< double >() , { 1 , 1 , 3 } , "all the flows" );
+ check_flows( mcf , 10 , 1 , { 1 , 1 } , "the flows within the gap" );
+
+ mcf.chg_cost( 1.0 , 2 );  // all three are optimal now
+ check_flows( mcf , 10 , 0 , { 1 , 1 , 1 } , "three optimal flows" );
+ }
+
+/*--------------------------------------------------------------------------*/
 /*--------------------------------- MAIN -----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -616,6 +694,7 @@ int main( void )
  test_scale_out_of_range();
  test_cost_scaling_methods();
  test_dmx();
+ test_multiple_flows();
 
  if( failures )
   std::cout << failures << " checks failed" << std::endl;

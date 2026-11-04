@@ -33,7 +33,8 @@
   _feps = feps;
   _warm_flow = true;
   const bool feasible =
-    _mcf_bits::feasibleFlow( *this , Value( 0 ) , _sup_node_num , _feps );
+    _mcf_bits::feasibleFlow( *this , Value( 0 ) , _sup_node_num , _feps ,
+				  _cut_hint );
   _warm_flow = false;
   if( ! feasible )
    return( run( method , factor ) );

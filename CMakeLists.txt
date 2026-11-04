@@ -107,13 +107,13 @@ find_package(LEMON REQUIRED)
 # MCFLemonSolver re-optimizes with runWarm() of the four minimum cost flow
 # algorithms, which abLEMON does not have: the build writes it into private
 # copies of five headers of abLEMON, put on the include path before the
-# installed ones [see shim/README.md]. abLEMON is told from LEMON by
-# lemon/bits/mcf_certificate.h, which LEMON does not have.
-find_file(_ablemon_hdr lemon/bits/mcf_certificate.h
+# installed ones [see shim/README.md]. abLEMON 1.7.0 is told from LEMON, and
+# from the earlier abLEMON, by lemon/k_best_extreme_flows.h.
+find_file(_ablemon_hdr lemon/k_best_extreme_flows.h
         PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
 if (NOT _ablemon_hdr)
     message(FATAL_ERROR "MCFLemonSolver: the LEMON in ${LEMON_INCLUDE_DIRS} "
-            "is not abLEMON 1.6.0 or later "
+            "is not abLEMON 1.7.0 or later "
             "(https://github.com/dmeoli/abLEMON), which it needs")
 endif ()
 unset(_ablemon_hdr CACHE)
