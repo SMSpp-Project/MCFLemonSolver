@@ -494,17 +494,12 @@ class MCFListDigraph : public ListDigraph
   *   < GR , V , C >, each with its own trait) that are meant to be used
   *   instead of the original CapacityScaling and CostScaling.
   *
-  * LEMON requires the data to be integer even when V and C are double: all
-  * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities
-  * and supplies for CapacityScaling, which is the one that actually gives
-  * wrong values on fractional capacities and supplies. Fractional costs are
-  * taken care of all the same: the build compiles NetworkSimplex with
-  * tolerances on the sign of the reduced costs and on the flow left on its
-  * artificial arcs (see the shim in CMakeLists.txt), without which it may
-  * pivot for ever or report infeasibility, and CostScaling and
+  * abLEMON takes fractional data in the four algorithms, comparing the
+  * reduced costs and the flows against tolerances; yet CostScaling and
   * CycleCanceling are given the costs scaled by a power of 2 and rounded,
-  * which are integer [see pass_costs()], without which the former may read
-  * out of its own vectors and the latter end away from the optimum; the
+  * which are integer [see pass_costs()], on which their scaling ends at an
+  * exact optimum, and CostScaling, CycleCanceling and CapacityScaling the
+  * capacities and the supplies scaled and rounded in the same way; the
   * value and the potentials are those of the true costs. Besides,
   * CycleCanceling and CapacityScaling do not support negative costs on arcs
   * with infinite capacity. The deficits of a MCFBlock that sum to zero only
@@ -1172,13 +1167,11 @@ class MCFLemonSolverNetworkSimplex : public
  /** Writes in the flow Variable of the MCFBlock one unit of flow along the
   * cycle of negative cost and infinite capacity that the network simplex
   * gives as the certificate of unboundedness [see unboundedCycle() of
-  * lemon-ng, or of the shim of the build], and tells the MCFBlock that what
+  * abLEMON], and tells the MCFBlock that what
   * they hold is a direction [see MCFBlock::is_direction()]. The
   * Configuration says which part to write, as in MCFBlock::get_Solution():
   * a value of 2 asks for the dual part alone, and then nothing is done.
-  * Throws if the last run did not end declaring the instance unbounded, or
-  * if the cycle goes through an artificial arc and is therefore none of the
-  * instance. */
+  * Throws if the last run did not end declaring the instance unbounded. */
 
  void get_var_direction( Configuration * dirc = nullptr ) override {
   if( ! f_Block )  // no [MCF]Block to write to

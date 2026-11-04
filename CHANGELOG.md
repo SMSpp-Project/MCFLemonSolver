@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- the module needs [abLEMON](https://github.com/dmeoli/abLEMON) 1.6.0 or
+  later, the maintained fork of LEMON, and the build says so when it finds
+  LEMON instead: the shim no longer writes into the headers what abLEMON has
+  (the tolerances and the update of the potentials of `NetworkSimplex`, the
+  feasible flow of `CostScaling` and `CycleCanceling`, the fixes for C++20,
+  MSVC and `RangeMap`), only `runWarm()` of the four algorithms, which
+  abLEMON does not have [see shim/README.md]
+
+- the rewrites of the shim are the lines of `shim/rewrites.txt`, which the
+  CMake build applies itself and the makefiles with `shim/rewrite.awk`, each
+  anchor a whole line that has to be there exactly once; the rewritten
+  headers are in `lemon-shim`, in the build and in the installation
+
+### Removed
+
+- `shim/ns_eps.inc`, `shim/ns_potential.inc`, `shim/cs_feasible.inc` and
+  `shim/markers.txt`, whose rewrites abLEMON makes useless or the anchors
+  check by themselves
+
 ## [0.4.0] - 2026-11-03
 
 ### Added

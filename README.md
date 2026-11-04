@@ -8,7 +8,8 @@
 
 This project implements `MCFLemonSolver`, a SMS++ `:Solver` for
 [MCFBlock](https://gitlab.com/smspp/mcfblock) based on interfacing
-solvers from the [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon).
+solvers from the [LEMON PROJECT](https://lemon.cs.elte.hu/trac/lemon), as
+maintained in [abLEMON](https://github.com/dmeoli/abLEMON).
 In fact, `MCFLemonSolver` is not a single solver but up to 72 classes
 obtained instantiating 4 different "base" solvers on 2 different kinds
 of graphs and with all possible combinations of 3 different types of
@@ -70,51 +71,24 @@ for each of the 9 possible combinations of the three types as flows and
 costs (i.e., 72 variants). The macro is set by the CMake variable of the
 same name, or by `which_insert_LEMON` in the `makefile`.
 
-The solvers provided by the LEMON project are used through a thin interface in
-`MCFLemonSolver.h`. LEMON has not had a release since 1.3.1 (2014), so its
-headers need a few portability fixes, and a numerical one:
-
-- **C++20**: `lemon/bits/array_map.h` and `lemon/path.h` still call the
-  `std::allocator::construct`/`destroy` members that were *removed* in C++20;
-- **MSVC**: `lemon/adaptors.h` selects an `LEMON_SCOPE_FIX` definition that does
-  not compile under MSVC;
-- **missing include**: `lemon/capacity_scaling.h` uses `RangeMap` from
-  `lemon/maps.h`, which some packagings (e.g. MacPorts `coinor-liblemon`) fail
-  to include;
-- **floating-point data**: `lemon/network_simplex.h` takes the sign of a
-  reduced cost, and the flow left on its artificial arcs, exactly, so that with
-  fractional costs it can make degenerate pivots for ever, or report as
-  infeasible a problem that is not; the rewrite compares them against a
-  tolerance relative to the largest cost and the largest supply, which is zero
-  for integer types, so that on integer data the algorithm is unchanged;
-- **no re-optimization**: the `run()` of every algorithm of LEMON calls its
-  `init()`, i.e., each call starts from scratch, and nothing of the previous
-  call is reused; `network_simplex.h` gets `runWarm()`, which re-optimizes
-  from the basis of the last run: after a change of the costs it recomputes
-  the potentials on its tree, and after a change of the capacities or of the
-  supplies it first recomputes the flow of the tree, hanging from the root by
-  its artificial arc the subtree below an arc whose flow falls outside its
-  bounds, a change of the graph dropping that basis; `capacity_scaling.h`,
-  `cost_scaling.h` and `cycle_canceling.h` get a `runWarm()` as well, the
-  first starting from the flow and the potentials of the last run after any
-  change, the other two from the flow of the last run, which after a change
-  of the capacities or of the supplies is put within the new bounds and made
-  to meet the new supplies by sending on only what the change displaces;
-- **price refinement of cost scaling**: the rank of a node is a sum of ranks
-  along a path, each of them checked against the number of buckets but not
-  their sum, which then indexes past the end of the buckets; the rewrite
-  bounds it, the rank being a lower bound on how far the potential of the
-  node has to go down;
-- **speed**: `network_simplex.h` updates the potentials of a pivot on the
-  smaller of the subtree that the pivot moves and the rest of the tree, the
-  reduced costs being the same either way, and `cost_scaling.h` and
-  `cycle_canceling.h` find the feasible flow they start from with a
-  push-relabel algorithm on the residual network they work on, rather than
-  with the `Circulation` of LEMON on the graph and its maps.
-
-The code of the warm starts, and of the rewrites for speed, lives in
-[shim](shim), read as C++ and inserted at its anchor by both the CMake build
-and the makefiles.
+The solvers of LEMON are used through a thin interface in `MCFLemonSolver.h`,
+from [abLEMON](https://github.com/dmeoli/abLEMON), the maintained fork of
+LEMON, whose headers compile with the compilers and standards of today and
+whose algorithms take floating-point data. What abLEMON does not have is the
+re-optimization: the `run()` of every algorithm starts from scratch, and
+nothing of the previous call is reused. The build writes `runWarm()` into
+private copies of the headers of the four algorithms, put on the include path
+before the installed ones: `NetworkSimplex` re-optimizes from the basis of the
+last run, whose potentials it recomputes on its tree after a change of the
+costs and whose tree flow it recomputes after a change of the capacities or of
+the supplies, hanging from the root by its artificial arc the subtree below an
+arc whose flow falls outside its bounds, a change of the graph dropping that
+basis; `CapacityScaling` starts from the flow and the potentials of the last
+run after any change, `CostScaling` and `CycleCanceling` from the flow of the
+last run, which after a change of the capacities or of the supplies is put
+within the new bounds and made to meet the new supplies by sending on only
+what the change displaces. The code lives in [shim](shim), with the rules that
+both the CMake build and the makefiles apply.
 
 CostScaling, CycleCanceling and CapacityScaling are exact only on integer costs
 too, and for them no header is rewritten: `MCFLemonSolver` gives them the
@@ -128,19 +102,6 @@ scaled and rounded, and an infinite capacity as a finite bound that no optimal
 flow reaches, since the three of them saturate the arcs of negative cost. By
 default CostScaling runs its `AUGMENT` method on scaled flows, on which its
 `PARTIAL_AUGMENT` method is much slower, and the latter on the others.
-
-Rather than redistribute a patched copy of LEMON, the build consumes the LEMON
-package provided by your platform (see *Requirements* below) and applies a
-small, self-contained compatibility shim at build time: it rewrites private
-copies of just those headers and puts them on the include path *before* the
-system ones so they shadow them. The rewrites are idempotent (no-ops on an
-already-patched LEMON) and are applied identically by both the CMake build and
-the makefiles, so nothing has to be done by hand on any platform (no manual
-download of LEMON, and no manual edit of its headers). With
-[lemon-ng](https://github.com/dmeoli/lemon-ng), the maintained fork of LEMON
-that has all of this in its own headers, the build recognises it (by
-`lemon/bits/mcf_feasible_flow.h`, which only the fork has) and uses its
-headers as they are, rewriting none.
 
 ## Getting started
 
@@ -161,15 +122,11 @@ SMS++ lists. What follows is about building it yourself.
   requirements (but no actual `MCFSolver` are needed, since
   `MCFLemonSolver` provides its own).
 
-- The [LEMON graph library](https://lemon.cs.elte.hu/trac/lemon), installed as a
-  system package: no manual download is needed, and its C++20 incompatibility is
-  handled automatically by the build (see above):
-  - **Linux** (apt): `liblemon-dev`
-  - **macOS** (MacPorts): `coinor-liblemon` (note that Homebrew's `lemon` is the
-    unrelated LALR parser generator; the community tap
-    `donn/lemon-graph/lemon-graph` also exists but is unmaintained)
-  - **Windows** (vcpkg): `lemon-ng`, from the vcpkg registry of SMS++ (already
-    listed in the project `vcpkg.json`)
+- [abLEMON](https://github.com/dmeoli/abLEMON) 1.6.0 or later, the maintained
+  fork of the [LEMON graph library](https://lemon.cs.elte.hu/trac/lemon), as a
+  package (`ablemon` in conda-forge, vcpkg, Conan and the Homebrew tap
+  `dmeoli/ablemon`) or built from its sources; LEMON itself is not enough,
+  and the build says so.
 
 ### Build and install with CMake
 
@@ -222,9 +179,9 @@ directory tree constructed in the build/ folder) and therefore it is more
 convenient when having to recompile often, such as when developing/debugging
 a new module, as opposed to the compile-and-forget usage envisioned by CMake.
 
-Like CMake, the makefiles use the installed LEMON package directly (no manual
-download) and generate the same C++20 shim, or none with lemon-ng. By default
-they look for LEMON under the `/usr` prefix; for other locations override
+Like CMake, the makefiles use the installed abLEMON directly and write the
+same `runWarm()` into private copies of its headers. By default they look for
+it under the `/usr` prefix; for other locations override
 `LEMON_ROOT` (or, more finely, `LEMON_INCDIR`/`LEMON_LIBDIR`) on the `make`
 command line or in the environment, for example:
 
@@ -285,10 +242,10 @@ conduct, and the process for submitting merge requests to us.
 
 The SMS++ code is provided free of charge under the [GNU Lesser General Public
 License version 3.0](https://opensource.org/licenses/lgpl-3.0.html) -
-see the [LICENSE](LICENSE) file for details. LEMON itself is not redistributed:
-it is consumed as an external system package (available under the Boost Software
-License, Version 1.0), and the build only rewrites a private copy of two of its
-headers in-place for C++20 compatibility, as described above.
+see the [LICENSE](LICENSE) file for details. abLEMON is not redistributed: it
+is consumed as an external package (under the Boost Software License, Version
+1.0), and the build only rewrites private copies of five of its headers, as
+described above.
 
 
 ## Disclaimer
