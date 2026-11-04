@@ -44,7 +44,7 @@
 	    : _mcf_bits::costTolerance( _root , _first_out , _target ,
 					_forward , _scost );
   const LargeCost scale = static_cast< LargeCost >( _res_node_num ) * _alpha;
-  _eps_min = std::numeric_limits< Cost >::is_exact
+  _eps_min = std::numeric_limits< LargeCost >::is_integer
 	       ? LargeCost( 1 )
 	       : static_cast< LargeCost >( _ceps ) * scale;
   for( int i = 0 ; i != _res_node_num ; ++i ) {
