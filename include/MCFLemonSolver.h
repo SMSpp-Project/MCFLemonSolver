@@ -627,26 +627,36 @@ class MCFLemonSolver : public CDASolver
   * combination of those of the vertices of the face.
   *
   * The ranking expands every basis of a degenerate vertex, and each basis
-  * costs O( n m ) time: intMaxSol is meant to be small. The potentials
-  * [see get_dual_solution()] remain the optimal ones. */
+  * costs O( n m ) time; hence it looks for 2 flows first, and then for
+  * twice as many as it looked for before whenever they are all given, so
+  * that a caller asking for few of intMaxSol flows, as a LagBFunction that
+  * sets intMaxSol to the size of its pool does, pays for few. The
+  * potentials [see get_dual_solution()] remain the optimal ones. */
 
  bool new_var_solution( void ) override {
   if( ( f_max_sol <= 1 ) ||
       ( this->get_status() != ThisAlgo::ProblemType::OPTIMAL ) )
    return( false );
 
+  // the flows are found a few at a time, as many more each time as were
+  // found before, so that a caller asking for few of many pays for few
   if( ! f_kbest )
-   run_kbest();
+   run_kbest( std::min( f_max_sol , 2 ) );
 
-  while( ( f_given < f_max_sol ) && ( f_next < f_kbest->flowNum() ) ) {
-   const int j = f_next++;
-   if( same_as_optimal( j ) )
-    continue;
-   f_cur = j;
-   ++f_given;
-   return( true );
+  for( ;; ) {
+   while( ( f_given < f_max_sol ) && ( f_next < f_kbest->flowNum() ) ) {
+    const int j = f_next++;
+    if( same_as_optimal( j ) )
+     continue;
+    f_cur = j;
+    ++f_given;
+    return( true );
+    }
+   if( ( f_given >= f_max_sol ) || ( f_asked >= f_max_sol ) ||
+       ( f_kbest->flowNum() < f_asked ) )
+    return( false );
+   run_kbest( std::min( 2 * f_asked , f_max_sol ) );
    }
-  return( false );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -800,13 +810,15 @@ class MCFLemonSolver : public CDASolver
   * pass_flows()]. With intMaxSol larger than 1 there are up to intMaxSol
   * such cycles, pairwise arc-disjoint and in the order of their mean costs
   * [see unboundedCycles() of abLEMON], given one per call of
-  * new_var_direction(). */
+  * new_var_direction(), the first call of which looks for them: the cycle
+  * of the algorithm, which is the first one, costs nothing more than the
+  * run, the others a cycle of minimum mean cost each. */
 
  bool has_var_direction( void ) override {
   if( this->get_status() != ThisAlgo::ProblemType::UNBOUNDED )
    return( false );
   if( f_dir < 0 ) {
-   find_cycles();
+   find_cycles( 1 );
    f_dir = 0;
    }
   return( ! f_dirs.empty() );
@@ -816,7 +828,13 @@ class MCFLemonSolver : public CDASolver
  /// moves to the next cycle [see has_var_direction()]
 
  bool new_var_direction( void ) override {
-  if( ( ! has_var_direction() ) || ( f_dir + 1 >= int( f_dirs.size() ) ) )
+  if( ! has_var_direction() )
+   return( false );
+  if( ( ! f_dirs_all ) && ( f_max_sol > 1 ) ) {
+   f_dirs_all = true;
+   find_cycles( f_max_sol );
+   }
+  if( f_dir + 1 >= int( f_dirs.size() ) )
    return( false );
   ++f_dir;
   return( true );
@@ -864,13 +882,15 @@ class MCFLemonSolver : public CDASolver
   * the weakly connected components of the set of the most violated cut
   * whose violation is positive, which are disjoint cuts with no arc between
   * two of them [see disjointInfeasibleCuts() of abLEMON], then the most
-  * violated cuts in order [see infeasibleCuts() of abLEMON]. */
+  * violated cuts in order [see infeasibleCuts() of abLEMON], looked for at
+  * the first call of new_dual_direction(), since they cost up to n maximum
+  * flows each while the first set is that of the algorithm. */
 
  bool has_dual_direction( void ) override {
   if( this->get_status() != ThisAlgo::ProblemType::INFEASIBLE )
    return( false );
   if( f_cut < 0 ) {
-   find_cuts();
+   find_cuts( 1 );
    f_cut = 0;
    }
   return( ! f_cuts.empty() );
@@ -880,7 +900,13 @@ class MCFLemonSolver : public CDASolver
  /// moves to the next set [see has_dual_direction()]
 
  bool new_dual_direction( void ) override {
-  if( ( ! has_dual_direction() ) || ( f_cut + 1 >= int( f_cuts.size() ) ) )
+  if( ! has_dual_direction() )
+   return( false );
+  if( ( ! f_cuts_all ) && ( f_max_sol > 1 ) ) {
+   f_cuts_all = true;
+   find_cuts( f_max_sol );
+   }
+  if( f_cut + 1 >= int( f_cuts.size() ) )
    return( false );
   ++f_cut;
   return( true );
@@ -1190,11 +1216,11 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- void run_kbest( void );
+ void run_kbest( int k );
 
- void find_cycles( void );
+ void find_cycles( int k );
 
- void find_cuts( void );
+ void find_cuts( int k );
 
  [[nodiscard]] bool violated( const std::vector< typename GR::Node > & S ,
 			      double sign );
@@ -1219,9 +1245,11 @@ class MCFLemonSolver : public CDASolver
  void forget_flows( void ) {
   f_dirs.clear();
   f_dir = -1;
+  f_dirs_all = false;
   f_cuts.clear();
   f_cut_sign.clear();
   f_cut = -1;
+  f_cuts_all = false;
   f_kbest.reset();
   f_next = 0;
   f_cur = -1;
@@ -1306,15 +1334,19 @@ class MCFLemonSolver : public CDASolver
  int f_next = 0;   ///< the next of them to look at
  int f_cur = -1;   ///< the current one, -1 for the flow of the Algo
  int f_given = 1;  ///< the number of the flows given since compute()
+ int f_asked = 0;  ///< the number of the flows the last ranking looked for
+ C f_gap = -1;     ///< the gap of the ranking, -1 for none
 
  std::vector< std::vector< typename GR::Arc > > f_dirs;
  ///< the cycles of an unbounded instance [see has_var_direction()]
  int f_dir = -1;   ///< the current one, -1 before they are looked for
+ bool f_dirs_all = false;  ///< true if more than the first were looked for
 
  std::vector< std::vector< typename GR::Node > > f_cuts;
  ///< the sets of an infeasible instance [see has_dual_direction()]
  std::vector< double > f_cut_sign;  ///< their potentials, -1 or +1
  int f_cut = -1;   ///< the current one, -1 before they are looked for
+ bool f_cuts_all = false;  ///< true if more than the first were looked for
 
  ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
   double f_cost_scale = 1;

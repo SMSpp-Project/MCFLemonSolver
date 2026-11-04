@@ -712,25 +712,42 @@ void MCFLemonSolver< Algo , GR , V , C >::true_supplies( MCFNodeMapV & s )
 
 template< template < typename , typename , typename> class Algo ,
 	  LEMONGraph GR , typename V , typename C >
-void MCFLemonSolver< Algo , GR , V , C >::find_cycles( void )
+void MCFLemonSolver< Algo , GR , V , C >::find_cycles( int k )
 {
- /* One cycle, that of the algorithm, unless more are asked for; when the
-  * algorithm was given an infinite capacity as a finite bound it found the
-  * problem bounded, and has none: the network simplex is then run on the
-  * true data. */
- const int k = std::max( 1 , f_max_sol );
- auto cycles_of = [ this , k ]( const auto & algo ) {
-  if( k == 1 ) {
-   auto c = algo.unboundedCycle();
-   if( ! c.empty() )
-    f_dirs.push_back( std::move( c ) );
-   }
-  else
-   f_dirs = algo.unboundedCycles( k );
+ /* The cycles are added to those already found, a cycle being skipped if
+  * it has the same arcs as one of them: one, that of the algorithm, or k,
+  * the arc-disjoint ones. When the algorithm was given an infinite capacity
+  * as a finite bound it found the problem bounded, and has none: the
+  * network simplex is then run on the true data. */
+ auto add = [ this ]( std::vector< typename GR::Arc > && c ) {
+  if( c.empty() )
+   return;
+  auto key = [ this ]( const std::vector< typename GR::Arc > & d ) {
+   std::vector< int > ids;
+   for( auto a : d )
+    ids.push_back( dgp->id( a ) );
+   std::sort( ids.begin() , ids.end() );
+   return( ids );
+   };
+  const auto kc = key( c );
+  for( const auto & d : f_dirs )
+   if( key( d ) == kc )
+    return;
+  f_dirs.push_back( std::move( c ) );
   };
 
+ auto cycles_of = [ & ]( const auto & algo ) {
+  if( k == 1 )
+   add( algo.unboundedCycle() );
+  else
+   for( auto & c : algo.unboundedCycles( k ) )
+    if( int( f_dirs.size() ) < k )
+     add( std::move( c ) );
+  };
+
+ const auto before = f_dirs.size();
  cycles_of( *f_algo );
- if( ! f_dirs.empty() )
+ if( f_dirs.size() > before )
   return;
 
  NetworkSimplex< GR , V , C > ns( *dgp , false );
@@ -740,6 +757,7 @@ void MCFLemonSolver< Algo , GR , V , C >::find_cycles( void )
  if( ns.run() == NetworkSimplex< GR , V , C >::UNBOUNDED )
   cycles_of( ns );
  }
+
 
 /*--------------------------------------------------------------------------*/
 
@@ -777,8 +795,10 @@ bool MCFLemonSolver< Algo , GR , V , C >::violated(
 
 template< template < typename , typename , typename> class Algo ,
 	  LEMONGraph GR , typename V , typename C >
-void MCFLemonSolver< Algo , GR , V , C >::find_cuts( void )
+void MCFLemonSolver< Algo , GR , V , C >::find_cuts( int k )
 {
+ // the sets are added to those already found, a set being skipped if it is
+ // one of them
  auto add = [ this ]( std::vector< typename GR::Node > && S , double sign ) {
   if( S.empty() || ( ! violated( S , sign ) ) )
    return;
@@ -806,27 +826,27 @@ void MCFLemonSolver< Algo , GR , V , C >::find_cuts( void )
   return;
   }
 
- // one set, that of the algorithm, unless more are asked for
- const auto k = std::size_t( std::max( 1 , f_max_sol ) );
+ // one set, that of the algorithm, or k
  auto cuts_of = [ & ]( const auto & algo ) {
   if( k == 1 ) {
    add( algo.infeasibleCut() , -1 );
    return;
    }
   for( auto & S : algo.disjointInfeasibleCuts() )
-   if( f_cuts.size() < k )
+   if( int( f_cuts.size() ) < k )
     add( std::move( S ) , -1 );
-  for( auto & S : algo.infeasibleCuts( int( k ) ) )
-   if( f_cuts.size() < k )
+  for( auto & S : algo.infeasibleCuts( k ) )
+   if( int( f_cuts.size() ) < k )
     add( std::move( S ) , -1 );
   };
 
  /* The algorithm given the flows scaled and rounded may prove infeasible a
   * set that is not, or not by enough, with the true data [see violated()]:
   * the network simplex is then run on the true data. */
+ const auto before = f_cuts.size();
  if( f_flow_scale == 1 )
   cuts_of( *f_algo );
- if( ! f_cuts.empty() )
+ if( f_cuts.size() > before )
   return;
 
  NetworkSimplex< GR , V , C > ns( *dgp , false );
@@ -841,13 +861,21 @@ void MCFLemonSolver< Algo , GR , V , C >::find_cuts( void )
 
 template< template < typename , typename , typename> class Algo ,
 	  LEMONGraph GR , typename V , typename C >
-void MCFLemonSolver< Algo , GR , V , C >::run_kbest( void )
+void MCFLemonSolver< Algo , GR , V , C >::run_kbest( int k )
 {
  /* The ranking is run on the true data, whatever the Algo was given: the
   * costs and the capacities as they are, the infinite ones included, and the
   * supplies with their residual sum moved as compute() moves it. When the
   * Algo was given the data as they are its optimal flow is the first one,
-  * and no other algorithm is run; otherwise NetworkSimplex finds it. */
+  * and no other algorithm is run; otherwise NetworkSimplex finds it. A
+  * later run, for more flows, has the same data and finds the same first
+  * ones, the ranking being deterministic. */
+ f_asked = k;
+ if( f_kbest ) {
+  f_kbest->run( k , f_gap );
+  return;
+  }
+
  f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
 
  MCFNodeMapV s( *dgp );
@@ -868,7 +896,8 @@ void MCFLemonSolver< Algo , GR , V , C >::run_kbest( void )
  const double opt = opt_value();
  const double gap = std::min( f_abs_sol ,
 			      f_rel_sol * std::max( 1.0 , std::abs( opt ) ) );
- f_kbest->run( f_max_sol , gap < Inf< double >() ? C( gap ) : C( -1 ) );
+ f_gap = gap < Inf< double >() ? C( gap ) : C( -1 );
+ f_kbest->run( k , f_gap );
  }
 
 /*--------------------------------------------------------------------------*/
