@@ -59,6 +59,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `shim/markers.txt`, whose rewrites abLEMON makes useless or the anchors
   check by themselves
 
+### Fixed
+
+- `FindLEMON` looks for abLEMON also where `INSTALL.sh` and Homebrew put it
+  (`/opt/abLEMON`, the prefix of `ablemon`) and in the environment variable
+  `LEMON_ROOT`, before the directories of the system, and searches again a
+  LEMON it found before if it is not under the `LEMON_ROOT` given now, or if
+  it is not abLEMON while one of those directories holds abLEMON: with the
+  LEMON of a distribution installed too, the configuration took it and
+  stopped, unless `LEMON_ROOT` was given and the cache cleared
+
 ## [0.4.0] - 2026-11-03
 
 ### Added
