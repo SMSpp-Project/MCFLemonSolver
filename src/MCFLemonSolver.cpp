@@ -21,6 +21,8 @@
 
 #include "MCFLemonSolver.h"
 
+#include <algorithm>
+
 #include <cmath>
 
 /*--------------------------------------------------------------------------*/
@@ -689,16 +691,10 @@ void MCFLemonSolver< Algo , GR , V , C >::close_supplies( MCFNodeMapV & s ,
 
 template< template < typename , typename , typename> class Algo ,
 	  LEMONGraph GR , typename V , typename C >
-void MCFLemonSolver< Algo , GR , V , C >::run_kbest( void )
+void MCFLemonSolver< Algo , GR , V , C >::true_supplies( MCFNodeMapV & s )
 {
- /* The ranking is run on the true data, whatever the Algo was given: the
-  * costs and the capacities as they are, the infinite ones included, and the
-  * supplies with their residual sum moved as compute() moves it. When the
-  * Algo was given the data as they are its optimal flow is the first one,
-  * and no other algorithm is run; otherwise NetworkSimplex finds it. */
- f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
-
- MCFNodeMapV s( *dgp );
+ // the supplies of the MCFBlock, with their residual sum moved as compute()
+ // moves it
  V sum = 0;
  typename GR::Node big = INVALID;
  for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
@@ -710,6 +706,152 @@ void MCFLemonSolver< Algo , GR , V , C >::run_kbest( void )
   }
  if( sum != 0 )
   close_supplies( s , big , sum );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::find_cycles( void )
+{
+ /* One cycle, that of the algorithm, unless more are asked for; when the
+  * algorithm was given an infinite capacity as a finite bound it found the
+  * problem bounded, and has none: the network simplex is then run on the
+  * true data. */
+ const int k = std::max( 1 , f_max_sol );
+ auto cycles_of = [ this , k ]( const auto & algo ) {
+  if( k == 1 ) {
+   auto c = algo.unboundedCycle();
+   if( ! c.empty() )
+    f_dirs.push_back( std::move( c ) );
+   }
+  else
+   f_dirs = algo.unboundedCycles( k );
+  };
+
+ cycles_of( *f_algo );
+ if( ! f_dirs.empty() )
+  return;
+
+ NetworkSimplex< GR , V , C > ns( *dgp , false );
+ MCFNodeMapV s( *dgp );
+ true_supplies( s );
+ ns.upperMap( *um ).costMap( *cm ).supplyMap( s );
+ if( ns.run() == NetworkSimplex< GR , V , C >::UNBOUNDED )
+  cycles_of( ns );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+bool MCFLemonSolver< Algo , GR , V , C >::violated(
+			   const std::vector< typename GR::Node > & S ,
+			   double sign )
+{
+ /* With sign -1 the supply of S has to exceed the capacity of the arcs
+  * leaving it, with sign +1 its demand that of the arcs entering it, by
+  * more than the rounding of the supplies [see compute()]. */
+ MCFNodeMapV in( *dgp , 0 );
+ for( auto nd : S )
+  in.set( nd , 1 );
+
+ V size = 0;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+  size += std::abs( (*bm)[ nd ] );
+
+ V viol = 0;
+ for( auto nd : S )
+  viol -= sign * (*bm)[ nd ];
+ for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+  const bool from = in[ dgp->source( a ) ] != 0;
+  const bool to = in[ dgp->target( a ) ] != 0;
+  if( ( sign < 0 ) ? ( from && ! to ) : ( to && ! from ) )
+   viol -= (*um)[ a ];
+  }
+
+ return( viol > 1e-9 * std::max( V( 1 ) , size ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::find_cuts( void )
+{
+ auto add = [ this ]( std::vector< typename GR::Node > && S , double sign ) {
+  if( S.empty() || ( ! violated( S , sign ) ) )
+   return;
+  std::sort( S.begin() , S.end() );
+  for( const auto & T : f_cuts )
+   if( T == S )
+    return;
+  f_cuts.push_back( std::move( S ) );
+  f_cut_sign.push_back( sign );
+  };
+
+ // supplies that do not sum to zero, which the algorithm is not even run on
+ // [see compute()]: the set of all the nodes
+ V sum = 0;
+ V size = 0;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
+  sum += (*bm)[ nd ];
+  size += std::abs( (*bm)[ nd ] );
+  }
+ if( std::abs( sum ) > 1e-9 * std::max( V( 1 ) , size ) ) {
+  std::vector< typename GR::Node > all;
+  for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+   all.push_back( nd );
+  add( std::move( all ) , sum > 0 ? -1 : 1 );
+  return;
+  }
+
+ // one set, that of the algorithm, unless more are asked for
+ const auto k = std::size_t( std::max( 1 , f_max_sol ) );
+ auto cuts_of = [ & ]( const auto & algo ) {
+  if( k == 1 ) {
+   add( algo.infeasibleCut() , -1 );
+   return;
+   }
+  for( auto & S : algo.disjointInfeasibleCuts() )
+   if( f_cuts.size() < k )
+    add( std::move( S ) , -1 );
+  for( auto & S : algo.infeasibleCuts( int( k ) ) )
+   if( f_cuts.size() < k )
+    add( std::move( S ) , -1 );
+  };
+
+ /* The algorithm given the flows scaled and rounded may prove infeasible a
+  * set that is not, or not by enough, with the true data [see violated()]:
+  * the network simplex is then run on the true data. */
+ if( f_flow_scale == 1 )
+  cuts_of( *f_algo );
+ if( ! f_cuts.empty() )
+  return;
+
+ NetworkSimplex< GR , V , C > ns( *dgp , false );
+ MCFNodeMapV s( *dgp );
+ true_supplies( s );
+ ns.upperMap( *um ).costMap( *cm ).supplyMap( s );
+ if( ns.run() == NetworkSimplex< GR , V , C >::INFEASIBLE )
+  cuts_of( ns );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::run_kbest( void )
+{
+ /* The ranking is run on the true data, whatever the Algo was given: the
+  * costs and the capacities as they are, the infinite ones included, and the
+  * supplies with their residual sum moved as compute() moves it. When the
+  * Algo was given the data as they are its optimal flow is the first one,
+  * and no other algorithm is run; otherwise NetworkSimplex finds it. */
+ f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
+
+ MCFNodeMapV s( *dgp );
+ true_supplies( s );
 
  MCFArcMapV low( *dgp , 0 );
  f_kbest->lowerMap( low ).upperMap( *um ).costMap( *cm ).supplyMap( s );

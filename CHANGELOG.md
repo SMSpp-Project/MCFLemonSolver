@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   found by `KBestExtremeFlows` of abLEMON; `get_ub()` is the cost of the
   current flow and `get_lb()` the optimal value
 
+- all four algorithms give the certificate of an unbounded instance, a cycle
+  of negative cost and infinite capacity, as a direction (before, only
+  `NetworkSimplex`), and with `intMaxSol` larger than 1 up to `intMaxSol`
+  arc-disjoint ones, one per call of `new_var_direction()`
+
+- the certificate of an infeasible instance is a dual direction
+  (`has_dual_direction()`, `get_dual_direction()`): the potentials -1 on a
+  set of nodes whose supply exceeds the capacity of the arcs leaving it, the
+  reduced costs those of the homogeneous system, as `MILPSolver` writes a
+  ray with `intHomogeneousDirection`; with `intMaxSol` larger than 1,
+  `new_dual_direction()` gives the disjoint parts of the most violated set,
+  then the most violated sets in order
+
 - the tolerances of the four algorithms on the reduced costs and on the
   flows (`tolerances()` of abLEMON) come from `dblRelAcc` and `dblFAccSol`,
   if positive, as relative ones (times the largest cost, and the largest

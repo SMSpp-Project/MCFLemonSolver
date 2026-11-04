@@ -651,8 +651,8 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- /// the potentials are those of an optimal solution: LEMON gives no
- /// certificate of infeasibility
+ /// the potentials are those of an optimal solution, the certificate of
+ /// infeasibility being a direction [see has_dual_direction()]
 
  bool has_dual_solution( void ) override {
   return( this->get_status() == ThisAlgo::ProblemType::OPTIMAL );
@@ -732,6 +732,21 @@ class MCFLemonSolver : public CDASolver
   if( ! f_Block )
    return( nullptr );
 
+  // an unbounded instance has a direction to give rather than a solution:
+  // the Solution says that what it holds is one, and has no potentials
+  if( has_var_direction() ) {
+   auto MCFB = static_cast< MCFBlock * >( f_Block );
+   auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc ,
+								 true ) );
+   if( ! sol->get_x().empty() ) {
+    sol->is_direction( true );
+    sol->set_x( cycle_flow() );
+    }
+   if( ! sol->get_pi().empty() )
+    sol->set_pi( MCFBlock::Vec_CNumber() );
+   return( sol );
+   }
+
   if( ( ! has_var_solution() ) && ( ! has_dual_solution() ) )
    return( nullptr );
 
@@ -777,23 +792,138 @@ class MCFLemonSolver : public CDASolver
   return( true );
   }
 
- /// returns false: the LEMON algorithms give out no unbounded direction
+ /// true if the instance is unbounded: the certificate is a direction
+ /** On an unbounded instance the certificate is a cycle of negative cost
+  * whose arcs have infinite capacity [see unboundedCycle() of abLEMON],
+  * which the algorithm gives, or NetworkSimplex on the true data when the
+  * algorithm was given an infinite capacity as a finite bound [see
+  * pass_flows()]. With intMaxSol larger than 1 there are up to intMaxSol
+  * such cycles, pairwise arc-disjoint and in the order of their mean costs
+  * [see unboundedCycles() of abLEMON], given one per call of
+  * new_var_direction(). */
 
- bool has_var_direction( void ) override { return( false ); }
-
- void get_var_direction( Configuration* dirc = nullptr ) override {
-  throw( std::logic_error( "MCFLemonSolver::get_var_direction: no direction "
-			   "is available" ) );
+ bool has_var_direction( void ) override {
+  if( this->get_status() != ThisAlgo::ProblemType::UNBOUNDED )
+   return( false );
+  if( f_dir < 0 ) {
+   find_cycles();
+   f_dir = 0;
+   }
+  return( ! f_dirs.empty() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// returns false: the LEMON algorithms give out no dual unbounded direction
+ /// moves to the next cycle [see has_var_direction()]
 
- bool has_dual_direction( void ) override { return( false ); }
+ bool new_var_direction( void ) override {
+  if( ( ! has_var_direction() ) || ( f_dir + 1 >= int( f_dirs.size() ) ) )
+   return( false );
+  ++f_dir;
+  return( true );
+  }
 
- void get_dual_direction( Configuration* dirc = nullptr ) override {
-  throw( std::logic_error( "MCFLemonSolver::get_dual_direction: no direction "
-			   "is available" ) );
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// writes one unit of flow along the current cycle in the flow Variable
+ /** Writes in the flow Variable of the MCFBlock one unit of flow along the
+  * current cycle [see has_var_direction()], and tells the MCFBlock that
+  * what they hold is a direction [see MCFBlock::is_direction()]. The
+  * Configuration says which part to write, as in MCFBlock::get_Solution():
+  * a value of 2 asks for the dual part alone, and then nothing is done.
+  * Throws if the last run did not end declaring the instance unbounded. */
+
+ void get_var_direction( Configuration * dirc = nullptr ) override {
+  if( ! f_Block )  // no [MCF]Block to write to
+   return;         // cowardly and silently return
+
+  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
+  if( tsolc && ( tsolc->f_value == 2 ) )
+   return;
+
+  if( ! has_var_direction() )
+   throw( std::logic_error( "MCFLemonSolver::get_var_direction: no "
+			    "certificate of unboundedness" ) );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFB->is_direction( true );  // what the Variable hold is a direction
+  MCFB->set_x( cycle_flow().begin() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// true if the instance is infeasible: the certificate is a direction
+ /** On an infeasible instance the certificate is a set S of nodes whose
+  * supply exceeds the capacity of the arcs leaving it [see infeasibleCut()
+  * of abLEMON], or, when the supplies do not sum to zero, the set of all
+  * the nodes, whose supply is then positive or negative. It is the dual
+  * direction whose potentials are -1 on S and 0 elsewhere, or +1 on all the
+  * nodes when their supply is negative, along which the dual objective
+  * grows by the violation of the cut [see get_dual_direction()]. The set
+  * is that of the algorithm, or of NetworkSimplex on the true data when the
+  * algorithm was given the flows scaled [see pass_flows()], and it is
+  * checked on the true data. With intMaxSol larger than 1 there are up to
+  * intMaxSol such sets, given one per call of new_dual_direction(): first
+  * the weakly connected components of the set of the most violated cut
+  * whose violation is positive, which are disjoint cuts with no arc between
+  * two of them [see disjointInfeasibleCuts() of abLEMON], then the most
+  * violated cuts in order [see infeasibleCuts() of abLEMON]. */
+
+ bool has_dual_direction( void ) override {
+  if( this->get_status() != ThisAlgo::ProblemType::INFEASIBLE )
+   return( false );
+  if( f_cut < 0 ) {
+   find_cuts();
+   f_cut = 0;
+   }
+  return( ! f_cuts.empty() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// moves to the next set [see has_dual_direction()]
+
+ bool new_dual_direction( void ) override {
+  if( ( ! has_dual_direction() ) || ( f_cut + 1 >= int( f_cuts.size() ) ) )
+   return( false );
+  ++f_cut;
+  return( true );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// writes the dual direction of the current set in the MCFBlock
+ /** Writes in the dual values of the flow conservation constraints of the
+  * MCFBlock the potentials of the current set [see has_dual_direction()],
+  * \f$ \pi \f$, and in those of the bound constraints the reduced costs
+  * of the homogeneous system, \f$ \pi_{SN(a)} - \pi_{EN(a)} \f$, as the
+  * ray of the dual is written by MILPSolver with intHomogeneousDirection.
+  * The Configuration says which part to write, as in
+  * MCFBlock::get_Solution(): a value of 1 asks for the primal part alone,
+  * and then nothing is done. Throws if the last run did not end declaring
+  * the instance infeasible. */
+
+ void get_dual_direction( Configuration * dirc = nullptr ) override {
+  if( ! f_Block )  // no [MCF]Block to write to
+   return;         // cowardly and silently return
+
+  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
+  if( tsolc && ( tsolc->f_value == 1 ) )
+   return;
+
+  if( ! has_dual_direction() )
+   throw( std::logic_error( "MCFLemonSolver::get_dual_direction: no "
+			    "certificate of infeasibility" ) );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFBlock::Vec_CNumber Pi( MCFB->get_NNodes() , 0 );
+  for( auto nd : f_cuts[ f_cut ] ) {
+   auto i = Index( dgp->id( nd ) );
+   if( i < Pi.size() )
+    Pi[ i ] = f_cut_sign[ f_cut ];
+   }
+  MCFB->set_pi( Pi.cbegin() );
+
+  MCFBlock::Vec_CNumber RC( MCFB->get_NArcs() , 0 );
+  for( Index i = 0 ; i < RC.size() ; ++i )
+   if( ! MCFB->is_deleted( i ) )
+    RC[ i ] = Pi[ MCFB->get_SN( i ) - 1 ] - Pi[ MCFB->get_EN( i ) - 1 ];
+  MCFB->set_rc( RC.cbegin() );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1062,8 +1192,36 @@ class MCFLemonSolver : public CDASolver
 
  void run_kbest( void );
 
- /// drops the extreme flows, the next compute() giving its own first
+ void find_cycles( void );
+
+ void find_cuts( void );
+
+ [[nodiscard]] bool violated( const std::vector< typename GR::Node > & S ,
+			      double sign );
+
+ void true_supplies( MCFNodeMapV & s );
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// one unit of flow along the current cycle [see has_var_direction()]
+
+ [[nodiscard]] MCFBlock::Vec_FNumber cycle_flow( void ) const {
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFBlock::Vec_FNumber X( MCFB->get_NArcs() , 0 );
+  for( auto a : f_dirs[ f_dir ] ) {
+   auto i = MCFBlock::Index( dgp->id( a ) );
+   if( i < X.size() )
+    X[ i ] = 1;
+   }
+  return( X );
+  }
+
+ /// drops the extreme flows, the cycles and the cuts of the last compute()
  void forget_flows( void ) {
+  f_dirs.clear();
+  f_dir = -1;
+  f_cuts.clear();
+  f_cut_sign.clear();
+  f_cut = -1;
   f_kbest.reset();
   f_next = 0;
   f_cur = -1;
@@ -1148,6 +1306,15 @@ class MCFLemonSolver : public CDASolver
  int f_next = 0;   ///< the next of them to look at
  int f_cur = -1;   ///< the current one, -1 for the flow of the Algo
  int f_given = 1;  ///< the number of the flows given since compute()
+
+ std::vector< std::vector< typename GR::Arc > > f_dirs;
+ ///< the cycles of an unbounded instance [see has_var_direction()]
+ int f_dir = -1;   ///< the current one, -1 before they are looked for
+
+ std::vector< std::vector< typename GR::Node > > f_cuts;
+ ///< the sets of an infeasible instance [see has_dual_direction()]
+ std::vector< double > f_cut_sign;  ///< their potentials, -1 or +1
+ int f_cut = -1;   ///< the current one, -1 before they are looked for
 
  ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
   double f_cost_scale = 1;
@@ -1349,68 +1516,6 @@ class MCFLemonSolverNetworkSimplex : public
 /*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
- /// the network simplex gives the cycle that proves the instance unbounded
-
- bool has_var_direction( void ) override { return( true ); }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// writes one unit of flow along that cycle in the flow Variable
- /** Writes in the flow Variable of the MCFBlock one unit of flow along the
-  * cycle of negative cost and infinite capacity that the network simplex
-  * gives as the certificate of unboundedness [see unboundedCycle() of
-  * abLEMON], and tells the MCFBlock that what
-  * they hold is a direction [see MCFBlock::is_direction()]. The
-  * Configuration says which part to write, as in MCFBlock::get_Solution():
-  * a value of 2 asks for the dual part alone, and then nothing is done.
-  * Throws if the last run did not end declaring the instance unbounded. */
-
- void get_var_direction( Configuration * dirc = nullptr ) override {
-  if( ! f_Block )  // no [MCF]Block to write to
-   return;         // cowardly and silently return
-
-  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
-  if( tsolc && ( tsolc->f_value == 2 ) )
-   return;
-
-  MCFBlock::Vec_FNumber X;
-  if( ! unb_cycle( X ) )
-   throw( std::logic_error( "MCFLemonSolverNetworkSimplex::"
-			    "get_var_direction: no certificate of "
-			    "unboundedness" ) );
-
-  auto MCFB = static_cast< MCFBlock * >( f_Block );
-  MCFB->is_direction( true );  // what the Variable hold is a direction
-  MCFB->set_x( X.begin() );
-  }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// on an unbounded instance the Solution holds the direction
- /** An unbounded instance has a direction to give rather than a solution:
-  * the Solution is filled with the cycle, and says that what it holds is a
-  * direction [see Solution::is_direction()]. In every other case, and when
-  * no certificate is available, this is what the base class does. */
-
- [[nodiscard]] Solution * get_Solution( Configuration * solc = nullptr )
-  override {
-  MCFBlock::Vec_FNumber X;
-  if( ( status != ThisAlgo::ProblemType::UNBOUNDED ) ||
-      ( ! unb_cycle( X ) ) )
-   return( BaseClass::get_Solution( solc ) );
-
-  auto MCFB = static_cast< MCFBlock * >( f_Block );
-  auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc , true ) );
-
-  if( ! sol->get_x().empty() ) {
-   sol->is_direction( true );
-   sol->set_x( std::move( X ) );
-   }
-
-  if( ! sol->get_pi().empty() )  // no potentials go with a direction
-   sol->set_pi( MCFBlock::Vec_CNumber() );
-
-  return( sol );
-  }
-
 /*--------------------------------------------------------------------------*/
 
  protected:
@@ -1439,31 +1544,6 @@ class MCFLemonSolverNetworkSimplex : public
 /*--------------------------------------------------------------------------*/
 
  private:
-
-/*-------------------------- PRIVATE METHODS -------------------------------*/
- /// one unit of flow along the cycle that proves the instance unbounded
- /** Writes in X one unit of flow along the cycle the network simplex gives
-  * as the certificate of unboundedness and returns true; returns false,
-  * leaving X alone, if there is no certificate to give. */
-
- bool unb_cycle( MCFBlock::Vec_FNumber & X ) {
-  if( ! f_Block )
-   return( false );
-
-  auto cycle = f_algo->unboundedCycle();
-  if( cycle.empty() )
-   return( false );
-
-  auto MCFB = static_cast< MCFBlock * >( f_Block );
-  X.assign( MCFB->get_NArcs() , 0 );
-  for( auto a : cycle ) {
-   auto i = MCFBlock::Index( dgp->id( a ) );
-   if( i < X.size() )
-    X[ i ] = 1;
-   }
-
-  return( true );
-  }
 
 /*--------------------------------------------------------------------------*/
 
