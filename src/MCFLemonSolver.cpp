@@ -260,6 +260,44 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
 
 template< template < typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::pass_tolerances( void )
+{
+ /* The tolerances of dblRelAcc / dblAAccDSol and of dblFAccSol / dblAbsAcc
+  * [see set_par()], in the units of the data the Algo is given, i.e., times
+  * f_cost_scale and f_flow_scale; a negative one is left to abLEMON. */
+ auto MCFB = static_cast< MCFBlock * >( f_Block );
+ double cost = -1;
+ if( f_rel_cst > 0 ) {
+  double cmax = 0;
+  for( auto c : MCFB->get_C() )
+   cmax = std::max( cmax , std::abs( double( c ) ) );
+  cost = f_rel_cst * ( cmax > 0 ? cmax : 1 );
+  }
+ else
+  if( ( f_abs_cst > 0 ) && ( f_abs_cst < Inf< double >() ) )
+   cost = f_abs_cst;
+ double flow = -1;
+ if( f_rel_flw > 0 ) {
+  double fmax = 0;
+  for( auto u : MCFB->get_U() )
+   if( u < Inf< double >() )
+    fmax = std::max( fmax , double( u ) );
+  for( auto b : MCFB->get_B() )
+   fmax = std::max( fmax , std::abs( double( b ) ) );
+  flow = f_rel_flw * ( fmax > 0 ? fmax : 1 );
+  }
+ else
+  if( ( f_abs_flw > 0 ) && ( f_abs_flw < Inf< double >() ) )
+   flow = f_abs_flw;
+
+ f_algo->tolerances( V( flow < 0 ? -1 : flow * f_flow_scale ) ,
+		     C( cost < 0 ? -1 : cost * f_cost_scale ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename > class Algo ,
+	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
 {
  /* CostScaling, CycleCanceling and CapacityScaling are exact only on
@@ -572,6 +610,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
    supply_changed = false;
    }
 
+ pass_tolerances();
  auto start = std::chrono::system_clock::now();
  if( balanced )
   guts_of_compute(); // here the actual magic is done by specialised classes

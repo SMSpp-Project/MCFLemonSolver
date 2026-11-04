@@ -122,7 +122,7 @@
   Value sum = 0;
   for( int u = 0 ; u != _node_num ; ++u )
    sum += _supply[ u ];
-  const Value feps = flowTolerance( _supply , _node_num );
+  const Value feps = flowTol();
   if( sum > feps || sum < -feps )
    return( false );
 

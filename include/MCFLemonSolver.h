@@ -782,6 +782,57 @@ class MCFLemonSolver : public CDASolver
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// gets the @return default value of the double parameter @param par
+ /** dblRelAcc, dblFAccSol, dblAAccDSol and dblAbsAcc are 0, i.e., the
+  * tolerances are those that abLEMON sets on the data [see
+  * pass_tolerances()]. */
+
+ [[nodiscard]] double get_dflt_dbl_par( idx_type par ) const override {
+  if( ( par == dblRelAcc ) || ( par == dblFAccSol ) ||
+      ( par == dblAAccDSol ) || ( par == dblAbsAcc ) )
+   return( 0 );
+  return( CDASolver::get_dflt_dbl_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// gets the @return value of the double parameter @param par
+
+ [[nodiscard]] double get_dbl_par( idx_type par ) const override {
+  if( par == dblRelAcc )
+   return( f_rel_cst );
+  if( par == dblFAccSol )
+   return( f_rel_flw );
+  if( par == dblAAccDSol )
+   return( f_abs_cst );
+  if( par == dblAbsAcc )
+   return( f_abs_flw );
+  return( CDASolver::get_dbl_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// set the double parameter @param par to @param value
+ /** The tolerances of the algorithm on the reduced costs and on the flows
+  * [see tolerances() of abLEMON] come from dblRelAcc and dblFAccSol, if
+  * positive, as relative ones: the former times the largest absolute value
+  * of a cost, the latter times the largest one among the finite capacities
+  * and the deficits; otherwise from dblAAccDSol and dblAbsAcc, if positive
+  * and finite, as absolute ones; otherwise abLEMON sets them on the data,
+  * as it does by default [see pass_tolerances()]. */
+
+ void set_par( idx_type par , double value ) override {
+  if( par == dblRelAcc )
+   f_rel_cst = value;
+  else if( par == dblFAccSol )
+   f_rel_flw = value;
+  else if( par == dblAAccDSol )
+   f_abs_cst = value;
+  else if( par == dblAbsAcc )
+   f_abs_flw = value;
+  else
+   CDASolver::set_par( par , value );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// gets the @return value of string parameter @param par
 
  [[nodiscard]] const std::string & get_str_par( idx_type par ) const override
@@ -906,6 +957,8 @@ class MCFLemonSolver : public CDASolver
 
  void guts_of_set_Block( MCFBlock* MCFB );
 
+ void pass_tolerances( void );
+
  void pass_costs( void );
 
  void pass_flows( typename GR::Node big );
@@ -958,7 +1011,12 @@ class MCFLemonSolver : public CDASolver
   MCFNodeMapV * bm;  /// NodeMap that contains the supply of each node
 
   MCFArcMapV * icm = nullptr;
-  ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
+  double f_rel_cst = 0;  ///< relative tolerance of the costs [dblRelAcc]
+ double f_rel_flw = 0;  ///< relative tolerance of the flows [dblFAccSol]
+ double f_abs_cst = 0;  ///< absolute tolerance of the costs [dblAAccDSol]
+ double f_abs_flw = 0;  ///< absolute tolerance of the flows [dblAbsAcc]
+
+ ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
   double f_cost_scale = 1;
   ///< the scale of icm, 1 when the Algo is given the costs as they are
 

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- the tolerances of the four algorithms on the reduced costs and on the
+  flows (`tolerances()` of abLEMON) come from `dblRelAcc` and `dblFAccSol`,
+  if positive, as relative ones (times the largest cost, and the largest
+  finite capacity or deficit), otherwise from `dblAAccDSol` and `dblAbsAcc`,
+  if positive and finite, as absolute ones, as `MCFSolver` does; by default
+  (0) abLEMON sets them on the data [see `pass_tolerances()`]
+
 ### Changed
 
 - the module needs [abLEMON](https://github.com/dmeoli/abLEMON) 1.6.0 or

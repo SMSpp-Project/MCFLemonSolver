@@ -14,8 +14,10 @@
    return( run( method ) );
   const Value MAX = ( std::numeric_limits< Value >::max )();
   const Value feps =
-    _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
-			      _lower , _upper , _supply , _has_lower );
+    _flow_tol >= 0
+      ? _flow_tol
+      : _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
+				  _lower , _upper , _supply , _has_lower );
   Value sum = 0;
   for( int i = 0 ; i != _root ; ++i )
    sum += _supply[ i ];
@@ -29,12 +31,14 @@
   int sup_num;
   _warm_flow = true;
   const bool feasible =
-    _mcf_bits::feasibleFlow( *this , Value( 1 ) , sup_num );
+    _mcf_bits::feasibleFlow( *this , Value( 1 ) , sup_num , _feps );
   _warm_flow = false;
   if( ! feasible )
    return( run( method ) );
-  _ceps = _mcf_bits::costTolerance( _root , _first_out , _target , _forward ,
-				    _cost );
+  _ceps = _cost_tol >= 0
+	    ? _cost_tol
+	    : _mcf_bits::costTolerance( _root , _first_out , _target ,
+					_forward , _cost );
 
   // the zero potentials that init() starts from
   for( int i = 0 ; i != _res_node_num ; ++i )

@@ -15,8 +15,10 @@
    return( run( factor ) );
   const Value MAX = ( std::numeric_limits< Value >::max )();
   const Value feps =
-    _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
-			      _lower , _upper , _supply , _has_lower );
+    _flow_tol >= 0
+      ? _flow_tol
+      : _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
+				  _lower , _upper , _supply , _has_lower );
   Value sum = 0;
   for( int i = 0 ; i != _root ; ++i )
    sum += _supply[ i ];
@@ -27,9 +29,13 @@
     return( run( factor ) );
    }
   _factor = factor;
-  _unit = std::numeric_limits< Value >::is_exact ? Value( 1 ) : feps;
-  _ceps = _mcf_bits::costTolerance( _root , _first_out , _target , _forward ,
-				    _cost );
+  _unit = std::numeric_limits< Value >::is_exact
+	    ? Value( 1 )
+	    : ( feps > 0 ? feps : ( std::numeric_limits< Value >::min )() );
+  _ceps = _cost_tol >= 0
+	    ? _cost_tol
+	    : _mcf_bits::costTolerance( _root , _first_out , _target ,
+					_forward , _cost );
   for( int i = 0 ; i != _root ; ++i )
    _excess[ i ] = _supply[ i ];
   _excess[ _root ] = 0;

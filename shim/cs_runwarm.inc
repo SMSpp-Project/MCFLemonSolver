@@ -17,8 +17,10 @@
   LEMON_ASSERT( factor >= 2 , "The scaling factor must be at least 2" );
   const Value MAX = ( std::numeric_limits< Value >::max )();
   const Value feps =
-    _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
-			      _lower , _upper , _supply , _has_lower );
+    _flow_tol >= 0
+      ? _flow_tol
+      : _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
+				  _lower , _upper , _supply , _has_lower );
   Value sum = 0;
   for( int i = 0 ; i != _root ; ++i )
    sum += _supply[ i ];
@@ -31,14 +33,16 @@
   _feps = feps;
   _warm_flow = true;
   const bool feasible =
-    _mcf_bits::feasibleFlow( *this , Value( 0 ) , _sup_node_num );
+    _mcf_bits::feasibleFlow( *this , Value( 0 ) , _sup_node_num , _feps );
   _warm_flow = false;
   if( ! feasible )
    return( run( method , factor ) );
 
   _alpha = factor;
-  _ceps = _mcf_bits::costTolerance( _root , _first_out , _target , _forward ,
-				    _scost );
+  _ceps = _cost_tol >= 0
+	    ? _cost_tol
+	    : _mcf_bits::costTolerance( _root , _first_out , _target ,
+					_forward , _scost );
   const LargeCost scale = static_cast< LargeCost >( _res_node_num ) * _alpha;
   _eps_min = std::numeric_limits< Cost >::is_exact
 	       ? LargeCost( 1 )
