@@ -626,12 +626,19 @@ class MCFLemonSolver : public CDASolver
   * (sub)gradient in a Lagrangian or Benders' decomposition is a convex
   * combination of those of the vertices of the face.
   *
-  * The ranking expands every basis of a degenerate vertex, and each basis
-  * costs O( n m ) time; hence it looks for 2 flows first, and then for
-  * twice as many as it looked for before whenever they are all given, so
-  * that a caller asking for few of intMaxSol flows, as a LagBFunction that
-  * sets intMaxSol to the size of its pool does, pays for few. The
-  * potentials [see get_dual_solution()] remain the optimal ones. */
+  * The flows come from the cycles of least reduced cost [see CYCLES in
+  * KBestExtremeFlows], not from the ranking of the bases, since a
+  * degenerate vertex may have very many, as a path in a shortest path
+  * problem has as many as the trees containing it: the other optimal
+  * vertices are those that the cycles of zero reduced cost lead to, and
+  * the others are the best ones one cycle of least reduced cost away from
+  * an optimal one, in the order of their costs, but they may not be the
+  * best vertices. Each optimal vertex costs O( n m log n ) time; hence 2
+  * flows are looked for first, and then twice as many as before whenever
+  * they are all given, so that a caller asking for few of intMaxSol flows,
+  * as a LagBFunction that sets intMaxSol to the size of its pool does,
+  * pays for few. The potentials [see get_dual_solution()] remain the
+  * optimal ones. */
 
  bool new_var_solution( void ) override {
   if( ( f_max_sol <= 1 ) ||

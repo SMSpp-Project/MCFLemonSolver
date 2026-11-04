@@ -877,6 +877,7 @@ void MCFLemonSolver< Algo , GR , V , C >::run_kbest( int k )
   }
 
  f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
+ f_kbest->method( KBestExtremeFlows< GR , V , C >::CYCLES );
 
  MCFNodeMapV s( *dgp );
  true_supplies( s );

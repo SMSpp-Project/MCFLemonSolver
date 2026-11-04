@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `new_var_solution()` gives, after the optimal flow, up to `intMaxSol` - 1
   more extreme flows in the order of their costs, the other optimal ones
   first, within the gap `dblAAccSol` and `dblRAccSol` from the optimal value,
-  found by `KBestExtremeFlows` of abLEMON; `get_ub()` is the cost of the
-  current flow and `get_lb()` the optimal value
+  found by `KBestExtremeFlows` of abLEMON through the cycles of least reduced
+  cost (the other optimal vertices through those of zero reduced cost, then
+  the best vertices one cycle away from an optimal one), which enumerates no
+  basis; `get_ub()` is the cost of the current flow and `get_lb()` the
+  optimal value
 
 - all four algorithms give the certificate of an unbounded instance, a cycle
   of negative cost and infinite capacity, as a direction (before, only
