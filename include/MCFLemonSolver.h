@@ -962,7 +962,7 @@ class MCFLemonSolver : public CDASolver
   * MCFBlock the potentials of the current set [see has_dual_direction()],
   * \f$ \pi \f$, and in those of the bound constraints the reduced costs
   * of the homogeneous system, \f$ \pi_{SN(a)} - \pi_{EN(a)} \f$, as the
-  * ray of the dual is written by MILPSolver with intHomogeneousDirection.
+  * ray of the dual is written by MILPSolver.
   * The Configuration says which part to write, as in
   * MCFBlock::get_Solution(): a value of 1 asks for the primal part alone,
   * and then nothing is done. Throws if the last run did not end declaring

@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`has_dual_direction()`, `get_dual_direction()`): the potentials -1 on a
   set of nodes whose supply exceeds the capacity of the arcs leaving it, the
   reduced costs those of the homogeneous system, as `MILPSolver` writes a
-  ray with `intHomogeneousDirection`; with `intMaxSol` larger than 1,
+  ray; with `intMaxSol` larger than 1,
   `new_dual_direction()` gives the disjoint parts of the most violated set,
   then the most violated sets in order
 
