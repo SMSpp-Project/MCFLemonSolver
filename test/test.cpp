@@ -634,49 +634,52 @@ static void check_flows( MCFBlock & mcf , int maxsol , double gap ,
 			 const std::string & what )
 {
  for( const auto & gr : GRAPHS )
-  for( const auto & algo : ALGOS ) {
-   auto slv = Solver::new_Solver( name( algo , gr ) );
-   const auto who = what + ", " + slv->classname();
-   mcf.register_Solver( slv );
-   slv->set_par( Solver::intMaxSol , maxsol );
-   slv->set_par( Solver::dblAAccSol , gap );
-   check( slv->compute() == Solver::kOK , who + ": not solved" );
+  for( const auto & algo : ALGOS )
+   for( int kbest = 0 ; kbest != 2 ; ++kbest ) {
+    auto slv = Solver::new_Solver( name( algo , gr ) );
+    const auto who =
+      what + ", " + slv->classname() + ( kbest ? " (RANKING)" : " (CYCLES)" );
+    mcf.register_Solver( slv );
+    slv->set_par( Solver::intMaxSol , maxsol );
+    slv->set_par( Solver::dblAAccSol , gap );
+    slv->set_par( slv->int_par_str2idx( "kKBest" ) , kbest );
+    check( slv->compute() == Solver::kOK , who + ": not solved" );
 
-   std::vector< std::vector< double > > seen;
-   std::vector< double > got;
-   for( bool more = slv->has_var_solution() ; more ;
-	more = slv->new_var_solution() ) {
-    slv->get_var_solution();
-    std::vector< double > x( 3 );
-    double c = 0;
-    for( MCFBlock::Index i = 0 ; i < 3 ; ++i ) {
-     x[ i ] = mcf.get_x( i );
-     c += x[ i ] * mcf.get_C( i );
-     check( ( x[ i ] >= -1e-9 ) && ( x[ i ] <= 1 + 1e-9 ) ,
-	    who + ": flow out of its bounds" );
+    std::vector< std::vector< double > > seen;
+    std::vector< double > got;
+    for( bool more = slv->has_var_solution() ; more ;
+	 more = slv->new_var_solution() ) {
+     slv->get_var_solution();
+     std::vector< double > x( 3 );
+     double c = 0;
+     for( MCFBlock::Index i = 0 ; i < 3 ; ++i ) {
+      x[ i ] = mcf.get_x( i );
+      c += x[ i ] * mcf.get_C( i );
+      check( ( x[ i ] >= -1e-9 ) && ( x[ i ] <= 1 + 1e-9 ) ,
+	     who + ": flow out of its bounds" );
+      }
+     check( std::abs( x[ 0 ] + x[ 1 ] + x[ 2 ] - 1 ) <= 1e-9 ,
+	    who + ": not a flow" );
+     check( std::abs( c - slv->get_ub() ) <= 1e-9 ,
+	    who + ": cost " + std::to_string( c ) + " but ub " +
+	    std::to_string( slv->get_ub() ) );
+     check( std::abs( slv->get_lb() - costs[ 0 ] ) <= 1e-9 ,
+	    who + ": lb is not the optimal value" );
+     for( const auto & y : seen )
+      check( y != x , who + ": the same flow twice" );
+     seen.push_back( x );
+     got.push_back( c );
      }
-    check( std::abs( x[ 0 ] + x[ 1 ] + x[ 2 ] - 1 ) <= 1e-9 ,
-	   who + ": not a flow" );
-    check( std::abs( c - slv->get_ub() ) <= 1e-9 ,
-	   who + ": cost " + std::to_string( c ) + " but ub " +
-	   std::to_string( slv->get_ub() ) );
-    check( std::abs( slv->get_lb() - costs[ 0 ] ) <= 1e-9 ,
-	   who + ": lb is not the optimal value" );
-    for( const auto & y : seen )
-     check( y != x , who + ": the same flow twice" );
-    seen.push_back( x );
-    got.push_back( c );
-    }
 
-   check( got.size() == costs.size() , who + ": " +
-	  std::to_string( got.size() ) + " flows instead of " +
-	  std::to_string( costs.size() ) );
-   for( std::size_t j = 0 ; ( j < got.size() ) && ( j < costs.size() ) ; ++j )
-    check( std::abs( got[ j ] - costs[ j ] ) <= 1e-9 ,
-	   who + ": flow " + std::to_string( j ) + " costs " +
-	   std::to_string( got[ j ] ) );
-   mcf.unregister_Solver( slv , true );
-   }
+    check( got.size() == costs.size() , who + ": " +
+	   std::to_string( got.size() ) + " flows instead of " +
+	   std::to_string( costs.size() ) );
+    for( std::size_t j = 0 ; ( j < got.size() ) && ( j < costs.size() ) ; ++j )
+     check( std::abs( got[ j ] - costs[ j ] ) <= 1e-9 ,
+	    who + ": flow " + std::to_string( j ) + " costs " +
+	    std::to_string( got[ j ] ) );
+    mcf.unregister_Solver( slv , true );
+    }
  }
 
 static void test_multiple_flows( void )

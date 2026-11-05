@@ -896,7 +896,7 @@ void MCFLemonSolver< Algo , GR , V , C >::make_kbest( void )
   * optimal flow is the first one, and no other algorithm is run; otherwise
   * NetworkSimplex finds it. */
  f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
- f_kbest->method( KBestExtremeFlows< GR , V , C >::CYCLES );
+ f_kbest->method( kbest_method() );
 
  MCFNodeMapV s( *dgp );
  true_supplies( s );
