@@ -22,7 +22,8 @@
  * deficits that do not,
  * the parameters looked up by their name, the invalid values of the
  * parameters of the algorithms, the DMX file of the instance, and the
- * extreme flows given one after the other by new_var_solution().
+ * extreme flows and the optimal potentials given one after the other by
+ * new_var_solution() and new_dual_solution().
  *
  * The exit code is the number of failed checks.
  *
@@ -766,6 +767,66 @@ static void test_infeasible_direction( void )
  }
 
 /*--------------------------------------------------------------------------*/
+/* One unit from node 1 to node 3 (costs, capacities):
+ *
+ *   0: 1 -> 2  (1, 1)    1: 2 -> 3  (1, 2)    2: 1 -> 3  (5, 1)
+ *
+ * The optimal flow is the path 1 -> 2 -> 3, of cost 2, whose first arc is
+ * saturated: the optimal potentials have pi_2 - pi_1 anywhere in [ 1 , 4 ],
+ * and the two ends are the two vertices of the dual. Each dual solution
+ * given, by has_dual_solution() and new_dual_solution(), has to be feasible,
+ * of value 2, and different from those before it by more than a constant. */
+
+static void check_dual_solutions( MCFBlock & mcf , int maxsol , int nsols ,
+				  const std::string & what )
+{
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = static_cast< CDASolver * >(
+			     Solver::new_Solver( name( algo , gr ) ) );
+   mcf.register_Solver( slv );
+   slv->set_par( Solver::intMaxSol , maxsol );
+   const auto who = what + ", " + slv->classname();
+   check( slv->compute() == Solver::kOK , who + ": not solved" );
+
+   std::vector< double > seen;
+   for( bool more = slv->has_dual_solution() ; more ;
+	more = slv->new_dual_solution() ) {
+    slv->get_dual_solution();
+    MCFBlock::Vec_CNumber pi( 3 ) , rc( 3 );
+    mcf.get_pi( pi.begin() );
+    mcf.get_rc( rc.begin() );
+    check( mcf.dual_feasible( 1e-9 , pi ) , who + ": not dual feasible" );
+    double value = 0;
+    for( MCFBlock::Index i = 0 ; i < 3 ; ++i )
+     value += mcf.get_B( i ) * pi[ i ];
+    for( MCFBlock::Index a = 0 ; a < 3 ; ++a )
+     value += mcf.get_U( a ) * std::min( 0.0 , rc[ a ] );
+    check( std::abs( value - 2 ) <= 1e-9 ,
+	   who + ": dual value " + std::to_string( value ) );
+    const double gap = pi[ 1 ] - pi[ 0 ];
+    for( double g : seen )
+     check( std::abs( g - gap ) > 1e-9 , who + ": the same potentials twice" );
+    seen.push_back( gap );
+    }
+   check( int( seen.size() ) == nsols , who + ": " +
+	  std::to_string( seen.size() ) + " dual solutions instead of " +
+	  std::to_string( nsols ) );
+   mcf.unregister_Solver( slv , true );
+   }
+ }
+
+static void test_dual_solutions( void )
+{
+ MCFBlock mcf;
+ mcf.load( 3 , 3 , { 2 , 3 , 3 } , { 1 , 2 , 1 } , { 1 , 2 , 1 } ,
+	   { 1 , 1 , 5 } , { -1 , 0 , 1 } , 0 , 0 , 0 , 0 );
+ mcf.generate_abstract_constraints();
+ check_dual_solutions( mcf , 1 , 1 , "one dual solution" );
+ check_dual_solutions( mcf , 10 , 2 , "the dual solutions" );
+ }
+
+/*--------------------------------------------------------------------------*/
 /*--------------------------------- MAIN -----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -788,6 +849,7 @@ int main( void )
  test_cost_scaling_methods();
  test_dmx();
  test_multiple_flows();
+ test_dual_solutions();
 
  if( failures )
   std::cout << failures << " checks failed" << std::endl;

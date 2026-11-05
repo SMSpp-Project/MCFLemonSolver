@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `new_dual_solution()` gives, after the optimal potentials, up to
+  `intMaxSol` - 1 more optimal ones, the vertices of the dual given by the
+  trees of the shortest paths of the reduced costs from and to each node
+  (`runPotentials()` of abLEMON), so that a `BendersBFunction` may take more
+  than one cut at a point; the module needs abLEMON 1.8.0, told by
+  `runPotentials()`
+
 - `new_var_solution()` gives, after the optimal flow, up to `intMaxSol` - 1
   more extreme flows in the order of their costs, the other optimal ones
   first, within the gap `dblAAccSol` and `dblRAccSol` from the optimal value,
@@ -40,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- the module needs [abLEMON](https://github.com/dmeoli/abLEMON) 1.7.0 or
+- the module needs [abLEMON](https://github.com/dmeoli/abLEMON) 1.8.0 or
   later, the maintained fork of LEMON, and the build says so when it finds
   LEMON instead: the shim no longer writes into the headers what abLEMON has
   (the tolerances and the update of the potentials of `NetworkSimplex`, the

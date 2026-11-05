@@ -863,19 +863,38 @@ template< template < typename , typename , typename> class Algo ,
 	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::run_kbest( int k )
 {
- /* The ranking is run on the true data, whatever the Algo was given: the
-  * costs and the capacities as they are, the infinite ones included, and the
-  * supplies with their residual sum moved as compute() moves it. When the
-  * Algo was given the data as they are its optimal flow is the first one,
-  * and no other algorithm is run; otherwise NetworkSimplex finds it. A
-  * later run, for more flows, has the same data and finds the same first
-  * ones, the ranking being deterministic. */
+ // a later run, for more flows, has the same data and finds the same first
+ // ones, the generation being deterministic
+ if( ! f_kbest )
+  make_kbest();
  f_asked = k;
- if( f_kbest ) {
-  f_kbest->run( k , f_gap );
-  return;
-  }
+ f_kbest->run( k , f_gap );
+ }
 
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::run_potentials( int k )
+{
+ if( ! f_kbest )
+  make_kbest();
+ f_pasked = k;
+ f_kbest->runPotentials( k );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::make_kbest( void )
+{
+ /* The flows and the potentials are generated on the true data, whatever
+  * the Algo was given: the costs and the capacities as they are, the
+  * infinite ones included, and the supplies with their residual sum moved
+  * as compute() moves it. When the Algo was given the data as they are its
+  * optimal flow is the first one, and no other algorithm is run; otherwise
+  * NetworkSimplex finds it. */
  f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
  f_kbest->method( KBestExtremeFlows< GR , V , C >::CYCLES );
 
@@ -898,7 +917,6 @@ void MCFLemonSolver< Algo , GR , V , C >::run_kbest( int k )
  const double gap = std::min( f_abs_sol ,
 			      f_rel_sol * std::max( 1.0 , std::abs( opt ) ) );
  f_gap = gap < Inf< double >() ? C( gap ) : C( -1 );
- f_kbest->run( k , f_gap );
  }
 
 /*--------------------------------------------------------------------------*/

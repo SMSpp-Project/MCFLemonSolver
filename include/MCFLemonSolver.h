@@ -647,7 +647,7 @@ class MCFLemonSolver : public CDASolver
 
   // the flows are found a few at a time, as many more each time as were
   // found before, so that a caller asking for few of many pays for few
-  if( ! f_kbest )
+  if( f_asked == 0 )
    run_kbest( std::min( f_max_sol , 2 ) );
 
   for( ;; ) {
@@ -673,6 +673,43 @@ class MCFLemonSolver : public CDASolver
 
  bool has_dual_solution( void ) override {
   return( this->get_status() == ThisAlgo::ProblemType::OPTIMAL );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// moves to the next optimal potentials
+ /** After the optimal potentials that compute() gives, up to intMaxSol - 1
+  * more are given, one per call, each optimal and a vertex of the dual
+  * polyhedron: those of the trees of the shortest paths of the reduced
+  * costs, from and to each node in turn, of the optimal flow [see
+  * runPotentials() of KBestExtremeFlows]; potentials that differ from those
+  * already given by a constant are skipped. They are looked for 2 first,
+  * and then twice as many as before whenever they are all given, as the
+  * flows of new_var_solution() are. The flows [see get_var_solution()]
+  * remain the current ones. */
+
+ bool new_dual_solution( void ) override {
+  if( ( f_max_sol <= 1 ) ||
+      ( this->get_status() != ThisAlgo::ProblemType::OPTIMAL ) )
+   return( false );
+
+  if( f_pasked == 0 )
+   run_potentials( std::min( f_max_sol , 2 ) );
+
+  for( ;; ) {
+   while( ( f_pgiven < f_max_sol ) &&
+	  ( f_pnext < f_kbest->potentialNum() ) ) {
+    const int j = f_pnext++;
+    if( same_as_optimal_potentials( j ) )
+     continue;
+    f_pcur = j;
+    ++f_pgiven;
+    return( true );
+    }
+   if( ( f_pgiven >= f_max_sol ) || ( f_pasked >= f_max_sol ) ||
+       ( f_kbest->potentialNum() < f_pasked ) )
+    return( false );
+   run_potentials( std::min( 2 * f_pasked , f_max_sol ) );
+   }
   }
 
 /*--------------------------------------------------------------------------*/
@@ -707,7 +744,7 @@ class MCFLemonSolver : public CDASolver
   for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
    auto i = Index( dgp->id( n ) );
    if( i < Pi.size() )
-    Pi[ i ] = f_algo->potential( n ) / f_cost_scale;
+    Pi[ i ] = current_potential( n );
    }
   MCFB->set_pi( Pi.cbegin() );
 
@@ -790,7 +827,7 @@ class MCFLemonSolver : public CDASolver
     for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
      auto i = Index( dgp->id( n ) );
      if( i < Pi.size() )
-      Pi[ i ] = f_algo->potential( n ) / f_cost_scale;
+      Pi[ i ] = current_potential( n );
      }
     sol->set_pi( std::move( Pi ) );
     }
@@ -1223,7 +1260,11 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
+ void make_kbest( void );
+
  void run_kbest( int k );
+
+ void run_potentials( int k );
 
  void find_cycles( int k );
 
@@ -1248,6 +1289,32 @@ class MCFLemonSolver : public CDASolver
   return( X );
   }
 
+ /// the potential of the node n in the current potentials [see
+ /// new_dual_solution()]
+
+ [[nodiscard]] double current_potential( typename GR::Node n ) const {
+  if( f_pcur >= 0 )
+   return( double( f_kbest->potential( f_pcur , n ) ) );
+  return( double( f_algo->potential( n ) / f_cost_scale ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// true if the j-th potentials are those that compute() gave, up to a
+ /// constant
+
+ [[nodiscard]] bool same_as_optimal_potentials( int j ) const {
+  double lo = Inf< double >() , hi = -Inf< double >() , big = 1;
+  for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
+   const double p = f_algo->potential( n ) / f_cost_scale;
+   const double d = double( f_kbest->potential( j , n ) ) - p;
+   lo = std::min( lo , d );
+   hi = std::max( hi , d );
+   big = std::max( big , std::abs( p ) );
+   }
+  return( hi - lo <= 1e-9 * big );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// drops the extreme flows, the cycles and the cuts of the last compute()
  void forget_flows( void ) {
   f_dirs.clear();
@@ -1258,9 +1325,14 @@ class MCFLemonSolver : public CDASolver
   f_cut = -1;
   f_cuts_all = false;
   f_kbest.reset();
+  f_asked = 0;
   f_next = 0;
   f_cur = -1;
   f_given = 1;
+  f_pasked = 0;
+  f_pnext = 0;
+  f_pcur = -1;
+  f_pgiven = 1;
   }
 
  void close_supplies( MCFNodeMapV & s , typename GR::Node big , V sum );
@@ -1340,6 +1412,10 @@ class MCFLemonSolver : public CDASolver
  ///< the extreme flows [see new_var_solution()], made at its first call
  int f_next = 0;   ///< the next of them to look at
  int f_cur = -1;   ///< the current one, -1 for the flow of the Algo
+ int f_pasked = 0;  ///< the number of the potentials last looked for
+ int f_pnext = 0;   ///< the next of them to look at
+ int f_pcur = -1;   ///< the current one, -1 for those of the Algo
+ int f_pgiven = 1;  ///< the number of the potentials given since compute()
  int f_given = 1;  ///< the number of the flows given since compute()
  int f_asked = 0;  ///< the number of the flows the last ranking looked for
  C f_gap = -1;     ///< the gap of the ranking, -1 for none
