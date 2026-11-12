@@ -68,6 +68,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the C++20 module `smspp.mcflemonsolver` exports
+  `SMSppCapacityScalingTraits`, which `src/MCFLemonSolver.cppm` did not
+
 - `FindLEMON` looks for abLEMON also where `INSTALL.sh` and Homebrew put it
   (`/opt/abLEMON`, the prefix of `ablemon`) and in the environment variable
   `LEMON_ROOT`, before the directories of the system, and searches again a

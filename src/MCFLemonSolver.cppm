@@ -50,6 +50,7 @@ export namespace SMSpp_di_unipi_it {
  using SMSpp_di_unipi_it::MCFLemonSolverNetworkSimplex;
  using SMSpp_di_unipi_it::MCFListDigraph;
  using SMSpp_di_unipi_it::SMSppCapacityScaling;
+ using SMSpp_di_unipi_it::SMSppCapacityScalingTraits;
  using SMSpp_di_unipi_it::SMSppCostScaling;
 }
 
