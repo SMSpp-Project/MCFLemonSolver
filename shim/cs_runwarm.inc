@@ -9,7 +9,9 @@
  /// the optimality conditions under the potentials. It does what run()
  /// does if the last run did not end with OPTIMAL, with lower bounds, with
  /// an arc of infinite upper bound, with supplies that do not sum to zero,
- /// and when no flow meets the new bounds and supplies.
+ /// when no flow meets the new bounds and supplies, and when the potentials
+ /// times the scaling do not fit in an integer LargeCost or violate the
+ /// optimality conditions by more than the largest cost.
  ProblemType runWarm( Method method = PARTIAL_AUGMENT , int factor = 16 ) {
   if( ! _warm || _node_num == 0 || _has_lower || _sum_supply != 0 ||
       ! _inf_upper.empty() )
@@ -21,6 +23,18 @@
       ? _flow_tol
       : _mcf_bits::flowTolerance( _root , _first_out , _target , _forward ,
 				  _lower , _upper , _supply , _has_lower );
+  // the potentials of the last run, times n alpha, and the reduced costs
+  // they give must fit in an integer LargeCost, which after a change of the
+  // costs they need not do
+  const LargeCost scale = static_cast< LargeCost >( _res_node_num ) * factor;
+  if( std::numeric_limits< LargeCost >::is_integer ) {
+   const LargeCost lim = ( std::numeric_limits< LargeCost >::max )() / 4
+			 / scale;
+   for( int i = 0 ; i != _res_node_num ; ++i ) {
+    if( _pi[ i ] > lim || _pi[ i ] < -lim )
+     return( run( method , factor ) );
+    }
+   }
   Value sum = 0;
   for( int i = 0 ; i != _root ; ++i )
    sum += _supply[ i ];
@@ -44,7 +58,6 @@
 	    ? _cost_tol
 	    : _mcf_bits::costTolerance( _root , _first_out , _target ,
 					_forward , _scost );
-  const LargeCost scale = static_cast< LargeCost >( _res_node_num ) * _alpha;
   _eps_min = std::numeric_limits< LargeCost >::is_integer
 	       ? LargeCost( 1 )
 	       : static_cast< LargeCost >( _ceps ) * scale;
@@ -56,10 +69,13 @@
   // the costs the algorithm works on, and how far the potentials are from
   // optimal
   _epsilon = 0;
+  LargeCost cold = 0;  // the epsilon times alpha of run()
   for( int j = 0 ; j != _res_arc_num ; ++j ) {
    if( _source[ j ] == _root || _target[ j ] == _root )
     continue;
    _cost[ j ] = static_cast< LargeCost >( _scost[ j ] ) * scale;
+   if( _cost[ j ] > cold )
+    cold = _cost[ j ];
    }
   for( int j = 0 ; j != _res_arc_num ; ++j ) {
    if( _res_cap[ j ] <= _feps )
@@ -68,6 +84,12 @@
    if( -rc > _epsilon )
     _epsilon = -rc;
    }
+
+  // potentials that violate the optimality conditions by more than the
+  // costs do are a worse start than the zero ones of run(), and with an
+  // integer LargeCost the phases from such an epsilon overflow it
+  if( _epsilon > cold )
+   return( run( method , factor ) );
 
   // the flow and the potentials are already epsilon-optimal: the first
   // phase is the one after epsilon, as the loop of start() would take it

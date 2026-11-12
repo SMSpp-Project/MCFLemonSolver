@@ -79,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `runWarm()` of `CostScaling` took the potentials of the last run as they
+  were even when they violated the optimality conditions by more than the
+  largest cost, e.g., after a change of the costs: the phases from such an
+  epsilon overflowed the integer `LargeCost`, and a bucket index out of
+  range crashed the solver (`CFL_test` cap122 `-e 1 -k 831`); it now runs
+  from the zero potentials, as `run()` does, in this case and when the
+  potentials times the scaling do not fit in `LargeCost`
+
 - the C++20 module `smspp.mcflemonsolver` exports
   `SMSppCapacityScalingTraits`, which `src/MCFLemonSolver.cppm` did not
 
