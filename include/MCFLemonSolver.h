@@ -1441,6 +1441,15 @@ class MCFLemonSolver : public CDASolver
   return( f_flow_scale != 1 );
   }
 
+ /// true, once, if the scale of the costs or of the flows has changed since
+ /// the last run, whose flow and potentials are then in other units than
+ /// the data of the next one, which has to start from scratch
+ [[nodiscard]] bool take_rescaled( void ) {
+  const bool r = f_rescaled;
+  f_rescaled = false;
+  return( r );
+  }
+
  /*--------------------------------------------------------------------------*/
 
  void process_outstanding_Modification( void );
@@ -1530,6 +1539,8 @@ class MCFLemonSolver : public CDASolver
   ///< the scale of ium and ibm, 1 when the Algo is given the flows as they are
   V f_inf_cap = 0;
   ///< the scaled bound given for an infinite capacity [see pass_flows()]
+  bool f_rescaled = false;
+  ///< true if f_cost_scale or f_flow_scale has changed [see take_rescaled()]
 
   /// true if the Algo is given the capacities and supplies scaled and rounded
   static constexpr bool f_scaled_flows = std::is_floating_point< V >::value &&
@@ -1930,8 +1941,9 @@ class MCFLemonSolverCycleCanceling : public
   * anew. */
 
  void guts_of_compute( void ) override {
-  status = f_reopt ? f_algo->runWarm( CCMethod( f_method ) )
-                   : f_algo->run( CCMethod( f_method ) );
+  status = f_reopt && ! this->take_rescaled()
+             ? f_algo->runWarm( CCMethod( f_method ) )
+             : f_algo->run( CCMethod( f_method ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -2130,7 +2142,8 @@ template< typename GR , typename V , typename C >
   * starts from the zero flow and the zero potentials. */
 
  void guts_of_compute( void ) override {
-  status = f_reopt ? f_algo->runWarm( f_factor ) : f_algo->run( f_factor );
+  status = f_reopt && ! this->take_rescaled() ? f_algo->runWarm( f_factor )
+                                              : f_algo->run( f_factor );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -2336,7 +2349,8 @@ class MCFLemonSolverCostScaling : public
   const CSMethod m = f_method != kAutoMethod ? CSMethod( f_method ) :
                      flows_scaled() ? ThisAlgo::AUGMENT :
                                       ThisAlgo::PARTIAL_AUGMENT;
-  status = f_reopt ? f_algo->runWarm( m ) : f_algo->run( m );
+  status = f_reopt && ! this->take_rescaled() ? f_algo->runWarm( m )
+                                              : f_algo->run( m );
   }
 
 /*--------------------------------------------------------------------------*/

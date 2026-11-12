@@ -346,7 +346,10 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
    if( (*cm)[ a ] != std::floor( (*cm)[ a ] ) )
     integer = false;
 
+  const double old_scale = f_cost_scale;
   f_cost_scale = integer ? 1 : std::exp2( std::floor( std::log2( bound ) ) );
+  if( f_cost_scale != old_scale )
+   f_rescaled = true;
   if( ! icm )
    icm = new typename GR::template ArcMap< V >( *dgp , 0 );
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
@@ -420,9 +423,12 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_flows( typename GR::Node big )
   if( (*bm)[ nd ] != std::floor( (*bm)[ nd ] ) )
    integer = false;
 
+ const double old_scale = f_flow_scale;
  f_flow_scale = integer ? 1 :
   std::exp2( std::floor( std::log2( std::exp2( 52 ) /
 				    ( double( bound ) * n ) ) ) );
+ if( f_flow_scale != old_scale )
+  f_rescaled = true;
  if( ! ium )
   ium = new typename GR::template ArcMap< V >( *dgp , 0 );
  if( ! ibm )
