@@ -880,6 +880,9 @@ void MCFLemonSolver< Algo , GR , V , C >::run_potentials( int k )
  if( ! f_kbest )
   make_kbest();
  f_pasked = k;
+ f_kbest->potentialMethod( f_pot_method == 1
+			     ? KBestExtremeFlows< GR , V , C >::PIVOTS
+			     : KBestExtremeFlows< GR , V , C >::PATHS );
  f_kbest->runPotentials( k );
  }
 

@@ -107,16 +107,17 @@ find_package(LEMON REQUIRED)
 # MCFLemonSolver re-optimizes with runWarm() of the four minimum cost flow
 # algorithms, which abLEMON does not have: the build writes it into private
 # copies of five headers of abLEMON, put on the include path before the
-# installed ones [see shim/README.md]. abLEMON 1.8.0 is told from LEMON, and
-# from the earlier abLEMON, by runPotentials() in lemon/k_best_extreme_flows.h.
+# installed ones [see shim/README.md]. abLEMON 1.9.0 is told from LEMON, and
+# from the earlier abLEMON, by potentialMethod() in
+# lemon/k_best_extreme_flows.h.
 find_file(_ablemon_hdr lemon/k_best_extreme_flows.h
         PATHS ${LEMON_INCLUDE_DIRS} NO_DEFAULT_PATH)
 if (_ablemon_hdr)
-    file(STRINGS "${_ablemon_hdr}" _ablemon_pot REGEX "runPotentials")
+    file(STRINGS "${_ablemon_hdr}" _ablemon_pot REGEX "potentialMethod")
 endif ()
 if (NOT _ablemon_pot)
     message(FATAL_ERROR "MCFLemonSolver: the LEMON in ${LEMON_INCLUDE_DIRS} "
-            "is not abLEMON 1.8.0 or later "
+            "is not abLEMON 1.9.0 or later "
             "(https://github.com/dmeoli/abLEMON), which it needs")
 endif ()
 unset(_ablemon_hdr CACHE)

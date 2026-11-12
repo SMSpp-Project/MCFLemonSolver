@@ -781,7 +781,7 @@ static void test_infeasible_direction( void )
  * of value 2, and different from those before it by more than a constant. */
 
 static void check_dual_solutions( MCFBlock & mcf , int maxsol , int nsols ,
-				  const std::string & what )
+				  const std::string & what , int method )
 {
  for( const auto & gr : GRAPHS )
   for( const auto & algo : ALGOS ) {
@@ -789,7 +789,9 @@ static void check_dual_solutions( MCFBlock & mcf , int maxsol , int nsols ,
 			     Solver::new_Solver( name( algo , gr ) ) );
    mcf.register_Solver( slv );
    slv->set_par( Solver::intMaxSol , maxsol );
-   const auto who = what + ", " + slv->classname();
+   slv->set_par( slv->int_par_str2idx( "kPotMethod" ) , method );
+   const auto who = what + ", " + slv->classname() + ", kPotMethod " +
+		    std::to_string( method );
    check( slv->compute() == Solver::kOK , who + ": not solved" );
 
    std::vector< double > seen;
@@ -825,8 +827,10 @@ static void test_dual_solutions( void )
  mcf.load( 3 , 3 , { 2 , 3 , 3 } , { 1 , 2 , 1 } , { 1 , 2 , 1 } ,
 	   { 1 , 1 , 5 } , { -1 , 0 , 1 } , 0 , 0 , 0 , 0 );
  mcf.generate_abstract_constraints();
- check_dual_solutions( mcf , 1 , 1 , "one dual solution" );
- check_dual_solutions( mcf , 10 , 2 , "the dual solutions" );
+ for( int method = 0 ; method != 2 ; ++method ) {
+  check_dual_solutions( mcf , 1 , 1 , "one dual solution" , method );
+  check_dual_solutions( mcf , 10 , 2 , "the dual solutions" , method );
+  }
  }
 
 /*--------------------------------------------------------------------------*/

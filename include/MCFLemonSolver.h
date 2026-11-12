@@ -534,6 +534,7 @@ class MCFLemonSolver : public CDASolver
 
  enum int_par_type_LEMON {
   kKBest = intLastParCDAS ,  ///< how the flows of new_var_solution() come
+  kPotMethod ,               ///< how those of new_dual_solution() come
   intLastParLEMON
   ///< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
@@ -687,13 +688,14 @@ class MCFLemonSolver : public CDASolver
  /// moves to the next optimal potentials
  /** After the optimal potentials that compute() gives, up to intMaxSol - 1
   * more are given, one per call, each optimal and a vertex of the dual
-  * polyhedron: those of the trees of the shortest paths of the reduced
-  * costs, from and to each node in turn, of the optimal flow [see
-  * runPotentials() of KBestExtremeFlows]; potentials that differ from those
-  * already given by a constant are skipped. They are looked for 2 first,
-  * and then twice as many as before whenever they are all given, as the
-  * flows of new_var_solution() are. The flows [see get_var_solution()]
-  * remain the current ones. */
+  * polyhedron: by default those of the trees of the shortest paths of the
+  * reduced costs, from and to each node in turn, of the optimal flow, or
+  * with kPotMethod == 1 those reached by the pivots of the dual simplex
+  * [see runPotentials() of KBestExtremeFlows]; potentials that differ
+  * from those already given by a constant are skipped. They are looked
+  * for 2 first, and then twice as many as before whenever they are all
+  * given, as the flows of new_var_solution() are. The flows [see
+  * get_var_solution()] remain the current ones. */
 
  bool new_dual_solution( void ) override {
   if( ( f_max_sol <= 1 ) ||
@@ -1090,6 +1092,8 @@ class MCFLemonSolver : public CDASolver
    return( f_max_sol );
   if( par == kKBest )
    return( f_kbest_method );
+  if( par == kPotMethod )
+   return( f_pot_method );
   return( CDASolver::get_int_par( par ) );
   }
 
@@ -1100,7 +1104,10 @@ class MCFLemonSolver : public CDASolver
   * KBestExtremeFlows of abLEMON: 0, the default, by the cycles of least
   * reduced cost from the optimal vertex (CYCLES), 1 as the k best vertices
   * in order (RANKING), exactly when the capacities and the deficits are
-  * integer. */
+  * integer; kPotMethod says how the potentials of new_dual_solution() are
+  * generated: 0, the default, by the trees of the shortest paths from and
+  * to each node (PATHS), 1 by the pivots of the dual simplex from the
+  * optimal vertex (PIVOTS). */
 
  void set_par( idx_type par , int value ) override {
   if( par == intMaxSol )
@@ -1111,6 +1118,14 @@ class MCFLemonSolver : public CDASolver
 				  std::to_string( value ) ) );
    f_kbest_method = value;
    forget_flows();
+   }
+  else if( par == kPotMethod ) {
+   if( ( value < 0 ) || ( value > 1 ) )
+    throw(
+      std::invalid_argument( "MCFLemonSolver::set_par: invalid kPotMethod " +
+			     std::to_string( value ) ) );
+   f_pot_method = value;
+   forget_potentials();
    }
   else
    CDASolver::set_par( par , value );
@@ -1125,7 +1140,7 @@ class MCFLemonSolver : public CDASolver
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  [[nodiscard]] int get_dflt_int_par( idx_type par ) const override {
-  if( par == kKBest )
+  if( ( par == kKBest ) || ( par == kPotMethod ) )
    return( 0 );
   return( CDASolver::get_dflt_int_par( par ) );
   }
@@ -1136,6 +1151,8 @@ class MCFLemonSolver : public CDASolver
  int_par_str2idx( const std::string & name ) const override {
   if( name == "kKBest" )
    return( kKBest );
+  if( name == "kPotMethod" )
+   return( kPotMethod );
   return( CDASolver::int_par_str2idx( name ) );
   }
 
@@ -1144,8 +1161,11 @@ class MCFLemonSolver : public CDASolver
  [[nodiscard]] const std::string &
  int_par_idx2str( idx_type idx ) const override {
   static const std::string name = "kKBest";
+  static const std::string pname = "kPotMethod";
   if( idx == kKBest )
    return( name );
+  if( idx == kPotMethod )
+   return( pname );
   return( CDASolver::int_par_idx2str( idx ) );
   }
 
@@ -1389,6 +1409,11 @@ class MCFLemonSolver : public CDASolver
   f_next = 0;
   f_cur = -1;
   f_given = 1;
+  forget_potentials();
+  }
+
+ // drops the potentials of the last runPotentials()
+ void forget_potentials( void ) {
   f_pasked = 0;
   f_pnext = 0;
   f_pcur = -1;
@@ -1466,6 +1491,7 @@ class MCFLemonSolver : public CDASolver
 
  int f_max_sol = 1;  ///< largest number of the flows given [intMaxSol]
  int f_kbest_method = 0;  ///< how the flows are generated [kKBest]
+ int f_pot_method = 0;    ///< how the potentials are generated [kPotMethod]
  double f_rel_sol = Inf< double >();  ///< relative gap of them [dblRAccSol]
  double f_abs_sol = Inf< double >();  ///< absolute gap of them [dblAAccSol]
 
