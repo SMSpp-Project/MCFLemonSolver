@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- the library is kept in whoever links it by a source that calls its
+  `SMSpp_force_load_` function, the tests and the tools take the static
+  libraries whole by the `WHOLE_ARCHIVE` feature of CMake and copy the DLLs
+  next to them only where there are any, and the installed run-time path is
+  the one of `smspp_install_rpath()`, with no test on the system or on the
+  compiler [see `SMSppModule.cmake` of SMS++]; CMake 3.24 or later is needed
+
+- PThreads4W is looked for where the threads of the system are not the
+  pthreads, `/bigobj` is given where the compiler takes it, and the find
+  module of LEMON looks for the libraries of conda and vcpkg, and for the
+  debug ones, on every system
+
 ## [0.5.0] - 2026-11-16
 
 ### Added

@@ -119,49 +119,43 @@ if (NOT LEMON_FOUND)
     # build of LEMON: NAMES_PER_DIR looks for both names in a directory
     # before the next one, so that the emon of LEMON_ROOT is not passed over
     # for the lemon of the system
-    if (UNIX)
-        # the library of the directory where the headers were found first
-        get_filename_component(_LEMON_lib_hints "${LEMON_INCLUDE_DIR}"
-                DIRECTORY)
-        set(_LEMON_lib_hints ${_LEMON_lib_hints}/lib)
-        foreach (_LEMON_hint ${_LEMON_hints})
-            list(APPEND _LEMON_lib_hints ${_LEMON_hint}/lib)
-        endforeach ()
-        find_library(LEMON_LIBRARY
-                NAMES lemon emon
-                NAMES_PER_DIR
-                HINTS ${_LEMON_lib_hints}
-                DOC "LEMON library.")
+    # the library of the directory where the headers were found first, or
+    # where conda and vcpkg put it, the latter with a debug one of its own
+    get_filename_component(_LEMON_lib_hints "${LEMON_INCLUDE_DIR}"
+            DIRECTORY)
+    set(_LEMON_lib_hints ${_LEMON_lib_hints}/lib)
+    foreach (_LEMON_hint ${_LEMON_hints})
+        list(APPEND _LEMON_lib_hints ${_LEMON_hint}/lib)
+    endforeach ()
+    list(APPEND _LEMON_lib_hints $ENV{LIBRARY_LIB})
+    set(_LEMON_debug_dirs ${LEMON_ROOT}/debug/lib)
+    if (VCPKG_INSTALLED_DIR)
+        list(APPEND _LEMON_lib_hints
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib)
+        list(APPEND _LEMON_debug_dirs
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib)
+    endif ()
+    find_library(LEMON_LIBRARY
+            NAMES lemon emon
+            NAMES_PER_DIR
+            HINTS ${_LEMON_lib_hints}
+            DOC "LEMON library.")
 
+    find_library(LEMON_LIBRARY_DEBUG
+            NAMES lemon emon
+            NAMES_PER_DIR
+            PATHS ${_LEMON_debug_dirs}
+            NO_DEFAULT_PATH
+            DOC "LEMON debug library.")
+
+    # Release-only distributions (e.g. conda-forge) ship no debug build:
+    # fall back to the release library so a Release configure succeeds.
+    if (NOT LEMON_LIBRARY_DEBUG)
         set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
                 CACHE FILEPATH "LEMON debug library." FORCE)
-    elseif (WIN32)
-        find_library(LEMON_LIBRARY
-                NAMES lemon emon
-                NAMES_PER_DIR
-                PATHS
-                ${LEMON_ROOT}/lib
-                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
-                $ENV{LIBRARY_LIB}
-                NO_DEFAULT_PATH
-                DOC "LEMON library.")
-
-        find_library(LEMON_LIBRARY_DEBUG
-                NAMES lemon emon
-                NAMES_PER_DIR
-                PATHS
-                ${LEMON_ROOT}/debug/lib
-                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
-                NO_DEFAULT_PATH
-                DOC "LEMON debug library.")
-
-        # Release-only distributions (e.g. conda-forge) ship no debug build:
-        # fall back to the release library so a Release configure succeeds.
-        if (NOT LEMON_LIBRARY_DEBUG)
-            set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
-                    CACHE FILEPATH "LEMON debug library." FORCE)
-        endif ()
     endif ()
+    unset(_LEMON_lib_hints)
+    unset(_LEMON_debug_dirs)
 
     # ----- Parse the version ----------------------------------------------- #
     # lemon/config.h carries a single string macro, e.g.,
