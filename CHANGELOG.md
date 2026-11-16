@@ -78,6 +78,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- PThreads4W, which the library linked on Windows and does not use: the
+  lock of abLEMON is only in its interface to CPLEX
+
 - `shim/ns_eps.inc`, `shim/ns_potential.inc`, `shim/cs_feasible.inc` and
   `shim/markers.txt`, whose rewrites abLEMON makes useless or the anchors
   check by themselves

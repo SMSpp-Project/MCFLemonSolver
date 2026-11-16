@@ -53,44 +53,6 @@ include(BuildType)
 include(FindPackageHandleStandardArgs)
 
 # ----- Requirements -------------------------------------------------------- #
-# This sets the variable CMAKE_USE_WIN32_THREADS_INIT, see:
-# https://cmake.org/cmake/help/latest/module/FindThreads.html
-if (WIN32)
-    # PThreads4WConfig.cmake given if `pthreads` installed via vcpkg..
-    find_package(PThreads4W QUIET)
-    # ... otherwise, overrides macros in Conda to find the `pthreads-win32`
-    # package
-    if (NOT PThreads4W_FOUND)
-
-        find_path(PThreads4W_INCLUDE_DIR
-                NAMES pthread.h
-                PATHS $ENV{LIBRARY_INC}
-                NO_DEFAULT_PATH
-                DOC "PThreads4W include directory.")
-
-        find_library(PThreads4W_LIBRARY
-                NAMES pthreadVC2 pthreadVC3 pthread
-                PATHS $ENV{LIBRARY_LIB}
-                NO_DEFAULT_PATH
-                DOC "PThreads4W library.")
-
-        find_package_handle_standard_args(
-                PThreads4W
-                REQUIRED_VARS PThreads4W_LIBRARY PThreads4W_INCLUDE_DIR)
-    endif ()
-
-    if (PThreads4W_FOUND)
-        if (NOT TARGET PThreads4W::PThreads4W)
-            add_library(PThreads4W::PThreads4W UNKNOWN IMPORTED)
-            set_target_properties(
-                    PThreads4W::PThreads4W PROPERTIES
-                    IMPORTED_LOCATION ${PThreads4W_LIBRARY}
-                    INTERFACE_INCLUDE_DIRECTORIES ${PThreads4W_INCLUDE_DIR}
-                    IMPORTED_LINK_INTERFACE_LANGUAGES "C")
-        endif ()
-    endif ()
-endif ()
-
 if (NOT hasParent)
     # If it's not being called by the umbrella, we need to
     # look for the system-installed libraries.
@@ -315,10 +277,6 @@ target_include_directories(${modName} BEFORE PUBLIC
 target_link_libraries(${modName} PUBLIC
         ${modNamespace}::MCFBlock
         lemon)
-
-if (WIN32)
-    target_link_libraries(${modName} PUBLIC PThreads4W::PThreads4W)
-endif ()
 
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
