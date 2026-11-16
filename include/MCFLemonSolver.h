@@ -45,6 +45,8 @@
 
 #include "lemon/network_simplex.h"
 
+#include "lemon/k_best_extreme_flows.h"
+
 #include <lemon/quad_heap.h>
 
 #include <lemon/list_graph.h>
@@ -56,6 +58,8 @@
 #include <array>
 
 #include <chrono>
+
+#include <memory>
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- NAMESPACE & USING -----------------------------*/
@@ -494,17 +498,12 @@ class MCFListDigraph : public ListDigraph
   *   < GR , V , C >, each with its own trait) that are meant to be used
   *   instead of the original CapacityScaling and CostScaling.
   *
-  * LEMON requires the data to be integer even when V and C are double: all
-  * of them for NetworkSimplex, CostScaling and CycleCanceling, capacities
-  * and supplies for CapacityScaling, which is the one that actually gives
-  * wrong values on fractional capacities and supplies. Fractional costs are
-  * taken care of all the same: the build compiles NetworkSimplex with
-  * tolerances on the sign of the reduced costs and on the flow left on its
-  * artificial arcs (see the shim in CMakeLists.txt), without which it may
-  * pivot for ever or report infeasibility, and CostScaling and
+  * abLEMON takes fractional data in the four algorithms, comparing the
+  * reduced costs and the flows against tolerances; yet CostScaling and
   * CycleCanceling are given the costs scaled by a power of 2 and rounded,
-  * which are integer [see pass_costs()], without which the former may read
-  * out of its own vectors and the latter end away from the optimum; the
+  * which are integer [see pass_costs()], on which their scaling ends at an
+  * exact optimum, and CostScaling, CycleCanceling and CapacityScaling the
+  * capacities and the supplies scaled and rounded in the same way; the
   * value and the potentials are those of the true costs. Besides,
   * CycleCanceling and CapacityScaling do not support negative costs on arcs
   * with infinite capacity. The deficits of a MCFBlock that sum to zero only
@@ -532,6 +531,15 @@ class MCFLemonSolver : public CDASolver
  using MCFArcMapV = typename GR::template ArcMap< V >;
  using MCFNodeMapV = typename GR::template NodeMap< V >;
  typedef typename ThisAlgo::ProblemType ProblemType;
+
+ enum int_par_type_LEMON {
+  kKBest = intLastParCDAS ,  ///< how the flows of new_var_solution() come
+  kPotMethod ,               ///< how those of new_dual_solution() come
+  intLastParLEMON
+  ///< first allowed parameter value for derived classes
+  /**< convenience value for easily allow derived classes
+   * to further extend the set of types of return codes */
+  };
 
  enum str_par_type_LEMON {
   strDMXFile = strLastParCDAS ,  ///< DMX filename to output the instance
@@ -585,27 +593,17 @@ class MCFLemonSolver : public CDASolver
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
- OFValue get_lb( void ) override { return( get_ub() ); }
+ /// the optimal value, whichever the current solution is
+
+ OFValue get_lb( void ) override { return( opt_value() ); }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the value of the current solution [see new_var_solution()]
 
  OFValue get_ub( void ) override {
-  switch( this->get_status() ) {
-   case( ThisAlgo::ProblemType::OPTIMAL ) :
-    if( ( f_cost_scale != 1 ) || ( f_flow_scale != 1 ) ) {
-     // the Algo saw the costs, or the flows, scaled and rounded [see
-     // pass_costs() and pass_flows()]: the value is taken with the true
-     // costs and flows
-     OFValue v = 0;
-     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
-      v += OFValue( f_algo->flow( a ) / f_flow_scale ) * (*cm)[ a ];
-     return( v );
-     }
-    return( OFValue( f_algo->totalCost() ) );
-   case( ThisAlgo::ProblemType::UNBOUNDED ) :
-    return( -Inf< OFValue >() );
-   default : return( Inf< OFValue >() );
-   }
+  if( f_cur >= 0 )
+   return( OFValue( f_kbest->totalCost( f_cur ) ) );
+  return( opt_value() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -621,12 +619,107 @@ class MCFLemonSolver : public CDASolver
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// moves to the next extreme flow, in the order of their costs
+ /** After the optimal flow that compute() gives, up to intMaxSol - 1 more
+  * flows are given, one per call, each of them a vertex of the polyhedron
+  * of the flows: first the other optimal ones, if any, then the others in
+  * the order of their costs, as long as their cost exceeds the optimal one
+  * by at most dblAAccSol and by at most dblRAccSol times the largest
+  * between 1 and the absolute value of the optimal one. They are found, the
+  * first time the method is called after compute(), by the ranking of the
+  * vertices of KBestExtremeFlows [see k_best_extreme_flows.h of abLEMON],
+  * from the optimal flow of the algorithm when it is given the data as they
+  * are, and solving the problem again with NetworkSimplex when it is given
+  * them scaled; a vertex equal to the optimal flow already given is
+  * skipped. A flow inside a face of the polyhedron is not given, since its
+  * (sub)gradient in a Lagrangian or Benders' decomposition is a convex
+  * combination of those of the vertices of the face.
+  *
+  * The flows come from the cycles of least reduced cost [see CYCLES in
+  * KBestExtremeFlows], not from the ranking of the bases, since a
+  * degenerate vertex may have very many, as a path in a shortest path
+  * problem has as many as the trees containing it: the other optimal
+  * vertices are those that the cycles of zero reduced cost lead to, and
+  * the others are the best ones one cycle of least reduced cost away from
+  * an optimal one, in the order of their costs, but they may not be the
+  * best vertices. Each optimal vertex costs O( n m log n ) time; hence 2
+  * flows are looked for first, and then twice as many as before whenever
+  * they are all given, so that a caller asking for few of intMaxSol flows,
+  * as a LagBFunction that sets intMaxSol to the size of its pool does,
+  * pays for few. The potentials [see get_dual_solution()] remain the
+  * optimal ones. */
 
- /// the potentials are those of an optimal solution: LEMON gives no
- /// certificate of infeasibility
+ bool new_var_solution( void ) override {
+  if( ( f_max_sol <= 1 ) ||
+      ( this->get_status() != ThisAlgo::ProblemType::OPTIMAL ) )
+   return( false );
+
+  // the flows are found a few at a time, as many more each time as were
+  // found before, so that a caller asking for few of many pays for few
+  if( f_asked == 0 )
+   run_kbest( std::min( f_max_sol , 2 ) );
+
+  for( ;; ) {
+   while( ( f_given < f_max_sol ) && ( f_next < f_kbest->flowNum() ) ) {
+    const int j = f_next++;
+    if( same_as_optimal( j ) )
+     continue;
+    f_cur = j;
+    ++f_given;
+    return( true );
+    }
+   if( ( f_given >= f_max_sol ) || ( f_asked >= f_max_sol ) ||
+       ( f_kbest->flowNum() < f_asked ) )
+    return( false );
+   run_kbest( std::min( 2 * f_asked , f_max_sol ) );
+   }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ /// the potentials are those of an optimal solution, the certificate of
+ /// infeasibility being a direction [see has_dual_direction()]
 
  bool has_dual_solution( void ) override {
   return( this->get_status() == ThisAlgo::ProblemType::OPTIMAL );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// moves to the next optimal potentials
+ /** After the optimal potentials that compute() gives, up to intMaxSol - 1
+  * more are given, one per call, each optimal and a vertex of the dual
+  * polyhedron: by default those of the trees of the shortest paths of the
+  * reduced costs, from and to each node in turn, of the optimal flow, or
+  * with kPotMethod == 1 those reached by the pivots of the dual simplex
+  * [see runPotentials() of KBestExtremeFlows]; potentials that differ
+  * from those already given by a constant are skipped. They are looked
+  * for 2 first, and then twice as many as before whenever they are all
+  * given, as the flows of new_var_solution() are. The flows [see
+  * get_var_solution()] remain the current ones. */
+
+ bool new_dual_solution( void ) override {
+  if( ( f_max_sol <= 1 ) ||
+      ( this->get_status() != ThisAlgo::ProblemType::OPTIMAL ) )
+   return( false );
+
+  if( f_pasked == 0 )
+   run_potentials( std::min( f_max_sol , 2 ) );
+
+  for( ;; ) {
+   while( ( f_pgiven < f_max_sol ) &&
+	  ( f_pnext < f_kbest->potentialNum() ) ) {
+    const int j = f_pnext++;
+    if( same_as_optimal_potentials( j ) )
+     continue;
+    f_pcur = j;
+    ++f_pgiven;
+    return( true );
+    }
+   if( ( f_pgiven >= f_max_sol ) || ( f_pasked >= f_max_sol ) ||
+       ( f_kbest->potentialNum() < f_pasked ) )
+    return( false );
+   run_potentials( std::min( 2 * f_pasked , f_max_sol ) );
+   }
   }
 
 /*--------------------------------------------------------------------------*/
@@ -645,7 +738,7 @@ class MCFLemonSolver : public CDASolver
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
    auto i = Index( dgp->id( a ) );
    if( i < X.size() )
-    X[ i ] = f_algo->flow( a ) / f_flow_scale;
+    X[ i ] = current_flow( a );
    }
   MCFB->set_x( X.cbegin() );
   }
@@ -661,7 +754,7 @@ class MCFLemonSolver : public CDASolver
   for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
    auto i = Index( dgp->id( n ) );
    if( i < Pi.size() )
-    Pi[ i ] = f_algo->potential( n ) / f_cost_scale;
+    Pi[ i ] = current_potential( n );
    }
   MCFB->set_pi( Pi.cbegin() );
 
@@ -703,6 +796,21 @@ class MCFLemonSolver : public CDASolver
   if( ! f_Block )
    return( nullptr );
 
+  // an unbounded instance has a direction to give rather than a solution:
+  // the Solution says that what it holds is one, and has no potentials
+  if( has_var_direction() ) {
+   auto MCFB = static_cast< MCFBlock * >( f_Block );
+   auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc ,
+								 true ) );
+   if( ! sol->get_x().empty() ) {
+    sol->is_direction( true );
+    sol->set_x( cycle_flow() );
+    }
+   if( ! sol->get_pi().empty() )
+    sol->set_pi( MCFBlock::Vec_CNumber() );
+   return( sol );
+   }
+
   if( ( ! has_var_solution() ) && ( ! has_dual_solution() ) )
    return( nullptr );
 
@@ -715,7 +823,7 @@ class MCFLemonSolver : public CDASolver
     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
      auto i = Index( dgp->id( a ) );
      if( i < X.size() )
-      X[ i ] = f_algo->flow( a ) / f_flow_scale;
+      X[ i ] = current_flow( a );
      }
     sol->set_x( std::move( X ) );
     }
@@ -729,7 +837,7 @@ class MCFLemonSolver : public CDASolver
     for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
      auto i = Index( dgp->id( n ) );
      if( i < Pi.size() )
-      Pi[ i ] = f_algo->potential( n ) / f_cost_scale;
+      Pi[ i ] = current_potential( n );
      }
     sol->set_pi( std::move( Pi ) );
     }
@@ -748,23 +856,154 @@ class MCFLemonSolver : public CDASolver
   return( true );
   }
 
- /// returns false: the LEMON algorithms give out no unbounded direction
+ /// true if the instance is unbounded: the certificate is a direction
+ /** On an unbounded instance the certificate is a cycle of negative cost
+  * whose arcs have infinite capacity [see unboundedCycle() of abLEMON],
+  * which the algorithm gives, or NetworkSimplex on the true data when the
+  * algorithm was given an infinite capacity as a finite bound [see
+  * pass_flows()]. With intMaxSol larger than 1 there are up to intMaxSol
+  * such cycles, pairwise arc-disjoint and in the order of their mean costs
+  * [see unboundedCycles() of abLEMON], given one per call of
+  * new_var_direction(), the first call of which looks for them: the cycle
+  * of the algorithm, which is the first one, costs nothing more than the
+  * run, the others a cycle of minimum mean cost each. */
 
- bool has_var_direction( void ) override { return( false ); }
-
- void get_var_direction( Configuration* dirc = nullptr ) override {
-  throw( std::logic_error( "MCFLemonSolver::get_var_direction: no direction "
-			   "is available" ) );
+ bool has_var_direction( void ) override {
+  if( this->get_status() != ThisAlgo::ProblemType::UNBOUNDED )
+   return( false );
+  if( f_dir < 0 ) {
+   find_cycles( 1 );
+   f_dir = 0;
+   }
+  return( ! f_dirs.empty() );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// returns false: the LEMON algorithms give out no dual unbounded direction
+ /// moves to the next cycle [see has_var_direction()]
 
- bool has_dual_direction( void ) override { return( false ); }
+ bool new_var_direction( void ) override {
+  if( ! has_var_direction() )
+   return( false );
+  if( ( ! f_dirs_all ) && ( f_max_sol > 1 ) ) {
+   f_dirs_all = true;
+   find_cycles( f_max_sol );
+   }
+  if( f_dir + 1 >= int( f_dirs.size() ) )
+   return( false );
+  ++f_dir;
+  return( true );
+  }
 
- void get_dual_direction( Configuration* dirc = nullptr ) override {
-  throw( std::logic_error( "MCFLemonSolver::get_dual_direction: no direction "
-			   "is available" ) );
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// writes one unit of flow along the current cycle in the flow Variable
+ /** Writes in the flow Variable of the MCFBlock one unit of flow along the
+  * current cycle [see has_var_direction()], and tells the MCFBlock that
+  * what they hold is a direction [see MCFBlock::is_direction()]. The
+  * Configuration says which part to write, as in MCFBlock::get_Solution():
+  * a value of 2 asks for the dual part alone, and then nothing is done.
+  * Throws if the last run did not end declaring the instance unbounded. */
+
+ void get_var_direction( Configuration * dirc = nullptr ) override {
+  if( ! f_Block )  // no [MCF]Block to write to
+   return;         // cowardly and silently return
+
+  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
+  if( tsolc && ( tsolc->f_value == 2 ) )
+   return;
+
+  if( ! has_var_direction() )
+   throw( std::logic_error( "MCFLemonSolver::get_var_direction: no "
+			    "certificate of unboundedness" ) );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFB->is_direction( true );  // what the Variable hold is a direction
+  MCFB->set_x( cycle_flow().begin() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// true if the instance is infeasible: the certificate is a direction
+ /** On an infeasible instance the certificate is a set S of nodes whose
+  * supply exceeds the capacity of the arcs leaving it [see infeasibleCut()
+  * of abLEMON], or, when the supplies do not sum to zero, the set of all
+  * the nodes, whose supply is then positive or negative. It is the dual
+  * direction whose potentials are -1 on S and 0 elsewhere, or +1 on all the
+  * nodes when their supply is negative, along which the dual objective
+  * grows by the violation of the cut [see get_dual_direction()]. The set
+  * is that of the algorithm, or of NetworkSimplex on the true data when the
+  * algorithm was given the flows scaled [see pass_flows()], and it is
+  * checked on the true data. With intMaxSol larger than 1 there are up to
+  * intMaxSol such sets, given one per call of new_dual_direction(): first
+  * the weakly connected components of the set of the most violated cut
+  * whose violation is positive, which are disjoint cuts with no arc between
+  * two of them [see disjointInfeasibleCuts() of abLEMON], then the most
+  * violated cuts in order [see infeasibleCuts() of abLEMON], looked for at
+  * the first call of new_dual_direction(), since they cost up to n maximum
+  * flows each while the first set is that of the algorithm. */
+
+ bool has_dual_direction( void ) override {
+  if( this->get_status() != ThisAlgo::ProblemType::INFEASIBLE )
+   return( false );
+  if( f_cut < 0 ) {
+   find_cuts( 1 );
+   f_cut = 0;
+   }
+  return( ! f_cuts.empty() );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// moves to the next set [see has_dual_direction()]
+
+ bool new_dual_direction( void ) override {
+  if( ! has_dual_direction() )
+   return( false );
+  if( ( ! f_cuts_all ) && ( f_max_sol > 1 ) ) {
+   f_cuts_all = true;
+   find_cuts( f_max_sol );
+   }
+  if( f_cut + 1 >= int( f_cuts.size() ) )
+   return( false );
+  ++f_cut;
+  return( true );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// writes the dual direction of the current set in the MCFBlock
+ /** Writes in the dual values of the flow conservation constraints of the
+  * MCFBlock the potentials of the current set [see has_dual_direction()],
+  * \f$ \pi \f$, and in those of the bound constraints the reduced costs
+  * of the homogeneous system, \f$ \pi_{SN(a)} - \pi_{EN(a)} \f$, as the
+  * ray of the dual is written by MILPSolver.
+  * The Configuration says which part to write, as in
+  * MCFBlock::get_Solution(): a value of 1 asks for the primal part alone,
+  * and then nothing is done. Throws if the last run did not end declaring
+  * the instance infeasible. */
+
+ void get_dual_direction( Configuration * dirc = nullptr ) override {
+  if( ! f_Block )  // no [MCF]Block to write to
+   return;         // cowardly and silently return
+
+  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
+  if( tsolc && ( tsolc->f_value == 1 ) )
+   return;
+
+  if( ! has_dual_direction() )
+   throw( std::logic_error( "MCFLemonSolver::get_dual_direction: no "
+			    "certificate of infeasibility" ) );
+
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFBlock::Vec_CNumber Pi( MCFB->get_NNodes() , 0 );
+  for( auto nd : f_cuts[ f_cut ] ) {
+   auto i = Index( dgp->id( nd ) );
+   if( i < Pi.size() )
+    Pi[ i ] = f_cut_sign[ f_cut ];
+   }
+  MCFB->set_pi( Pi.cbegin() );
+
+  MCFBlock::Vec_CNumber RC( MCFB->get_NArcs() , 0 );
+  for( Index i = 0 ; i < RC.size() ; ++i )
+   if( ! MCFB->is_deleted( i ) )
+    RC[ i ] = Pi[ MCFB->get_SN( i ) - 1 ] - Pi[ MCFB->get_EN( i ) - 1 ];
+  MCFB->set_rc( RC.cbegin() );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -784,6 +1023,150 @@ class MCFLemonSolver : public CDASolver
    return( _empty );
 
   return( CDASolver::get_dflt_str_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// gets the @return default value of the double parameter @param par
+ /** dblRelAcc, dblFAccSol, dblAAccDSol and dblAbsAcc are 0, i.e., the
+  * tolerances are those that abLEMON sets on the data [see
+  * pass_tolerances()]. */
+
+ [[nodiscard]] double get_dflt_dbl_par( idx_type par ) const override {
+  if( ( par == dblRelAcc ) || ( par == dblFAccSol ) ||
+      ( par == dblAAccDSol ) || ( par == dblAbsAcc ) )
+   return( 0 );
+  return( CDASolver::get_dflt_dbl_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// gets the @return value of the double parameter @param par
+
+ [[nodiscard]] double get_dbl_par( idx_type par ) const override {
+  if( par == dblRelAcc )
+   return( f_rel_cst );
+  if( par == dblFAccSol )
+   return( f_rel_flw );
+  if( par == dblAAccDSol )
+   return( f_abs_cst );
+  if( par == dblAbsAcc )
+   return( f_abs_flw );
+  if( par == dblRAccSol )
+   return( f_rel_sol );
+  if( par == dblAAccSol )
+   return( f_abs_sol );
+  return( CDASolver::get_dbl_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// set the double parameter @param par to @param value
+ /** The tolerances of the algorithm on the reduced costs and on the flows
+  * [see tolerances() of abLEMON] come from dblRelAcc and dblFAccSol, if
+  * positive, as relative ones: the former times the largest absolute value
+  * of a cost, the latter times the largest one among the finite capacities
+  * and the deficits; otherwise from dblAAccDSol and dblAbsAcc, if positive
+  * and finite, as absolute ones; otherwise abLEMON sets them on the data,
+  * as it does by default [see pass_tolerances()]. */
+
+ void set_par( idx_type par , double value ) override {
+  if( par == dblRelAcc )
+   f_rel_cst = value;
+  else if( par == dblFAccSol )
+   f_rel_flw = value;
+  else if( par == dblAAccDSol )
+   f_abs_cst = value;
+  else if( par == dblAbsAcc )
+   f_abs_flw = value;
+  else if( par == dblRAccSol )
+   f_rel_sol = value;
+  else if( par == dblAAccSol )
+   f_abs_sol = value;
+  else
+   CDASolver::set_par( par , value );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// gets the @return value of the int parameter @param par
+
+ [[nodiscard]] int get_int_par( idx_type par ) const override {
+  if( par == intMaxSol )
+   return( f_max_sol );
+  if( par == kKBest )
+   return( f_kbest_method );
+  if( par == kPotMethod )
+   return( f_pot_method );
+  return( CDASolver::get_int_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// set the int parameter @param par to @param value
+ /** intMaxSol is the largest number of the flows given [see
+  * new_var_solution()], and kKBest says how they are generated by
+  * KBestExtremeFlows of abLEMON: 0, the default, by the cycles of least
+  * reduced cost from the optimal vertex (CYCLES), 1 as the k best vertices
+  * in order (RANKING), exactly when the capacities and the deficits are
+  * integer; kPotMethod says how the potentials of new_dual_solution() are
+  * generated: 0, the default, by the trees of the shortest paths from and
+  * to each node (PATHS), 1 by the pivots of the dual simplex from the
+  * optimal vertex (PIVOTS). */
+
+ void set_par( idx_type par , int value ) override {
+  if( par == intMaxSol )
+   f_max_sol = value;
+  else if( par == kKBest ) {
+   if( ( value < 0 ) || ( value > 1 ) )
+    throw( std::invalid_argument( "MCFLemonSolver::set_par: invalid kKBest " +
+				  std::to_string( value ) ) );
+   f_kbest_method = value;
+   forget_flows();
+   }
+  else if( par == kPotMethod ) {
+   if( ( value < 0 ) || ( value > 1 ) )
+    throw(
+      std::invalid_argument( "MCFLemonSolver::set_par: invalid kPotMethod " +
+			     std::to_string( value ) ) );
+   f_pot_method = value;
+   forget_potentials();
+   }
+  else
+   CDASolver::set_par( par , value );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] idx_type get_num_int_par( void ) const override {
+  return( intLastParLEMON );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] int get_dflt_int_par( idx_type par ) const override {
+  if( ( par == kKBest ) || ( par == kPotMethod ) )
+   return( 0 );
+  return( CDASolver::get_dflt_int_par( par ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] idx_type
+ int_par_str2idx( const std::string & name ) const override {
+  if( name == "kKBest" )
+   return( kKBest );
+  if( name == "kPotMethod" )
+   return( kPotMethod );
+  return( CDASolver::int_par_str2idx( name ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ [[nodiscard]] const std::string &
+ int_par_idx2str( idx_type idx ) const override {
+  static const std::string name = "kKBest";
+  static const std::string pname = "kPotMethod";
+  if( idx == kKBest )
+   return( name );
+  if( idx == kPotMethod )
+   return( pname );
+  return( CDASolver::int_par_idx2str( idx ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -883,6 +1266,7 @@ class MCFLemonSolver : public CDASolver
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
  void guts_of_destructor( void ) {
+  forget_flows();
   delete f_algo;
   f_algo = nullptr;
   delete um;
@@ -905,11 +1289,148 @@ class MCFLemonSolver : public CDASolver
 
 /*--------------------------------------------------------------------------*/
 
+ /// the optimal value, taken with the true data
+
+ OFValue opt_value( void ) {
+  switch( this->get_status() ) {
+   case( ThisAlgo::ProblemType::OPTIMAL ) :
+    if( ( f_cost_scale != 1 ) || ( f_flow_scale != 1 ) ) {
+     // the Algo saw the costs, or the flows, scaled and rounded [see
+     // pass_costs() and pass_flows()]: the value is taken with the true
+     // costs and flows
+     OFValue v = 0;
+     for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+      v += OFValue( f_algo->flow( a ) / f_flow_scale ) * (*cm)[ a ];
+     return( v );
+     }
+    return( OFValue( f_algo->totalCost() ) );
+   case( ThisAlgo::ProblemType::UNBOUNDED ) :
+    return( -Inf< OFValue >() );
+   default : return( Inf< OFValue >() );
+   }
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// the flow on the arc a in the current solution [see new_var_solution()]
+
+ [[nodiscard]] double current_flow( typename GR::Arc a ) const {
+  if( f_cur >= 0 )
+   return( double( f_kbest->flow( f_cur , a ) ) );
+  return( double( f_algo->flow( a ) / f_flow_scale ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// true if the j-th extreme flow is the optimal one that compute() gave
+
+ [[nodiscard]] bool same_as_optimal( int j ) const {
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+   const double x = f_algo->flow( a ) / f_flow_scale;
+   if( std::abs( double( f_kbest->flow( j , a ) ) - x ) >
+       1e-9 * std::max( 1.0 , std::abs( x ) ) )
+    return( false );
+   }
+  return( true );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ void make_kbest( void );
+
+ void run_kbest( int k );
+
+ void run_potentials( int k );
+
+ void find_cycles( int k );
+
+ void find_cuts( int k );
+
+ [[nodiscard]] bool violated( const std::vector< typename GR::Node > & S ,
+			      double sign );
+
+ void true_supplies( MCFNodeMapV & s );
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// one unit of flow along the current cycle [see has_var_direction()]
+
+ [[nodiscard]] MCFBlock::Vec_FNumber cycle_flow( void ) const {
+  auto MCFB = static_cast< MCFBlock * >( f_Block );
+  MCFBlock::Vec_FNumber X( MCFB->get_NArcs() , 0 );
+  for( auto a : f_dirs[ f_dir ] ) {
+   auto i = MCFBlock::Index( dgp->id( a ) );
+   if( i < X.size() )
+    X[ i ] = 1;
+   }
+  return( X );
+  }
+
+ /// the potential of the node n in the current potentials [see
+ /// new_dual_solution()]
+
+ [[nodiscard]] double current_potential( typename GR::Node n ) const {
+  if( f_pcur >= 0 )
+   return( double( f_kbest->potential( f_pcur , n ) ) );
+  return( double( f_algo->potential( n ) / f_cost_scale ) );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// true if the j-th potentials are those that compute() gave, up to a
+ /// constant
+
+ [[nodiscard]] bool same_as_optimal_potentials( int j ) const {
+  double lo = Inf< double >() , hi = -Inf< double >() , big = 1;
+  for( typename GR::NodeIt n( *dgp ) ; n != INVALID ; ++n ) {
+   const double p = f_algo->potential( n ) / f_cost_scale;
+   const double d = double( f_kbest->potential( j , n ) ) - p;
+   lo = std::min( lo , d );
+   hi = std::max( hi , d );
+   big = std::max( big , std::abs( p ) );
+   }
+  return( hi - lo <= 1e-9 * big );
+  }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// drops the extreme flows, the cycles and the cuts of the last compute()
+ // the method of KBestExtremeFlows that kKBest says
+ typename KBestExtremeFlows< GR , V , C >::Method kbest_method( void ) const {
+  return( f_kbest_method == 1 ? KBestExtremeFlows< GR , V , C >::RANKING
+			       : KBestExtremeFlows< GR , V , C >::CYCLES );
+  }
+
+ void forget_flows( void ) {
+  f_dirs.clear();
+  f_dir = -1;
+  f_dirs_all = false;
+  f_cuts.clear();
+  f_cut_sign.clear();
+  f_cut = -1;
+  f_cuts_all = false;
+  f_kbest.reset();
+  f_asked = 0;
+  f_next = 0;
+  f_cur = -1;
+  f_given = 1;
+  forget_potentials();
+  }
+
+ // drops the potentials of the last runPotentials()
+ void forget_potentials( void ) {
+  f_pasked = 0;
+  f_pnext = 0;
+  f_pcur = -1;
+  f_pgiven = 1;
+  }
+
+ void close_supplies( MCFNodeMapV & s , typename GR::Node big , V sum );
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
  virtual void guts_of_compute( void ) = 0;
 
  void guts_of_poM( c_p_Mod mod );
 
  void guts_of_set_Block( MCFBlock* MCFB );
+
+ void pass_tolerances( void );
 
  void pass_costs( void );
 
@@ -918,6 +1439,15 @@ class MCFLemonSolver : public CDASolver
  /// true if the Algo is given the capacities and supplies scaled
  [[nodiscard]] bool flows_scaled( void ) const {
   return( f_flow_scale != 1 );
+  }
+
+ /// true, once, if the scale of the costs or of the flows has changed since
+ /// the last run, whose flow and potentials are then in other units than
+ /// the data of the next one, which has to start from scratch
+ [[nodiscard]] bool take_rescaled( void ) {
+  const bool r = f_rescaled;
+  f_rescaled = false;
+  return( r );
   }
 
  /*--------------------------------------------------------------------------*/
@@ -963,7 +1493,41 @@ class MCFLemonSolver : public CDASolver
   MCFNodeMapV * bm;  /// NodeMap that contains the supply of each node
 
   MCFArcMapV * icm = nullptr;
-  ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
+  double f_rel_cst = 0;  ///< relative tolerance of the costs [dblRelAcc]
+ double f_rel_flw = 0;  ///< relative tolerance of the flows [dblFAccSol]
+ double f_abs_cst = 0;  ///< absolute tolerance of the costs [dblAAccDSol]
+ double f_abs_flw = 0;  ///< absolute tolerance of the flows [dblAbsAcc]
+
+ int f_max_sol = 1;  ///< largest number of the flows given [intMaxSol]
+ int f_kbest_method = 0;  ///< how the flows are generated [kKBest]
+ int f_pot_method = 0;    ///< how the potentials are generated [kPotMethod]
+ double f_rel_sol = Inf< double >();  ///< relative gap of them [dblRAccSol]
+ double f_abs_sol = Inf< double >();  ///< absolute gap of them [dblAAccSol]
+
+ std::unique_ptr< KBestExtremeFlows< GR , V , C > > f_kbest;
+ ///< the extreme flows [see new_var_solution()], made at its first call
+ int f_next = 0;   ///< the next of them to look at
+ int f_cur = -1;   ///< the current one, -1 for the flow of the Algo
+ int f_pasked = 0;  ///< the number of the potentials last looked for
+ int f_pnext = 0;   ///< the next of them to look at
+ int f_pcur = -1;   ///< the current one, -1 for those of the Algo
+ int f_pgiven = 1;  ///< the number of the potentials given since compute()
+ int f_given = 1;  ///< the number of the flows given since compute()
+ int f_asked = 0;  ///< the number of the flows the last ranking looked for
+ C f_gap = -1;     ///< the gap of the ranking, -1 for none
+
+ std::vector< std::vector< typename GR::Arc > > f_dirs;
+ ///< the cycles of an unbounded instance [see has_var_direction()]
+ int f_dir = -1;   ///< the current one, -1 before they are looked for
+ bool f_dirs_all = false;  ///< true if more than the first were looked for
+
+ std::vector< std::vector< typename GR::Node > > f_cuts;
+ ///< the sets of an infeasible instance [see has_dual_direction()]
+ std::vector< double > f_cut_sign;  ///< their potentials, -1 or +1
+ int f_cut = -1;   ///< the current one, -1 before they are looked for
+ bool f_cuts_all = false;  ///< true if more than the first were looked for
+
+ ///< the costs scaled by f_cost_scale and rounded [see pass_costs()]
   double f_cost_scale = 1;
   ///< the scale of icm, 1 when the Algo is given the costs as they are
 
@@ -975,6 +1539,8 @@ class MCFLemonSolver : public CDASolver
   ///< the scale of ium and ibm, 1 when the Algo is given the flows as they are
   V f_inf_cap = 0;
   ///< the scaled bound given for an infinite capacity [see pass_flows()]
+  bool f_rescaled = false;
+  ///< true if f_cost_scale or f_flow_scale has changed [see take_rescaled()]
 
   /// true if the Algo is given the capacities and supplies scaled and rounded
   static constexpr bool f_scaled_flows = std::is_floating_point< V >::value &&
@@ -1029,7 +1595,7 @@ class MCFLemonSolverNetworkSimplex : public
 
  using BaseClass::dgp;
  using BaseClass::f_algo;
- using BaseClass::intLastParCDAS;
+ using BaseClass::intLastParLEMON;
  using BaseClass::status;
  using BaseClass::strLastParLEMON;
  using CDASolver::kBlockLocked;
@@ -1049,7 +1615,7 @@ class MCFLemonSolverNetworkSimplex : public
  // enums for handling the extra parameters
 
  enum LEMON_NS_int_par_type {
-  kPivot = intLastParCDAS ,  ///< pivot algorithm for the simplex
+  kPivot = intLastParLEMON ,  ///< pivot algorithm for the simplex
   kReopt ,                   ///< whether to re-optimize from the last basis
   intLastParLEMON_NS  ///< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
@@ -1097,7 +1663,7 @@ class MCFLemonSolverNetworkSimplex : public
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1118,7 +1684,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( par == kReopt )
    return( 1 );
 
-  return( CDASolver::get_dflt_int_par( par ) );
+  return( BaseClass::get_dflt_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1129,7 +1695,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1141,7 +1707,7 @@ class MCFLemonSolverNetworkSimplex : public
   if( name == "kReopt" )
    return( kReopt );
 
-  return( CDASolver::int_par_str2idx( name ) );
+  return( BaseClass::int_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1157,76 +1723,12 @@ class MCFLemonSolverNetworkSimplex : public
   if( ( idx >= kPivot ) && ( idx < intLastParLEMON_NS ) )
    return( pars[ idx - kPivot ] );
 
-  return( CDASolver::int_par_idx2str( idx ) );
+  return( BaseClass::int_par_idx2str( idx ) );
   }
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
- /// the network simplex gives the cycle that proves the instance unbounded
-
- bool has_var_direction( void ) override { return( true ); }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// writes one unit of flow along that cycle in the flow Variable
- /** Writes in the flow Variable of the MCFBlock one unit of flow along the
-  * cycle of negative cost and infinite capacity that the network simplex
-  * gives as the certificate of unboundedness [see unboundedCycle() of
-  * lemon-ng, or of the shim of the build], and tells the MCFBlock that what
-  * they hold is a direction [see MCFBlock::is_direction()]. The
-  * Configuration says which part to write, as in MCFBlock::get_Solution():
-  * a value of 2 asks for the dual part alone, and then nothing is done.
-  * Throws if the last run did not end declaring the instance unbounded, or
-  * if the cycle goes through an artificial arc and is therefore none of the
-  * instance. */
-
- void get_var_direction( Configuration * dirc = nullptr ) override {
-  if( ! f_Block )  // no [MCF]Block to write to
-   return;         // cowardly and silently return
-
-  auto tsolc = dynamic_cast< SimpleConfiguration< int > * >( dirc );
-  if( tsolc && ( tsolc->f_value == 2 ) )
-   return;
-
-  MCFBlock::Vec_FNumber X;
-  if( ! unb_cycle( X ) )
-   throw( std::logic_error( "MCFLemonSolverNetworkSimplex::"
-			    "get_var_direction: no certificate of "
-			    "unboundedness" ) );
-
-  auto MCFB = static_cast< MCFBlock * >( f_Block );
-  MCFB->is_direction( true );  // what the Variable hold is a direction
-  MCFB->set_x( X.begin() );
-  }
-
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// on an unbounded instance the Solution holds the direction
- /** An unbounded instance has a direction to give rather than a solution:
-  * the Solution is filled with the cycle, and says that what it holds is a
-  * direction [see Solution::is_direction()]. In every other case, and when
-  * no certificate is available, this is what the base class does. */
-
- [[nodiscard]] Solution * get_Solution( Configuration * solc = nullptr )
-  override {
-  MCFBlock::Vec_FNumber X;
-  if( ( status != ThisAlgo::ProblemType::UNBOUNDED ) ||
-      ( ! unb_cycle( X ) ) )
-   return( BaseClass::get_Solution( solc ) );
-
-  auto MCFB = static_cast< MCFBlock * >( f_Block );
-  auto sol = static_cast< MCFSolution * >( MCFB->get_Solution( solc , true ) );
-
-  if( ! sol->get_x().empty() ) {
-   sol->is_direction( true );
-   sol->set_x( std::move( X ) );
-   }
-
-  if( ! sol->get_pi().empty() )  // no potentials go with a direction
-   sol->set_pi( MCFBlock::Vec_CNumber() );
-
-  return( sol );
-  }
-
 /*--------------------------------------------------------------------------*/
 
  protected:
@@ -1255,31 +1757,6 @@ class MCFLemonSolverNetworkSimplex : public
 /*--------------------------------------------------------------------------*/
 
  private:
-
-/*-------------------------- PRIVATE METHODS -------------------------------*/
- /// one unit of flow along the cycle that proves the instance unbounded
- /** Writes in X one unit of flow along the cycle the network simplex gives
-  * as the certificate of unboundedness and returns true; returns false,
-  * leaving X alone, if there is no certificate to give. */
-
- bool unb_cycle( MCFBlock::Vec_FNumber & X ) {
-  if( ! f_Block )
-   return( false );
-
-  auto cycle = f_algo->unboundedCycle();
-  if( cycle.empty() )
-   return( false );
-
-  auto MCFB = static_cast< MCFBlock * >( f_Block );
-  X.assign( MCFB->get_NArcs() , 0 );
-  for( auto a : cycle ) {
-   auto i = MCFBlock::Index( dgp->id( a ) );
-   if( i < X.size() )
-    X[ i ] = 1;
-   }
-
-  return( true );
-  }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1320,7 +1797,7 @@ class MCFLemonSolverCycleCanceling : public
  using BaseClass = MCFLemonSolver< CycleCanceling , GR , V , C >;
  using idx_type = ThinComputeInterface::idx_type;
 
- using BaseClass::intLastParCDAS;
+ using BaseClass::intLastParLEMON;
 
  using BaseClass::dgp;
  using BaseClass::f_algo;
@@ -1341,7 +1818,7 @@ class MCFLemonSolverCycleCanceling : public
  using CCMethod = typename ThisAlgo::Method;
 
  enum LEMON_CC_int_par_type {
-  kMethod = intLastParCDAS ,  ///< the method parameter of CycleCanceling
+  kMethod = intLastParLEMON ,  ///< the method parameter of CycleCanceling
   kReopt ,                    ///< whether to re-optimize from the last run
   intLastParLEMON_CC  ///< first allowed parameter value for derived classes
    /**< convenience value for easily allow derived classes
@@ -1386,7 +1863,7 @@ class MCFLemonSolverCycleCanceling : public
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1407,7 +1884,7 @@ class MCFLemonSolverCycleCanceling : public
   if( par == kReopt )
    return( 1 );
 
-  return( CDASolver::get_dflt_int_par( par ) );
+  return( BaseClass::get_dflt_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1418,7 +1895,7 @@ class MCFLemonSolverCycleCanceling : public
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1430,7 +1907,7 @@ class MCFLemonSolverCycleCanceling : public
   if( name == "kReopt" )
    return( kReopt );
 
-  return( CDASolver::int_par_str2idx( name ) );
+  return( BaseClass::int_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1446,7 +1923,7 @@ class MCFLemonSolverCycleCanceling : public
   if( ( idx >= kMethod ) && ( idx < intLastParLEMON_CC ) )
    return( pars[ idx - kMethod ] );
 
-  return( CDASolver::int_par_idx2str( idx ) );
+  return( BaseClass::int_par_idx2str( idx ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1464,8 +1941,9 @@ class MCFLemonSolverCycleCanceling : public
   * anew. */
 
  void guts_of_compute( void ) override {
-  status = f_reopt ? f_algo->runWarm( CCMethod( f_method ) )
-                   : f_algo->run( CCMethod( f_method ) );
+  status = f_reopt && ! this->take_rescaled()
+             ? f_algo->runWarm( CCMethod( f_method ) )
+             : f_algo->run( CCMethod( f_method ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1523,7 +2001,7 @@ template< typename GR , typename V , typename C >
  using BaseClass = MCFLemonSolver< SMSppCapacityScaling , GR , V , C >;
  using idx_type = ThinComputeInterface::idx_type;
 
- using BaseClass::intLastParCDAS;
+ using BaseClass::intLastParLEMON;
  using BaseClass::dgp;
  using BaseClass::f_algo;
  using BaseClass::status;
@@ -1542,7 +2020,7 @@ template< typename GR , typename V , typename C >
  // enums for handling the extra parameters
 
  enum LEMON_CapS_int_par_type {
-  kFactor = intLastParCDAS ,  ///< the scaling factor of CapacityScaling
+  kFactor = intLastParLEMON ,  ///< the scaling factor of CapacityScaling
   kReopt ,                    ///< whether to re-optimize from the last run
   intLastParLEMON_CapS  ///< first allowed parameter value for derived classes
   /**< convenience value for easily allow derived classes
@@ -1584,7 +2062,7 @@ template< typename GR , typename V , typename C >
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1606,7 +2084,7 @@ template< typename GR , typename V , typename C >
   if( par == kReopt )
    return( 1 );
 
-  return( CDASolver::get_dflt_int_par( par ) );
+  return( BaseClass::get_dflt_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1618,7 +2096,7 @@ template< typename GR , typename V , typename C >
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1631,7 +2109,7 @@ template< typename GR , typename V , typename C >
   if( name == "kReopt" )
    return( kReopt );
 
-  return( CDASolver::int_par_str2idx( name ) );
+  return( BaseClass::int_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1647,7 +2125,7 @@ template< typename GR , typename V , typename C >
   if( ( idx >= kFactor ) && ( idx < intLastParLEMON_CapS ) )
    return( pars[ idx - kFactor ] );
 
-  return( CDASolver::int_par_idx2str( idx ) );
+  return( BaseClass::int_par_idx2str( idx ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1664,7 +2142,8 @@ template< typename GR , typename V , typename C >
   * starts from the zero flow and the zero potentials. */
 
  void guts_of_compute( void ) override {
-  status = f_reopt ? f_algo->runWarm( f_factor ) : f_algo->run( f_factor );
+  status = f_reopt && ! this->take_rescaled() ? f_algo->runWarm( f_factor )
+                                              : f_algo->run( f_factor );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1725,7 +2204,7 @@ class MCFLemonSolverCostScaling : public
  using BaseClass = MCFLemonSolver< SMSppCostScaling , GR , V , C >;
  using idx_type = ThinComputeInterface::idx_type;
 
- using BaseClass::intLastParCDAS;
+ using BaseClass::intLastParLEMON;
  using BaseClass::dgp;
  using BaseClass::f_algo;
  using BaseClass::flows_scaled;
@@ -1748,7 +2227,7 @@ class MCFLemonSolverCostScaling : public
  static constexpr int kAutoMethod = 3;
 
  enum LEMON_CS_int_par_type {
-  kMethod = intLastParCDAS ,  ///< the method of cost scaling
+  kMethod = intLastParLEMON ,  ///< the method of cost scaling
   kReopt ,                    ///< whether to re-optimize from the last run
   intLastParLEMON_CS
   //< first allowed parameter value for derived classes
@@ -1790,7 +2269,7 @@ class MCFLemonSolverCostScaling : public
    return;
    }
 
-  CDASolver::set_par( par , value );
+  BaseClass::set_par( par , value );
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1811,7 +2290,7 @@ class MCFLemonSolverCostScaling : public
   if( par == kReopt )
    return( 1 );
 
-  return( CDASolver::get_dflt_int_par( par ) );
+  return( BaseClass::get_dflt_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1822,7 +2301,7 @@ class MCFLemonSolverCostScaling : public
   if( par == kReopt )
    return( f_reopt );
 
-  return( CDASolver::get_int_par( par ) );
+  return( BaseClass::get_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1832,7 +2311,7 @@ class MCFLemonSolverCostScaling : public
   if( name == "kReopt" )
    return( kReopt );
 
-  return( name == "kMethod" ? kMethod : CDASolver::int_par_str2idx( name ) );
+  return( name == "kMethod" ? kMethod : BaseClass::int_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1848,7 +2327,7 @@ class MCFLemonSolverCostScaling : public
   if( ( idx >= kMethod ) && ( idx < intLastParLEMON_CS ) )
    return( pars[ idx - kMethod ] );
 
-  return( CDASolver::int_par_idx2str( idx ) );
+  return( BaseClass::int_par_idx2str( idx ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1870,7 +2349,8 @@ class MCFLemonSolverCostScaling : public
   const CSMethod m = f_method != kAutoMethod ? CSMethod( f_method ) :
                      flows_scaled() ? ThisAlgo::AUGMENT :
                                       ThisAlgo::PARTIAL_AUGMENT;
-  status = f_reopt ? f_algo->runWarm( m ) : f_algo->run( m );
+  status = f_reopt && ! this->take_rescaled() ? f_algo->runWarm( m )
+                                              : f_algo->run( m );
   }
 
 /*--------------------------------------------------------------------------*/

@@ -39,6 +39,9 @@ module;
 export module smspp.mcflemonsolver;
 
 export import smspp.mcfblock;
+#if defined( MCFLemonSolver_MODULE_LEMON )
+export import lemon;
+#endif
 
 export namespace SMSpp_di_unipi_it {
 
@@ -50,6 +53,7 @@ export namespace SMSpp_di_unipi_it {
  using SMSpp_di_unipi_it::MCFLemonSolverNetworkSimplex;
  using SMSpp_di_unipi_it::MCFListDigraph;
  using SMSpp_di_unipi_it::SMSppCapacityScaling;
+ using SMSpp_di_unipi_it::SMSppCapacityScalingTraits;
  using SMSpp_di_unipi_it::SMSppCostScaling;
 }
 

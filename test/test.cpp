@@ -15,12 +15,15 @@
  * are checked on their own: a Solver destroyed without ever having been
  * attached to a MCFBlock, a MCFBlock that has no capacities and no costs to
  * begin with and is given them by a Modification, fractional costs and
- * flows, negative costs on arcs of infinite capacity, the direction that
- * proves an instance unbounded, a capacity many orders of magnitude larger
- * than the other data, each method of CostScaling,
- * deficits that sum to zero only up to rounding and deficits that do not,
+ * flows, negative costs on arcs of infinite capacity, the directions that
+ * prove an instance unbounded and those that prove it infeasible, a
+ * capacity many orders of magnitude larger than the other data, each
+ * method of CostScaling, deficits that sum to zero only up to rounding and
+ * deficits that do not,
  * the parameters looked up by their name, the invalid values of the
- * parameters of the algorithms, and the DMX file of the instance.
+ * parameters of the algorithms, the DMX file of the instance, and the
+ * extreme flows and the optimal potentials given one after the other by
+ * new_var_solution() and new_dual_solution().
  *
  * The exit code is the number of failed checks.
  *
@@ -339,11 +342,54 @@ static void test_fractional_flows( void )
  }
 
 /*--------------------------------------------------------------------------*/
-/* The unbounded instance of test_negative_costs(): the network simplex gives
- * the cycle that proves it unbounded, hence its Solution holds a direction,
+/* The unbounded instance of test_negative_costs(): each algorithm gives the
+ * cycle that proves it unbounded, hence its Solution holds a direction,
  * which the MCFBlock has to take for one and not for a solution, and
- * get_var_direction() writes it in the Variable. The other three algorithms
- * give no certificate, and have to say so. */
+ * get_var_direction() writes it in the Variable. With the arc 2 -> 3 of
+ * infinite capacity and an arc 4 -> 2 of cost -10 there is a second
+ * cycle, 2 -> 4 -> 2, disjoint from the first one, 2 -> 3 -> 2: with
+ * intMaxSol = 5 new_var_direction() has to give both, once each. */
+
+static void check_directions( MCFBlock & mcf , int maxsol , int ndirs ,
+			      const std::string & what )
+{
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = Solver::new_Solver( name( algo , gr ) );
+   mcf.register_Solver( slv );
+   slv->set_par( Solver::intMaxSol , maxsol );
+   const auto who = what + ", " + slv->classname();
+   check( slv->compute() == Solver::kUnbounded ,
+	  who + ": unbounded expected" );
+
+   std::vector< MCFBlock::Vec_FNumber > seen;
+   for( bool more = slv->has_var_direction() ; more ;
+	more = slv->new_var_direction() ) {
+    auto dir = slv->get_Solution();
+    check( dir && dir->is_direction() ,
+	   who + ": the Solution does not hold a direction" );
+    check( mcf.is_sol_feasible( dir ) ,
+	   who + ": the direction is not one of the MCFBlock" );
+    dir->is_direction( false );
+    check( ! mcf.is_sol_feasible( dir ) ,
+	   who + ": the direction is taken for a solution" );
+    auto x = static_cast< MCFSolution * >( dir )->get_x();
+    for( const auto & y : seen )
+     check( y != x , who + ": the same direction twice" );
+    seen.push_back( x );
+    delete dir;
+
+    slv->get_var_direction();
+    check( mcf.is_direction() , who + ": the MCFBlock was not told" );
+    mcf.is_direction( false );
+    }
+   check( int( seen.size() ) == ndirs , who + ": " +
+	  std::to_string( seen.size() ) + " directions instead of " +
+	  std::to_string( ndirs ) );
+
+   mcf.unregister_Solver( slv , true );
+   }
+ }
 
 static void test_unbounded_direction( void )
 {
@@ -352,37 +398,13 @@ static void test_unbounded_direction( void )
  const MCFBlock::Vec_CNumber c = { 1 , 4 , 1 , 5 , 1 };
  mcf.chg_costs( Block::MF_dbl_sp( c ) );
  mcf.add_arc( 3 , 2 , -2 );   // a negative cycle of infinite capacity
+ check_directions( mcf , 1 , 1 , "unbounded" );
 
- for( const auto & algo : ALGOS ) {
-  auto slv = Solver::new_Solver( name( algo , "MCFListDigraph" ) );
-  mcf.register_Solver( slv );
-  const auto who = slv->classname();
-  check( slv->compute() == Solver::kUnbounded , who + ": unbounded expected" );
-
-  if( algo != "NetworkSimplex" ) {
-   check( ! slv->has_var_direction() , who + ": a direction is claimed" );
-   mcf.unregister_Solver( slv , true );
-   continue;
-   }
-
-  check( slv->has_var_direction() , who + ": no direction is claimed" );
-
-  auto dir = slv->get_Solution();
-  check( dir && dir->is_direction() ,
-	 who + ": the Solution does not hold a direction" );
-  check( mcf.is_sol_feasible( dir ) ,
-	 who + ": the direction is not one of the MCFBlock" );
-  dir->is_direction( false );
-  check( ! mcf.is_sol_feasible( dir ) ,
-	 who + ": the direction is taken for a solution" );
-  delete dir;
-
-  slv->get_var_direction();
-  check( mcf.is_direction() , who + ": the MCFBlock was not told" );
-  mcf.is_direction( false );
-
-  mcf.unregister_Solver( slv , true );
-  }
+ mcf.add_arc( 4 , 2 , -10 );  // and a second one, arc-disjoint
+ const MCFBlock::Vec_FNumber u = { 3 , 5 , Inf< double >() , Inf< double >() ,
+				   5 };
+ mcf.chg_ucaps( Block::MF_dbl_sp( u ) , Block::Range( 0 , 5 ) );
+ check_directions( mcf , 5 , 2 , "two disjoint cycles" );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -596,6 +618,222 @@ static void test_dmx( void )
  }
 
 /*--------------------------------------------------------------------------*/
+/* One unit from node 1 to node 2 on three parallel arcs (costs,
+ * capacities):
+ *
+ *   0: 1 -> 2  (1, 1)    1: 1 -> 2  (1, 1)    2: 1 -> 2  (3, 1)
+ *
+ * The extreme flows are the unit on one arc: two optimal ones, of cost 1,
+ * and one of cost 3. They are asked for with intMaxSol, within the gap
+ * dblAAccSol, and each one given has to be a flow of the cost get_ub()
+ * says, different from those before it, the costs not decreasing, while
+ * get_lb() stays the optimal value. */
+
+static void check_flows( MCFBlock & mcf , int maxsol , double gap ,
+			 const std::vector< double > & costs ,
+			 const std::string & what )
+{
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS )
+   for( int kbest = 0 ; kbest != 2 ; ++kbest ) {
+    auto slv = Solver::new_Solver( name( algo , gr ) );
+    const auto who =
+      what + ", " + slv->classname() + ( kbest ? " (RANKING)" : " (CYCLES)" );
+    mcf.register_Solver( slv );
+    slv->set_par( Solver::intMaxSol , maxsol );
+    slv->set_par( Solver::dblAAccSol , gap );
+    slv->set_par( slv->int_par_str2idx( "kKBest" ) , kbest );
+    check( slv->compute() == Solver::kOK , who + ": not solved" );
+
+    std::vector< std::vector< double > > seen;
+    std::vector< double > got;
+    for( bool more = slv->has_var_solution() ; more ;
+	 more = slv->new_var_solution() ) {
+     slv->get_var_solution();
+     std::vector< double > x( 3 );
+     double c = 0;
+     for( MCFBlock::Index i = 0 ; i < 3 ; ++i ) {
+      x[ i ] = mcf.get_x( i );
+      c += x[ i ] * mcf.get_C( i );
+      check( ( x[ i ] >= -1e-9 ) && ( x[ i ] <= 1 + 1e-9 ) ,
+	     who + ": flow out of its bounds" );
+      }
+     check( std::abs( x[ 0 ] + x[ 1 ] + x[ 2 ] - 1 ) <= 1e-9 ,
+	    who + ": not a flow" );
+     check( std::abs( c - slv->get_ub() ) <= 1e-9 ,
+	    who + ": cost " + std::to_string( c ) + " but ub " +
+	    std::to_string( slv->get_ub() ) );
+     check( std::abs( slv->get_lb() - costs[ 0 ] ) <= 1e-9 ,
+	    who + ": lb is not the optimal value" );
+     for( const auto & y : seen )
+      check( y != x , who + ": the same flow twice" );
+     seen.push_back( x );
+     got.push_back( c );
+     }
+
+    check( got.size() == costs.size() , who + ": " +
+	   std::to_string( got.size() ) + " flows instead of " +
+	   std::to_string( costs.size() ) );
+    for( std::size_t j = 0 ; ( j < got.size() ) && ( j < costs.size() ) ; ++j )
+     check( std::abs( got[ j ] - costs[ j ] ) <= 1e-9 ,
+	    who + ": flow " + std::to_string( j ) + " costs " +
+	    std::to_string( got[ j ] ) );
+    mcf.unregister_Solver( slv , true );
+    }
+ }
+
+static void test_multiple_flows( void )
+{
+ MCFBlock mcf;
+ mcf.load( 2 , 3 , { 2 , 2 , 2 } , { 1 , 1 , 1 } , { 1 , 1 , 1 } ,
+	   { 1 , 1 , 3 } , { -1 , 1 } , 0 , 0 , 0 , 0 );
+
+ check_flows( mcf , 1 , Inf< double >() , { 1 } , "one flow" );
+ check_flows( mcf , 2 , Inf< double >() , { 1 , 1 } , "two flows" );
+ check_flows( mcf , 10 , Inf< double >() , { 1 , 1 , 3 } , "all the flows" );
+ check_flows( mcf , 10 , 1 , { 1 , 1 } , "the flows within the gap" );
+
+ mcf.chg_cost( 1.0 , 2 );  // all three are optimal now
+ check_flows( mcf , 10 , 0 , { 1 , 1 , 1 } , "three optimal flows" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* The instance of load() with 10 units from node 1 to node 4: the arcs
+ * leaving node 1, and those entering node 4, carry at most 8, and the sets
+ * {1}, {1,3} and {1,2,3} all have 2 units of supply more than the capacity
+ * of the arcs leaving them. Each dual direction given has to be a ray of
+ * the dual, i.e., its reduced costs are those of the homogeneous system and
+ * nonnegative on the arcs of infinite capacity, along which the dual
+ * objective grows, and different from those before it, the three sets when
+ * more are asked for. Then deficits that do not sum to zero, whose
+ * certificate is the set of all the nodes. */
+
+static void check_cuts( MCFBlock & mcf , int maxsol , int mincuts ,
+			int maxcuts , const std::string & what )
+{
+ const auto n = mcf.get_NNodes();
+ const auto m = mcf.get_NArcs();
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = static_cast< CDASolver * >(
+			     Solver::new_Solver( name( algo , gr ) ) );
+   mcf.register_Solver( slv );
+   slv->set_par( Solver::intMaxSol , maxsol );
+   const auto who = what + ", " + slv->classname();
+   check( slv->compute() == Solver::kInfeasible ,
+	  who + ": infeasible expected" );
+   check( ! slv->has_var_direction() , who + ": a cycle is claimed" );
+
+   std::vector< MCFBlock::Vec_CNumber > seen;
+   for( bool more = slv->has_dual_direction() ; more ;
+	more = slv->new_dual_direction() ) {
+    slv->get_dual_direction();
+    MCFBlock::Vec_CNumber pi( n ) , rc( m );
+    mcf.get_pi( pi.begin() );
+    mcf.get_rc( rc.begin() );
+    double value = 0;
+    for( MCFBlock::Index i = 0 ; i < n ; ++i )
+     value += mcf.get_B( i ) * pi[ i ];
+    for( MCFBlock::Index a = 0 ; a < m ; ++a ) {
+     check( rc[ a ] == pi[ mcf.get_SN( a ) - 1 ] - pi[ mcf.get_EN( a ) - 1 ] ,
+	    who + ": a reduced cost is not of the homogeneous system" );
+     if( mcf.get_U( a ) == Inf< double >() )
+      check( rc[ a ] >= 0 , who + ": negative on an arc of no capacity" );
+     else
+      value += mcf.get_U( a ) * std::min( 0.0 , rc[ a ] );
+     }
+    check( value > 0 , who + ": the dual does not grow along the direction" );
+    for( const auto & y : seen )
+     check( y != pi , who + ": the same direction twice" );
+    seen.push_back( pi );
+    }
+   check( ( int( seen.size() ) >= mincuts ) &&
+	  ( int( seen.size() ) <= maxcuts ) , who + ": " +
+	  std::to_string( seen.size() ) + " directions" );
+
+   mcf.unregister_Solver( slv , true );
+   }
+ }
+
+static void test_infeasible_direction( void )
+{
+ MCFBlock mcf;
+ load( mcf , true , { -10 , 0 , 0 , 10 } );
+ mcf.generate_abstract_constraints();
+ check_cuts( mcf , 1 , 1 , 1 , "infeasible" );
+ check_cuts( mcf , 10 , 3 , 3 , "infeasible, more cuts" );
+
+ MCFBlock mcf2;
+ load( mcf2 , true , { -4 , 0 , 0 , 4.5 } );
+ mcf2.generate_abstract_constraints();
+ check_cuts( mcf2 , 1 , 1 , 1 , "deficits not summing to zero" );
+ }
+
+/*--------------------------------------------------------------------------*/
+/* One unit from node 1 to node 3 (costs, capacities):
+ *
+ *   0: 1 -> 2  (1, 1)    1: 2 -> 3  (1, 2)    2: 1 -> 3  (5, 1)
+ *
+ * The optimal flow is the path 1 -> 2 -> 3, of cost 2, whose first arc is
+ * saturated: the optimal potentials have pi_2 - pi_1 anywhere in [ 1 , 4 ],
+ * and the two ends are the two vertices of the dual. Each dual solution
+ * given, by has_dual_solution() and new_dual_solution(), has to be feasible,
+ * of value 2, and different from those before it by more than a constant. */
+
+static void check_dual_solutions( MCFBlock & mcf , int maxsol , int nsols ,
+				  const std::string & what , int method )
+{
+ for( const auto & gr : GRAPHS )
+  for( const auto & algo : ALGOS ) {
+   auto slv = static_cast< CDASolver * >(
+			     Solver::new_Solver( name( algo , gr ) ) );
+   mcf.register_Solver( slv );
+   slv->set_par( Solver::intMaxSol , maxsol );
+   slv->set_par( slv->int_par_str2idx( "kPotMethod" ) , method );
+   const auto who = what + ", " + slv->classname() + ", kPotMethod " +
+		    std::to_string( method );
+   check( slv->compute() == Solver::kOK , who + ": not solved" );
+
+   std::vector< double > seen;
+   for( bool more = slv->has_dual_solution() ; more ;
+	more = slv->new_dual_solution() ) {
+    slv->get_dual_solution();
+    MCFBlock::Vec_CNumber pi( 3 ) , rc( 3 );
+    mcf.get_pi( pi.begin() );
+    mcf.get_rc( rc.begin() );
+    check( mcf.dual_feasible( 1e-9 , pi ) , who + ": not dual feasible" );
+    double value = 0;
+    for( MCFBlock::Index i = 0 ; i < 3 ; ++i )
+     value += mcf.get_B( i ) * pi[ i ];
+    for( MCFBlock::Index a = 0 ; a < 3 ; ++a )
+     value += mcf.get_U( a ) * std::min( 0.0 , rc[ a ] );
+    check( std::abs( value - 2 ) <= 1e-9 ,
+	   who + ": dual value " + std::to_string( value ) );
+    const double gap = pi[ 1 ] - pi[ 0 ];
+    for( double g : seen )
+     check( std::abs( g - gap ) > 1e-9 , who + ": the same potentials twice" );
+    seen.push_back( gap );
+    }
+   check( int( seen.size() ) == nsols , who + ": " +
+	  std::to_string( seen.size() ) + " dual solutions instead of " +
+	  std::to_string( nsols ) );
+   mcf.unregister_Solver( slv , true );
+   }
+ }
+
+static void test_dual_solutions( void )
+{
+ MCFBlock mcf;
+ mcf.load( 3 , 3 , { 2 , 3 , 3 } , { 1 , 2 , 1 } , { 1 , 2 , 1 } ,
+	   { 1 , 1 , 5 } , { -1 , 0 , 1 } , 0 , 0 , 0 , 0 );
+ mcf.generate_abstract_constraints();
+ for( int method = 0 ; method != 2 ; ++method ) {
+  check_dual_solutions( mcf , 1 , 1 , "one dual solution" , method );
+  check_dual_solutions( mcf , 10 , 2 , "the dual solutions" , method );
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
 /*--------------------------------- MAIN -----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -613,9 +851,12 @@ int main( void )
  test_negative_costs();
  test_integer_infinite_capacity();
  test_unbounded_direction();
+ test_infeasible_direction();
  test_scale_out_of_range();
  test_cost_scaling_methods();
  test_dmx();
+ test_multiple_flows();
+ test_dual_solutions();
 
  if( failures )
   std::cout << failures << " checks failed" << std::endl;

@@ -21,6 +21,8 @@
 
 #include "MCFLemonSolver.h"
 
+#include <algorithm>
+
 #include <cmath>
 
 /*--------------------------------------------------------------------------*/
@@ -260,6 +262,44 @@ void MCFLemonSolver< Algo , GR , V , C >::guts_of_set_Block( MCFBlock * MCFB )
 
 template< template < typename , typename , typename > class Algo ,
 	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::pass_tolerances( void )
+{
+ /* The tolerances of dblRelAcc / dblAAccDSol and of dblFAccSol / dblAbsAcc
+  * [see set_par()], in the units of the data the Algo is given, i.e., times
+  * f_cost_scale and f_flow_scale; a negative one is left to abLEMON. */
+ auto MCFB = static_cast< MCFBlock * >( f_Block );
+ double cost = -1;
+ if( f_rel_cst > 0 ) {
+  double cmax = 0;
+  for( auto c : MCFB->get_C() )
+   cmax = std::max( cmax , std::abs( double( c ) ) );
+  cost = f_rel_cst * ( cmax > 0 ? cmax : 1 );
+  }
+ else
+  if( ( f_abs_cst > 0 ) && ( f_abs_cst < Inf< double >() ) )
+   cost = f_abs_cst;
+ double flow = -1;
+ if( f_rel_flw > 0 ) {
+  double fmax = 0;
+  for( auto u : MCFB->get_U() )
+   if( u < Inf< double >() )
+    fmax = std::max( fmax , double( u ) );
+  for( auto b : MCFB->get_B() )
+   fmax = std::max( fmax , std::abs( double( b ) ) );
+  flow = f_rel_flw * ( fmax > 0 ? fmax : 1 );
+  }
+ else
+  if( ( f_abs_flw > 0 ) && ( f_abs_flw < Inf< double >() ) )
+   flow = f_abs_flw;
+
+ f_algo->tolerances( V( flow < 0 ? -1 : flow * f_flow_scale ) ,
+		     C( cost < 0 ? -1 : cost * f_cost_scale ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename > class Algo ,
+	  LEMONGraph GR , typename V , typename C >
 void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
 {
  /* CostScaling, CycleCanceling and CapacityScaling are exact only on
@@ -306,7 +346,10 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_costs( void )
    if( (*cm)[ a ] != std::floor( (*cm)[ a ] ) )
     integer = false;
 
+  const double old_scale = f_cost_scale;
   f_cost_scale = integer ? 1 : std::exp2( std::floor( std::log2( bound ) ) );
+  if( f_cost_scale != old_scale )
+   f_rescaled = true;
   if( ! icm )
    icm = new typename GR::template ArcMap< V >( *dgp , 0 );
   for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
@@ -380,9 +423,12 @@ void MCFLemonSolver< Algo , GR , V , C >::pass_flows( typename GR::Node big )
   if( (*bm)[ nd ] != std::floor( (*bm)[ nd ] ) )
    integer = false;
 
+ const double old_scale = f_flow_scale;
  f_flow_scale = integer ? 1 :
   std::exp2( std::floor( std::log2( std::exp2( 52 ) /
 				    ( double( bound ) * n ) ) ) );
+ if( f_flow_scale != old_scale )
+  f_rescaled = true;
  if( ! ium )
   ium = new typename GR::template ArcMap< V >( *dgp , 0 );
  if( ! ibm )
@@ -461,6 +507,9 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   unlock();
   return( kBlockLocked ); // return error on failure
   }
+
+ // the extreme flows of the last run are no longer those of the problem
+ forget_flows();
 
  // while [read_]locked, process any outstanding Modification
  process_outstanding_Modification();
@@ -558,10 +607,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
   }
  else if( balanced && ( sum != 0 ) ) {
   const V supply = (*bm)[ big ];
-  bm->set( big , supply - sum );
-  if constexpr( std::is_floating_point< V >::value )
-   while( sum_of() > 0 )
-    bm->set( big , std::nextafter( (*bm)[ big ] , -Inf< V >() ) );
+  close_supplies( *bm , big , sum );
   f_algo->supplyMap( *bm );
   bm->set( big , supply );
   supply_changed = true;  // the next run passes the map as it is again
@@ -572,6 +618,7 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
    supply_changed = false;
    }
 
+ pass_tolerances();
  auto start = std::chrono::system_clock::now();
  if( balanced )
   guts_of_compute(); // here the actual magic is done by specialised classes
@@ -622,6 +669,264 @@ int MCFLemonSolver< Algo , GR , V , C >::compute( bool changedvars )
  return( LEMONstatus_2_sol_type[ this->get_status() ] );
 
  }  // end( MCFLemonSolver< Algo , GR , V , C >::compute )
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::close_supplies( MCFNodeMapV & s ,
+						  typename GR::Node big ,
+						  V sum )
+{
+ // the residual sum goes onto big, rounded itself, and then the supply of
+ // big is lowered until the sum, taken in the order of the nodes of the
+ // graph as LEMON takes it, is not positive [see compute()]
+ s.set( big , s[ big ] - sum );
+ if constexpr( std::is_floating_point< V >::value )
+  for( ;; ) {
+   V t = 0;
+   for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+    t += s[ nd ];
+   if( t <= 0 )
+    break;
+   s.set( big , std::nextafter( s[ big ] , -Inf< V >() ) );
+   }
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::true_supplies( MCFNodeMapV & s )
+{
+ // the supplies of the MCFBlock, with their residual sum moved as compute()
+ // moves it
+ V sum = 0;
+ typename GR::Node big = INVALID;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
+  s.set( nd , (*bm)[ nd ] );
+  sum += (*bm)[ nd ];
+  if( ( big == INVALID ) ||
+      ( std::abs( (*bm)[ nd ] ) > std::abs( (*bm)[ big ] ) ) )
+   big = nd;
+  }
+ if( sum != 0 )
+  close_supplies( s , big , sum );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::find_cycles( int k )
+{
+ /* The cycles are added to those already found, a cycle being skipped if
+  * it has the same arcs as one of them: one, that of the algorithm, or k,
+  * the arc-disjoint ones. When the algorithm was given an infinite capacity
+  * as a finite bound it found the problem bounded, and has none: the
+  * network simplex is then run on the true data. */
+ auto add = [ this ]( std::vector< typename GR::Arc > && c ) {
+  if( c.empty() )
+   return;
+  auto key = [ this ]( const std::vector< typename GR::Arc > & d ) {
+   std::vector< int > ids;
+   for( auto a : d )
+    ids.push_back( dgp->id( a ) );
+   std::sort( ids.begin() , ids.end() );
+   return( ids );
+   };
+  const auto kc = key( c );
+  for( const auto & d : f_dirs )
+   if( key( d ) == kc )
+    return;
+  f_dirs.push_back( std::move( c ) );
+  };
+
+ auto cycles_of = [ & ]( const auto & algo ) {
+  if( k == 1 )
+   add( algo.unboundedCycle() );
+  else
+   for( auto & c : algo.unboundedCycles( k ) )
+    if( int( f_dirs.size() ) < k )
+     add( std::move( c ) );
+  };
+
+ const auto before = f_dirs.size();
+ cycles_of( *f_algo );
+ if( f_dirs.size() > before )
+  return;
+
+ NetworkSimplex< GR , V , C > ns( *dgp , false );
+ MCFNodeMapV s( *dgp );
+ true_supplies( s );
+ ns.upperMap( *um ).costMap( *cm ).supplyMap( s );
+ if( ns.run() == NetworkSimplex< GR , V , C >::UNBOUNDED )
+  cycles_of( ns );
+ }
+
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+bool MCFLemonSolver< Algo , GR , V , C >::violated(
+			   const std::vector< typename GR::Node > & S ,
+			   double sign )
+{
+ /* With sign -1 the supply of S has to exceed the capacity of the arcs
+  * leaving it, with sign +1 its demand that of the arcs entering it, by
+  * more than the rounding of the supplies [see compute()]. */
+ MCFNodeMapV in( *dgp , 0 );
+ for( auto nd : S )
+  in.set( nd , 1 );
+
+ V size = 0;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+  size += std::abs( (*bm)[ nd ] );
+
+ V viol = 0;
+ for( auto nd : S )
+  viol -= sign * (*bm)[ nd ];
+ for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a ) {
+  const bool from = in[ dgp->source( a ) ] != 0;
+  const bool to = in[ dgp->target( a ) ] != 0;
+  if( ( sign < 0 ) ? ( from && ! to ) : ( to && ! from ) )
+   viol -= (*um)[ a ];
+  }
+
+ return( viol > 1e-9 * std::max( V( 1 ) , size ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::find_cuts( int k )
+{
+ // the sets are added to those already found, a set being skipped if it is
+ // one of them
+ auto add = [ this ]( std::vector< typename GR::Node > && S , double sign ) {
+  if( S.empty() || ( ! violated( S , sign ) ) )
+   return;
+  std::sort( S.begin() , S.end() );
+  for( const auto & T : f_cuts )
+   if( T == S )
+    return;
+  f_cuts.push_back( std::move( S ) );
+  f_cut_sign.push_back( sign );
+  };
+
+ // supplies that do not sum to zero, which the algorithm is not even run on
+ // [see compute()]: the set of all the nodes
+ V sum = 0;
+ V size = 0;
+ for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd ) {
+  sum += (*bm)[ nd ];
+  size += std::abs( (*bm)[ nd ] );
+  }
+ if( std::abs( sum ) > 1e-9 * std::max( V( 1 ) , size ) ) {
+  std::vector< typename GR::Node > all;
+  for( typename GR::NodeIt nd( *dgp ) ; nd != INVALID ; ++nd )
+   all.push_back( nd );
+  add( std::move( all ) , sum > 0 ? -1 : 1 );
+  return;
+  }
+
+ // one set, that of the algorithm, or k
+ auto cuts_of = [ & ]( const auto & algo ) {
+  if( k == 1 ) {
+   add( algo.infeasibleCut() , -1 );
+   return;
+   }
+  for( auto & S : algo.disjointInfeasibleCuts() )
+   if( int( f_cuts.size() ) < k )
+    add( std::move( S ) , -1 );
+  for( auto & S : algo.infeasibleCuts( k ) )
+   if( int( f_cuts.size() ) < k )
+    add( std::move( S ) , -1 );
+  };
+
+ /* The algorithm given the flows scaled and rounded may prove infeasible a
+  * set that is not, or not by enough, with the true data [see violated()]:
+  * the network simplex is then run on the true data. */
+ const auto before = f_cuts.size();
+ if( f_flow_scale == 1 )
+  cuts_of( *f_algo );
+ if( f_cuts.size() > before )
+  return;
+
+ NetworkSimplex< GR , V , C > ns( *dgp , false );
+ MCFNodeMapV s( *dgp );
+ true_supplies( s );
+ ns.upperMap( *um ).costMap( *cm ).supplyMap( s );
+ if( ns.run() == NetworkSimplex< GR , V , C >::INFEASIBLE )
+  cuts_of( ns );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::run_kbest( int k )
+{
+ // a later run, for more flows, has the same data and finds the same first
+ // ones, the generation being deterministic
+ if( ! f_kbest )
+  make_kbest();
+ f_asked = k;
+ f_kbest->run( k , f_gap );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::run_potentials( int k )
+{
+ if( ! f_kbest )
+  make_kbest();
+ f_pasked = k;
+ f_kbest->potentialMethod( f_pot_method == 1
+			     ? KBestExtremeFlows< GR , V , C >::PIVOTS
+			     : KBestExtremeFlows< GR , V , C >::PATHS );
+ f_kbest->runPotentials( k );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+template< template < typename , typename , typename> class Algo ,
+	  LEMONGraph GR , typename V , typename C >
+void MCFLemonSolver< Algo , GR , V , C >::make_kbest( void )
+{
+ /* The flows and the potentials are generated on the true data, whatever
+  * the Algo was given: the costs and the capacities as they are, the
+  * infinite ones included, and the supplies with their residual sum moved
+  * as compute() moves it. When the Algo was given the data as they are its
+  * optimal flow is the first one, and no other algorithm is run; otherwise
+  * NetworkSimplex finds it. */
+ f_kbest = std::make_unique< KBestExtremeFlows< GR , V , C > >( *dgp );
+ f_kbest->method( kbest_method() );
+
+ MCFNodeMapV s( *dgp );
+ true_supplies( s );
+
+ MCFArcMapV low( *dgp , 0 );
+ f_kbest->lowerMap( low ).upperMap( *um ).costMap( *cm ).supplyMap( s );
+
+ if( ( f_cost_scale == 1 ) && ( f_flow_scale == 1 ) ) {
+  MCFArcMapV x( *dgp );
+  for( typename GR::ArcIt a( *dgp ) ; a != INVALID ; ++a )
+   x.set( a , f_algo->flow( a ) );
+  f_kbest->initFlow( x );
+  }
+
+ // the gap is the smaller of the absolute and of the relative one, none if
+ // both are infinite
+ const double opt = opt_value();
+ const double gap = std::min( f_abs_sol ,
+			      f_rel_sol * std::max( 1.0 , std::abs( opt ) ) );
+ f_gap = gap < Inf< double >() ? C( gap ) : C( -1 );
+ }
 
 /*--------------------------------------------------------------------------*/
 

@@ -17,6 +17,10 @@
 #                                                                             #
 #        LEMON_ROOT          - Custom path to LEMON                           #
 #                                                                             #
+#    and, after it, from the environment variable LEMON_ROOT and from the     #
+#    directories where INSTALL.sh and Homebrew put abLEMON, the maintained    #
+#    fork of LEMON, before the directories of the system.                     #
+#                                                                             #
 #    The following IMPORTED target is also defined:                           #
 #                                                                             #
 #        LEMON::LEMON                                                         #
@@ -49,6 +53,33 @@ foreach (_var ${_LEMON_cached})
         endif ()
     endforeach ()
 endforeach ()
+# the hints: LEMON_ROOT, the environment, and where abLEMON is installed by
+# INSTALL.sh (/opt/abLEMON) and by Homebrew
+set(_LEMON_hints ${LEMON_ROOT} $ENV{LEMON_ROOT} /opt/abLEMON
+        /opt/homebrew/opt/ablemon /usr/local/opt/ablemon)
+
+# A LEMON found before is searched again if it is not under the LEMON_ROOT
+# given now, or if it is not abLEMON (lemon/bits/mcf_certificate.h) while
+# one of the hints holds abLEMON, as when the LEMON of the system was found
+# before abLEMON was installed
+if (LEMON_INCLUDE_DIR)
+    if (LEMON_ROOT)
+        file(REAL_PATH "${LEMON_ROOT}" _LEMON_root)
+        file(REAL_PATH "${LEMON_INCLUDE_DIR}" _LEMON_inc)
+        string(FIND "${_LEMON_inc}" "${_LEMON_root}" _LEMON_at)
+        if (NOT _LEMON_at EQUAL 0)
+            set(_LEMON_stale TRUE)
+        endif ()
+    endif ()
+    if (NOT EXISTS "${LEMON_INCLUDE_DIR}/lemon/bits/mcf_certificate.h")
+        foreach (_LEMON_hint ${_LEMON_hints})
+            if (EXISTS "${_LEMON_hint}/include/lemon/bits/mcf_certificate.h")
+                set(_LEMON_stale TRUE)
+            endif ()
+        endforeach ()
+    endif ()
+endif ()
+
 if (_LEMON_stale)
     message(STATUS "Cached LEMON paths not found, searching again")
     foreach (_var ${_LEMON_cached})
@@ -75,11 +106,11 @@ endif ()
 if (NOT LEMON_FOUND)
 
     # ----- Find the LEMON include directory -------------------------------- #
-    # LEMON_ROOT is a hint, searched before the system directories, so that
-    # the LEMON it points to wins over another one installed in the system
+    # the hints are searched before the system directories, so that the
+    # LEMON they point to wins over another one installed in the system
     find_path(LEMON_INCLUDE_DIR
             NAMES lemon/config.h lemon/network_simplex.h
-            HINTS ${LEMON_ROOT}
+            HINTS ${_LEMON_hints}
             PATH_SUFFIXES include
             DOC "LEMON include directory.")
 
@@ -89,10 +120,17 @@ if (NOT LEMON_FOUND)
     # before the next one, so that the emon of LEMON_ROOT is not passed over
     # for the lemon of the system
     if (UNIX)
+        # the library of the directory where the headers were found first
+        get_filename_component(_LEMON_lib_hints "${LEMON_INCLUDE_DIR}"
+                DIRECTORY)
+        set(_LEMON_lib_hints ${_LEMON_lib_hints}/lib)
+        foreach (_LEMON_hint ${_LEMON_hints})
+            list(APPEND _LEMON_lib_hints ${_LEMON_hint}/lib)
+        endforeach ()
         find_library(LEMON_LIBRARY
                 NAMES lemon emon
                 NAMES_PER_DIR
-                HINTS ${LEMON_ROOT}/lib
+                HINTS ${_LEMON_lib_hints}
                 DOC "LEMON library.")
 
         set(LEMON_LIBRARY_DEBUG ${LEMON_LIBRARY}
