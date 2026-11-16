@@ -326,10 +326,10 @@ add_library(${modNamespace}::${modName} ALIAS ${modName})
 
 # ----- C++20 module -------------------------------------------------------- #
 # The module smspp.mcflemonsolver (src/MCFLemonSolver.cppm) exports the names
-# of the headers and re-exports smspp.mcfblock; like the module smspp of the
-# core, it is built when SMSpp_BUILD_MODULE is ON, which needs CMake 3.28 or
-# later, the Ninja or Visual Studio generator and a compiler that scans the
-# dependencies of the modules.
+# of the headers and re-exports smspp.mcfblock and lemon; like the module
+# smspp of the core, it is built when SMSpp_BUILD_MODULE is ON, which needs
+# CMake 3.28 or later, the Ninja or Visual Studio generator and a compiler
+# that scans the dependencies of the modules.
 # Where these are missing, or a module it imports is not there, the option
 # is turned off with a warning [see CheckModule.cmake of SMS++].
 smspp_check_module(${modNamespace}::MCFBlock_module)
@@ -347,14 +347,55 @@ if (SMSpp_BUILD_MODULE)
     target_compile_features(${modName}_module PUBLIC cxx_std_20)
     # the interface takes the include paths and the definitions of the
     # library, but not its compile options (e.g., the -fopenmp of a source,
-    # which no header needs), so that it agrees with the module it imports
+    # which no header needs), so that it agrees with the module it imports;
+    # they are taken from the target only in the build tree, while the
+    # installed package gives them by linking the installed library, since
+    # the target of that name is not there
+    set(_lib $<TARGET_PROPERTY:${modName},INTERFACE_INCLUDE_DIRECTORIES>)
     target_include_directories(${modName}_module PRIVATE
-            $<TARGET_PROPERTY:${modName},INTERFACE_INCLUDE_DIRECTORIES>)
+            $<BUILD_INTERFACE:${_lib}>)
+    set(_lib $<TARGET_PROPERTY:${modName},INTERFACE_COMPILE_DEFINITIONS>)
     target_compile_definitions(${modName}_module PRIVATE
-            $<TARGET_PROPERTY:${modName},INTERFACE_COMPILE_DEFINITIONS>)
-    target_link_libraries(${modName}_module PUBLIC $<LINK_ONLY:${modName}>
+            $<BUILD_INTERFACE:${_lib}>)
+    unset(_lib)
+    target_link_libraries(${modName}_module PUBLIC
+            $<BUILD_INTERFACE:$<LINK_ONLY:${modName}>>
+            $<INSTALL_INTERFACE:${modNamespace}::${modName}>
             ${modNamespace}::MCFBlock_module)
     add_library(${modNamespace}::${modName}_module ALIAS ${modName}_module)
+
+    # where abLEMON is installed with its module (LEMON_BUILD_MODULE), the
+    # interface lemon/lemon.cppm is compiled here with the rewritten headers
+    # before the installed ones, so that the classes of the warm start have
+    # one definition also in whatever imports lemon, and the module above
+    # re-exports it [see the #if in src/MCFLemonSolver.cppm]; whatever links
+    # LEMON::lemon_module too has two modules lemon, which the build refuses
+    find_file(_lemon_cppm lemon/lemon.cppm PATHS ${LEMON_INCLUDE_DIRS}
+            NO_DEFAULT_PATH)
+    if (_lemon_cppm)
+        get_filename_component(_lemon_cppm_dir ${_lemon_cppm} DIRECTORY)
+        add_library(${modName}_lemon_module)
+        target_sources(${modName}_lemon_module PUBLIC
+                FILE_SET CXX_MODULES
+                BASE_DIRS ${_lemon_cppm_dir}
+                FILES ${_lemon_cppm})
+        target_compile_features(${modName}_lemon_module PUBLIC cxx_std_20)
+        target_include_directories(${modName}_lemon_module BEFORE PRIVATE
+                $<BUILD_INTERFACE:${LEMON_SHIM_DIR}>
+                $<INSTALL_INTERFACE:include/${modNamespace}/lemon-shim>)
+        target_link_libraries(${modName}_lemon_module PUBLIC lemon)
+        add_library(${modNamespace}::${modName}_lemon_module ALIAS
+                ${modName}_lemon_module)
+        target_compile_definitions(${modName}_module PRIVATE
+                MCFLemonSolver_MODULE_LEMON)
+        target_link_libraries(${modName}_module PUBLIC
+                ${modName}_lemon_module)
+    else ()
+        message(STATUS "MCFLemonSolver: abLEMON is installed without its "
+                "module, which smspp.mcflemonsolver does not re-export")
+    endif ()
+    unset(_lemon_cppm CACHE)
+    unset(_lemon_cppm_dir)
 endif ()
 
 # ----- Subdirectories ------------------------------------------------------ #
@@ -376,7 +417,7 @@ install(TARGETS ${modName}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} # .so .dylib
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}) # .lib
 
-# Install the module, whose interface is compiled again by each importer
+# Install the modules, whose interfaces are compiled again by each importer
 if (SMSpp_BUILD_MODULE)
     install(TARGETS ${modName}_module
             EXPORT ${modName}Targets
@@ -385,6 +426,15 @@ if (SMSpp_BUILD_MODULE)
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             FILE_SET CXX_MODULES
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace}/modules)
+    if (TARGET ${modName}_lemon_module)
+        install(TARGETS ${modName}_lemon_module
+                EXPORT ${modName}Targets
+                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                FILE_SET CXX_MODULES DESTINATION
+                ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace}/modules/lemon)
+    endif ()
 endif ()
 
 # Install the headers

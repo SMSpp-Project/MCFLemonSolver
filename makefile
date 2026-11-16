@@ -82,17 +82,41 @@ MCFLEH   = $(MCFLESDR)/include/MCFLemonSolver.h
 
 MCFLELIB = $(libLEMONLIB)
 
+# the C++20 module lemon- - - - - - - - - - - - - - - - - - - - - - - - - - -
+# where abLEMON is installed with its module (LEMON_BUILD_MODULE), the
+# interface lemon/lemon.cppm is compiled here with the rewritten headers
+# before the installed ones, so that the classes of the warm start have one
+# definition also in whatever imports lemon, and smspp.mcflemonsolver
+# re-exports it [see the #if in src/MCFLemonSolver.cppm]
+
+ifneq ($(SMSppMOD),)
+ifneq ($(wildcard $(LEMON_INCDIR)/lemon/lemon.cppm),)
+MCFLLMOD = $(SMSppMODDIR)/lemon.pcm
+MCFLLINC = $(LEMON_SHIM_INC) $(libLEMONINC)
+MCFLLOBJ = $(MCFLESDR)/obj/lemon_module.o
+MCFLEOBJ += $(MCFLLOBJ)
+MCFLEMODD = -DMCFLemonSolver_MODULE_LEMON
+
+$(MCFLLOBJ): $(LEMON_INCDIR)/lemon/lemon.cppm $(LEMON_SHIM_HDRS)
+	$(CC) -x c++-module -c $< -fmodule-output=$(MCFLLMOD) -o $@ \
+	$(filter -I% -D% -U%,$(MCFLLINC)) $(SMSppMODSW) $(SW)
+
+$(MCFLLMOD): $(MCFLLOBJ) ;
+endif
+endif
+
 # the C++20 module smspp.mcflemonsolver - - - - - - - - - - - - - - - - - - -
 # [see makefile-mod of SMS++]
 
 $(eval $(call SMSppMODrule,MCFLE,$(MCFLESDR),MCFLemonSolver,\
-	smspp.mcflemonsolver,MCFBk))
+	smspp.mcflemonsolver,MCFBk MCFLL,$(MCFLEMODD)))
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
 	rm -f $(MCFLEOBJ) $(MCFLESDR)/*~
 	rm -rf $(MCFLESHIM)
+	rm -f $(MCFLESDR)/obj/lemon_module.o $(SMSppMODDIR)/lemon.pcm
 
 # internal macros - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # the value of this macro is passed as SMSpp_which_insert_LEMON when

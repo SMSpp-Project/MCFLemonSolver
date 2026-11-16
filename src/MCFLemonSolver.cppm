@@ -39,6 +39,9 @@ module;
 export module smspp.mcflemonsolver;
 
 export import smspp.mcfblock;
+#if defined( MCFLemonSolver_MODULE_LEMON )
+export import lemon;
+#endif
 
 export namespace SMSpp_di_unipi_it {
 
