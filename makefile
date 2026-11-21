@@ -99,7 +99,7 @@ MCFLEMODD = -DMCFLemonSolver_MODULE_LEMON
 
 $(MCFLLOBJ): $(LEMON_INCDIR)/lemon/lemon.cppm $(LEMON_SHIM_HDRS)
 	$(CC) -x c++-module -c $< -fmodule-output=$(MCFLLMOD) -o $@ \
-	$(filter -I% -D% -U%,$(MCFLLINC)) $(SMSppMODSW) $(SW)
+	$(filter -I% -isystem% -D% -U%,$(MCFLLINC)) $(SMSppMODSW) $(SW)
 
 $(MCFLLMOD): $(MCFLLOBJ) ;
 endif

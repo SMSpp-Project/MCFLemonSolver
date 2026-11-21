@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   module of LEMON looks for the libraries of conda and vcpkg, and for the
   debug ones, on every system
 
+### Fixed
+
+- the makefile gives the module interface of LEMON also the include
+  directories passed by `-isystem`
+
 ## [0.5.0] - 2026-11-16
 
 ### Added
