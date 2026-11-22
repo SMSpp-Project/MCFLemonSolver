@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the makefile gives the module interface of LEMON its include options as
+  they are, where it filtered them and lost the directory that follows
+  `-isystem` as a word of its own [see `extlib/makefile-sysinc`].
+
 - the makefile gives the module interface of LEMON also the include
   directories passed by `-isystem`
 
