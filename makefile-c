@@ -51,4 +51,8 @@ MCFLEOBJ := $(MCFLEOBJ) $(MCFBkOBJ) $(SMS++OBJ)
 MCFLEINC := $(SMS++INC) $(MCFBkINC) $(MCFLEINC)
 MCFLELIB := $(MCFLELIB) $(MCFBkLIB) $(SMS++LIB)
 
+# the objects as the shared libraries of the module and of those whose
+# objects it takes [see SMS++/lib/makefile-shared]
+$(eval $(call SMSppSOlib,MCFLE))
+
 ############################ End of makefile #################################
