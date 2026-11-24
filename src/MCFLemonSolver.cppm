@@ -15,14 +15,11 @@
  * This file is written by SMS++/cmake/smspp_module_exports.py, which reads
  * the names from the AST of the headers: it is not to be edited by hand.
  *
- * \author Daniele Caliandro \n
- *         Universita' di Pisa \n
- *
- * \author Antonio Frangioni \n
+ * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Daniele Caliandro, Antonio Frangioni
+ * \copyright &copy; by Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*------------------------- GLOBAL MODULE FRAGMENT -------------------------*/
